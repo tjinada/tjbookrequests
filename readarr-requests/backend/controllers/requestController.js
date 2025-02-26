@@ -68,32 +68,24 @@ exports.updateRequestStatus = async (req, res) => {
     // If approving the request, add book to Readarr
     if (status === 'approved' && request.status !== 'approved') {
       try {
+        const readarrAPI = require('../config/readarr');
         const readarrResult = await readarrAPI.addBook({
           title: request.title,
           author: request.author,
           isbn: request.isbn
         });
-    
+
         // Add information about the readarr result to the request
-        request.readarrStatus = 'success';
-        request.readarrId = readarrResult.id || '';
+        request.readarrStatus = 'added';
+        request.readarrId = readarrResult.id?.toString() || '';
         request.readarrMessage = 'Successfully added to Readarr';
-    
-        // Even if the book was added successfully, the actual download might happen later
-        // So we'll let the user know this
-        log(`Book "${request.title}" successfully added to Readarr and search initiated`);
+
       } catch (error) {
         console.error('Error adding book to Readarr:', error);
-    
+
         // Still update the request status, but note the error
         request.readarrStatus = 'error';
         request.readarrMessage = error.message || 'Error adding to Readarr';
-    
-        // If it's just the search that failed, note that the book was still added
-        if (error.message && error.message.includes('search') && !error.message.includes('add')) {
-          request.readarrStatus = 'partial_success';
-          request.readarrMessage = 'Book added to Readarr, but automatic search failed. A search may happen on the next Readarr scan.';
-        }
       }
     }
 
@@ -131,6 +123,58 @@ exports.getAllRequests = async (req, res) => {
     res.json(requests);
   } catch (err) {
     console.error(err.message);
+    res.status(500).send('Server error');
+  }
+};
+
+// controllers/requestController.js
+// Add this new function
+exports.checkRequestsStatus = async (req, res) => {
+  try {
+    // Only admin can run this check
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    // Get approved requests with readarrId that aren't marked as 'downloaded'
+    const requests = await Request.find({
+      status: 'approved',
+      readarrId: { $exists: true, $ne: '' },
+      readarrStatus: { $ne: 'downloaded' }
+    });
+
+    if (requests.length === 0) {
+      return res.json({ message: 'No requests to check', updatedCount: 0 });
+    }
+
+    // Check each request
+    const readarrAPI = require('../config/readarr');
+    let updatedCount = 0;
+
+    for (const request of requests) {
+      try {
+        // Check if the book is available in Readarr
+        const bookStatus = await readarrAPI.getBookStatus(request.readarrId);
+
+        if (bookStatus.isDownloaded) {
+          // Update the request status
+          request.readarrStatus = 'downloaded';
+          request.status = 'available';
+          request.readarrMessage = 'Book is downloaded and available';
+          await request.save();
+          updatedCount++;
+        }
+      } catch (error) {
+        console.error(`Error checking status for request ${request._id}:`, error);
+      }
+    }
+
+    res.json({ 
+      message: `Checked ${requests.length} requests, updated ${updatedCount}`,
+      updatedCount
+    });
+  } catch (err) {
+    console.error('Error checking requests status:', err);
     res.status(500).send('Server error');
   }
 };

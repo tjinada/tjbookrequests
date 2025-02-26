@@ -322,5 +322,36 @@ module.exports = {
       log(`ERROR: ${error.message}`);
       throw error;
     }
+  },
+
+  getBookStatus: async (bookId) => {
+    try {
+      log(`Checking status for book ID: ${bookId}`);
+  
+      // Get the book details
+      const bookResponse = await readarrAPI.get(`/api/v1/book/${bookId}`);
+  
+      if (!bookResponse.data) {
+        throw new Error(`Book with ID ${bookId} not found`);
+      }
+  
+      // Check if the book has been downloaded
+      const isDownloaded = bookResponse.data.statistics?.bookFileCount > 0;
+      const percentOfBook = bookResponse.data.statistics?.percentOfBooks || 0;
+  
+      log(`Book status: Downloaded=${isDownloaded}, Percent=${percentOfBook}%`);
+  
+      return {
+        id: bookId,
+        title: bookResponse.data.title,
+        isDownloaded: isDownloaded,
+        percentOfBook: percentOfBook,
+        hasFile: bookResponse.data.statistics?.bookFileCount > 0,
+        sizeOnDisk: bookResponse.data.statistics?.sizeOnDisk || 0
+      };
+    } catch (error) {
+      log(`Error checking book status: ${error.message}`);
+      throw error;
+    }
   }
 };

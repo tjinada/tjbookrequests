@@ -163,3 +163,46 @@
 2025-02-26T06:57:39.831Z - Triggering search for book ID: 242
 2025-02-26T06:57:39.835Z - Search command successful: Command ID: 254741, Status: queued
 2025-02-26T06:57:39.835Z - Book "A Feast for Crows" successfully added to Readarr and search initiated
+2025-02-26T15:53:02.526Z - Starting to add book: Tampa by Alissa Nutting
+2025-02-26T15:53:02.544Z - Using profiles - Quality: 1, Metadata: 1, Root: /data/media/ebooks/
+2025-02-26T15:53:02.544Z - Checking if author exists: Alissa Nutting
+2025-02-26T15:53:02.566Z - No matching author found among 19 existing authors
+2025-02-26T15:53:02.566Z - Author not found in existing authors, looking up in Readarr's database
+2025-02-26T15:53:03.623Z - Creating new author with payload: {"authorName":"Alissa Nutting","foreignAuthorId":"4125204","titleSlug":"4125204","qualityProfileId":1,"metadataProfileId":1,"rootFolderPath":"/data/media/ebooks/","monitored":true,"monitorNewItems":"none","addOptions":{"monitor":"none","searchForMissingBooks":false}}
+2025-02-26T15:53:03.637Z - Created new author with ID: 21
+2025-02-26T15:53:06.639Z - Getting books for author ID: 21
+2025-02-26T15:53:06.650Z - Found 4 books for author
+2025-02-26T15:53:06.650Z - Found matching book in author's library: "Tampa" with ID: 294
+2025-02-26T15:53:06.650Z - Triggering search for book ID: 294
+2025-02-26T15:53:06.655Z - Search command successful: Command ID: 255715, Status: queued
+2025-02-26T15:53:35.879Z - Checking status for book ID: 294
+2025-02-26T15:53:35.887Z - Book status: Downloaded=true, Percent=100%
+2025-02-26T16:26:29.812Z - Starting to add book: The First Men in the Moon by H. G. Wells
+2025-02-26T16:26:29.826Z - Using profiles - Quality: 1, Metadata: 1, Root: /data/media/ebooks/
+2025-02-26T16:26:29.826Z - Checking if author exists: H. G. Wells
+2025-02-26T16:26:29.840Z - No matching author found among 20 existing authors
+2025-02-26T16:26:29.840Z - Author not found in existing authors, looking up in Readarr's database
+2025-02-26T16:26:31.845Z - Creating new author with payload: {"authorName":"Robert Masello","foreignAuthorId":"201369","titleSlug":"201369","qualityProfileId":1,"metadataProfileId":1,"rootFolderPath":"/data/media/ebooks/","monitored":true,"monitorNewItems":"none","addOptions":{"monitor":"none","searchForMissingBooks":false}}
+2025-02-26T16:26:31.858Z - ERROR: Request failed with status code 400
+2025-02-26T16:28:17.110Z - Starting to add book: Harry Potter and the Chamber of Secrets by J. K. Rowling
+2025-02-26T16:28:17.120Z - Using profiles - Quality: 1, Metadata: 1, Root: /data/media/ebooks/
+2025-02-26T16:28:17.121Z - Checking if author exists: J. K. Rowling
+2025-02-26T16:28:17.128Z - Found existing author: J.K. Rowling with ID: 12
+2025-02-26T16:28:17.128Z - Getting books for author ID: 12
+2025-02-26T16:28:17.161Z - Found 34 books for author
+2025-02-26T16:28:17.162Z - Found matching book in author's library: "Harry Potter and the Chamber of Secrets" with ID: 89
+2025-02-26T16:28:17.162Z - Triggering search for book ID: 89
+2025-02-26T16:28:17.166Z - Search command successful: Command ID: 255786, Status: started
+2025-02-26T16:29:35.207Z - Checking status for book ID: 89
+2025-02-26T16:29:35.218Z - Book status: Downloaded=true, Percent=100%
+2025-02-26T16:41:00.065Z - Starting to add book: Tampa by Alissa Nutting
+2025-02-26T16:41:00.074Z - Using profiles - Quality: 1, Metadata: 1, Root: /data/media/ebooks/
+2025-02-26T16:41:00.074Z - Checking if author exists: Alissa Nutting
+2025-02-26T16:41:00.081Z - Found existing author: Alissa Nutting with ID: 21
+2025-02-26T16:41:00.082Z - Getting books for author ID: 21
+2025-02-26T16:41:00.086Z - Found 4 books for author
+2025-02-26T16:41:00.087Z - Found matching book in author's library: "Tampa" with ID: 294
+2025-02-26T16:41:00.087Z - Triggering search for book ID: 294
+2025-02-26T16:41:00.091Z - Search command successful: Command ID: 255809, Status: queued
+2025-02-26T16:46:38.097Z - Checking status for book ID: 294
+2025-02-26T16:46:38.103Z - Book status: Downloaded=true, Percent=100%
