@@ -1,6 +1,11 @@
 // controllers/requestController.js
 const Request = require('../models/Request');
 const readarrAPI = require('../config/readarr');
+const fs = require('fs');
+const path = require('path');
+
+const logFile = path.join(__dirname, '../logs/readarr.log');
+fs.mkdirSync(path.dirname(logFile), { recursive: true });
 
 const log = (message) => {
   const timestamp = new Date().toISOString();
