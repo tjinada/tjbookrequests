@@ -1,4 +1,4 @@
-// config/readarr.js - Updated using the GET endpoint approach
+// config/readarr.js - Updated with better existing author handling
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
@@ -39,12 +39,54 @@ function findBestBookMatch(books, searchTitle) {
     return matchingBooks.sort((a, b) => a.title.length - b.title.length)[0];
   }
 
-  // If no matches, return the first book as a fallback
-  return books[0];
+  // If no matches, return null
+  return null;
+}
+
+// Helper function to normalize author names for better matching
+function normalizeAuthorName(name) {
+  return name.toLowerCase()
+    .replace(/\./g, '') // Remove periods
+    .replace(/\s+/g, ' ') // Normalize spaces
+    .trim();
+}
+
+// Helper function to find an author with a better matching algorithm
+function findAuthorMatch(authors, searchName) {
+  const normalizedSearch = normalizeAuthorName(searchName);
+
+  // Try different matching strategies
+
+  // 1. Exact match
+  let match = authors.find(author => 
+    normalizeAuthorName(author.authorName) === normalizedSearch
+  );
+  if (match) return match;
+
+  // 2. One name contains the other
+  match = authors.find(author => {
+    const authorName = normalizeAuthorName(author.authorName);
+    return authorName.includes(normalizedSearch) || normalizedSearch.includes(authorName);
+  });
+  if (match) return match;
+
+  // 3. Check for name variations with initials
+  // This helps with cases like "George R.R. Martin" vs "George Martin"
+  match = authors.find(author => {
+    const authorName = normalizeAuthorName(author.authorName);
+    const parts = normalizedSearch.split(' ');
+    const firstName = parts[0];
+    const lastName = parts[parts.length - 1];
+
+    // Check if first and last name match
+    return authorName.includes(firstName) && authorName.includes(lastName);
+  });
+
+  return match || null;
 }
 
 module.exports = {
-  // Updated addBook function using the GET endpoint approach
+  // Updated addBook function with improved existing author handling
   addBook: async (bookData) => {
     try {
       log(`Starting to add book: ${bookData.title} by ${bookData.author}`);
@@ -66,29 +108,36 @@ module.exports = {
 
       log(`Using profiles - Quality: ${qualityProfileId}, Metadata: ${metadataProfileId}, Root: ${rootFolderPath}`);
 
-      // Step 2: Check if the author exists or create it
+      // Step 2: Check if the author exists using improved author matching
       let authorId;
+      let isExistingAuthor = false;
 
-      // First check existing authors
+      log(`Checking if author exists: ${bookData.author}`);
       const existingAuthorsResponse = await readarrAPI.get('/api/v1/author');
-      const existingAuthor = existingAuthorsResponse.data.find(author => {
-        const authorName = author.authorName.toLowerCase();
-        const searchName = bookData.author.toLowerCase();
-        return authorName === searchName || authorName.includes(searchName) || searchName.includes(authorName);
-      });
 
-      if (existingAuthor) {
-        authorId = existingAuthor.id;
-        log(`Using existing author with ID: ${authorId}`);
-      } else {
-        // Look up the author
+      if (existingAuthorsResponse.data?.length) {
+        // Use the improved author matching function
+        const existingAuthor = findAuthorMatch(existingAuthorsResponse.data, bookData.author);
+
+        if (existingAuthor) {
+          authorId = existingAuthor.id;
+          isExistingAuthor = true;
+          log(`Found existing author: ${existingAuthor.authorName} with ID: ${authorId}`);
+        } else {
+          log(`No matching author found among ${existingAuthorsResponse.data.length} existing authors`);
+        }
+      }
+
+      // If author doesn't exist, create a new one
+      if (!authorId) {
+        log(`Author not found in existing authors, looking up in Readarr's database`);
         const authorLookupResponse = await readarrAPI.get(`/api/v1/author/lookup?term=${encodeURIComponent(bookData.author)}`);
 
         if (!authorLookupResponse.data?.length) {
-          throw new Error(`Author not found: ${bookData.author}`);
+          throw new Error(`Author not found in Readarr lookup: ${bookData.author}`);
         }
 
-        // Use the first author result
+        // Use the first author result (most relevant)
         const authorToAdd = authorLookupResponse.data[0];
 
         // Create author payload
@@ -107,78 +156,168 @@ module.exports = {
           }
         };
 
-        log(`Creating author with payload: ${JSON.stringify(authorPayload)}`);
+        log(`Creating new author with payload: ${JSON.stringify(authorPayload)}`);
 
         const authorResponse = await readarrAPI.post('/api/v1/author', authorPayload);
         authorId = authorResponse.data.id;
-        log(`Created author with ID: ${authorId}`);
+        log(`Created new author with ID: ${authorId}`);
 
         // Wait a moment for Readarr to process the new author
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise(resolve => setTimeout(resolve, 3000));
       }
 
       // Step 3: Get all books for this author
       log(`Getting books for author ID: ${authorId}`);
-      // Use the endpoint you discovered - this is much more reliable!
-      const authorBooksResponse = await readarrAPI.get(`/api/v1/book?authorId=${authorId}&includeAllAuthorBooks=false`);
+      let booksList = [];
 
-      if (!authorBooksResponse.data?.length) {
-        log(`No books found for author, waiting a bit longer and trying again...`);
-        // Wait a bit longer and try once more
-        await new Promise(resolve => setTimeout(resolve, 5000));
-        const retryResponse = await readarrAPI.get(`/api/v1/book?authorId=${authorId}&includeAllAuthorBooks=false`);
+      try {
+        const authorBooksResponse = await readarrAPI.get(`/api/v1/book?authorId=${authorId}&includeAllAuthorBooks=true`);
+        booksList = authorBooksResponse.data || [];
+        log(`Found ${booksList.length} books for author`);
+      } catch (error) {
+        log(`Error getting books for author: ${error.message}`);
 
-        if (!retryResponse.data?.length) {
-          throw new Error(`No books found for author ID: ${authorId}`);
+        // If this is a new author, wait longer and retry
+        if (!isExistingAuthor) {
+          log(`Waiting longer for new author and retrying...`);
+          await new Promise(resolve => setTimeout(resolve, 7000));
+
+          try {
+            const retryResponse = await readarrAPI.get(`/api/v1/book?authorId=${authorId}&includeAllAuthorBooks=true`);
+            booksList = retryResponse.data || [];
+            log(`Retry found ${booksList.length} books for author`);
+          } catch (retryError) {
+            log(`Retry also failed: ${retryError.message}`);
+          }
+        }
+      }
+
+      // Step 4: Find the requested book among the author's books
+      let targetBook = null;
+
+      if (booksList.length > 0) {
+        // Try to find the book in the existing list
+        targetBook = findBestBookMatch(booksList, bookData.title);
+
+        if (targetBook) {
+          log(`Found matching book in author's library: "${targetBook.title}" with ID: ${targetBook.id}`);
+        } else {
+          log(`Requested book not found in author's current library, need to look it up`);
+        }
+      }
+
+      // If book not found in existing library and this is an existing author,
+      // we need to perform a book lookup and potentially add it
+      if (!targetBook && isExistingAuthor) {
+        log(`Looking up book in Readarr's database: ${bookData.title}`);
+
+        // Search by title and author
+        const searchTerm = `${bookData.title} ${bookData.author}`;
+        const bookLookupResponse = await readarrAPI.get(`/api/v1/book/lookup?term=${encodeURIComponent(searchTerm)}`);
+
+        if (!bookLookupResponse.data?.length) {
+          throw new Error(`Book not found in Readarr lookup: ${bookData.title}`);
         }
 
-        authorBooksResponse.data = retryResponse.data;
+        // Find the best match from lookup results
+        const lookupBooks = bookLookupResponse.data;
+        log(`Found ${lookupBooks.length} books in lookup results`);
+
+        // Find books that match the title
+        const matchingBooks = lookupBooks.filter(book => {
+          const bookTitle = book.title.toLowerCase();
+          const searchTitle = bookData.title.toLowerCase();
+          return bookTitle.includes(searchTitle) || searchTitle.includes(bookTitle);
+        });
+
+        if (matchingBooks.length === 0) {
+          log(`No matching books found in lookup, using first result`);
+          matchingBooks.push(lookupBooks[0]);
+        }
+
+        // Select the first matching book
+        const bookToAdd = matchingBooks[0];
+        log(`Selected book to add: "${bookToAdd.title}"`);
+
+        // Add the book to the author's library
+        const bookPayload = {
+          authorId: authorId,
+          foreignBookId: bookToAdd.foreignBookId,
+          title: bookToAdd.title,
+          qualityProfileId: qualityProfileId,
+          metadataProfileId: metadataProfileId,
+          rootFolderPath: rootFolderPath,
+          monitored: true,
+          addOptions: {
+            searchForNewBook: false // We'll trigger search separately
+          }
+        };
+
+        log(`Adding book with payload: ${JSON.stringify(bookPayload)}`);
+
+        try {
+          const addResponse = await readarrAPI.post('/api/v1/book', bookPayload);
+          targetBook = addResponse.data;
+          log(`Book added to library with ID: ${targetBook.id}`);
+
+          // Give Readarr a moment to process
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        } catch (addError) {
+          log(`Error adding book: ${addError.message}`);
+
+          // If adding fails, try to get the book again - it might have been added automatically
+          log(`Checking if book was added despite error...`);
+          const checkBooksResponse = await readarrAPI.get(`/api/v1/book?authorId=${authorId}&includeAllAuthorBooks=true`);
+
+          if (checkBooksResponse.data?.length) {
+            targetBook = findBestBookMatch(checkBooksResponse.data, bookData.title);
+
+            if (targetBook) {
+              log(`Found book in library after all: "${targetBook.title}" with ID: ${targetBook.id}`);
+            } else {
+              throw new Error(`Failed to add book and couldn't find it in library: ${bookData.title}`);
+            }
+          } else {
+            throw new Error(`Failed to add book and no books found in library: ${bookData.title}`);
+          }
+        }
       }
 
-      log(`Found ${authorBooksResponse.data.length} books for author`);
-
-      // Step 4: Find the book that matches the requested title
-      const matchedBook = findBestBookMatch(authorBooksResponse.data, bookData.title);
-
-      if (!matchedBook) {
-        throw new Error(`Could not find a matching book for: ${bookData.title}`);
+      // Make sure we have a target book at this point
+      if (!targetBook) {
+        throw new Error(`Could not find or add the requested book: ${bookData.title}`);
       }
 
-      log(`Found matching book: "${matchedBook.title}" with ID: ${matchedBook.id}`);
-
-      // Step 5: Update the book to be monitored
-      // if (!matchedBook.monitored) {
-      //   log(`Setting book to monitored`);
-
-      //   // Create an update payload with monitored set to true
-      //   const updatePayload = {
-      //     ...matchedBook,
-      //     monitored: true
-      //   };
-
-      //   await readarrAPI.put(`/api/v1/book/${matchedBook.id}`, updatePayload);
-      //   log(`Updated book to monitored status`);
-      // } else {
-      //   log(`Book is already monitored`);
-      // }
 
       // Step 6: Trigger a search for the book
-      log(`Triggering search for book ID: ${matchedBook.id}`);
+      log(`Triggering search for book ID: ${targetBook.id}`);
 
       const searchPayload = {
         name: "BookSearch",
-        bookIds: [matchedBook.id]
+        bookIds: [targetBook.id]
       };
 
-      const searchResponse = await readarrAPI.post('/api/v1/command', searchPayload);
-      log(`Search command successful: Command ID: ${searchResponse.data.id}, Status: ${searchResponse.data.status}`);
+      try {
+        const searchResponse = await readarrAPI.post('/api/v1/command', searchPayload);
+        log(`Search command successful: Command ID: ${searchResponse.data.id}, Status: ${searchResponse.data.status}`);
 
-      // Return the book with search information
-      return {
-        ...matchedBook,
-        searchCommandId: searchResponse.data.id,
-        searchStatus: searchResponse.data.status
-      };
+        // Return the book with search information
+        return {
+          ...targetBook,
+          searchCommandId: searchResponse.data.id,
+          searchStatus: searchResponse.data.status
+        };
+      } catch (searchError) {
+        log(`WARNING: Book was found/added but search command failed: ${searchError.message}`);
+        log(`You may need to manually search for this book in Readarr`);
+
+        // Return the book anyway since we found/added it
+        return {
+          ...targetBook,
+          searchStatus: 'failed',
+          searchError: searchError.message
+        };
+      }
     } catch (error) {
       log(`ERROR: ${error.message}`);
       throw error;
