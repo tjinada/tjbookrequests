@@ -1,0 +1,118 @@
+2025-02-25T22:20:15.272Z - Starting to add book: The War of the Worlds by H. G. Wells
+2025-02-25T22:20:15.281Z - Using quality profile ID: 1
+2025-02-25T22:20:15.281Z - Using metadata profile ID: 1
+2025-02-25T22:20:15.282Z - Using root folder path: /data/media/ebooks/
+2025-02-25T22:20:15.282Z - Searching for author: H. G. Wells
+2025-02-25T22:20:15.287Z - Author not found, searching in Readarr lookups
+2025-02-25T22:20:25.378Z - Creating new author with payload: {"authorName":"Robert Masello","foreignAuthorId":"201369","titleSlug":"201369","qualityProfileId":1,"metadataProfileId":1,"rootFolderPath":"/data/media/ebooks/","monitored":true,"monitorNewItems":"all"}
+2025-02-25T22:20:25.394Z - Created new author with ID: 11
+2025-02-25T22:20:27.407Z - Searching for book with term: The War of the Worlds H. G. Wells
+2025-02-25T22:20:31.634Z - Found 3 books in search results
+2025-02-25T22:20:31.635Z - Selected book: The War of the Worlds: From H. G. Wells to Orson Welles, Jeff Wayne, Steven Spielberg and Beyond
+2025-02-25T22:20:31.635Z - Adding book with payload: {"authorId":11,"foreignBookId":"47291508","title":"The War of the Worlds: From H. G. Wells to Orson Welles, Jeff Wayne, Steven Spielberg and Beyond","qualityProfileId":1,"metadataProfileId":1,"rootFolderPath":"/data/media/ebooks/","monitored":true,"addOptions":{"searchForNewBook":true}}
+2025-02-25T22:20:31.645Z - Error adding book with standard approach: Object reference not set to an instance of an object.
+2025-02-25T22:20:31.645Z - Trying alternative approach via import
+2025-02-25T22:20:31.647Z - Import approach failed: Could not find any books for import
+2025-02-25T22:20:31.647Z - ERROR: Could not find any books for import
+2025-02-25T22:43:22.713Z - Starting to add book: Harry Potter and the Order of the Phoenix by J. K. Rowling
+2025-02-25T22:43:22.721Z - Using quality profile ID: 1
+2025-02-25T22:43:22.721Z - Using metadata profile ID: 1
+2025-02-25T22:43:22.721Z - Using root folder path: /data/media/ebooks/
+2025-02-25T22:43:22.721Z - Searching for author: J. K. Rowling
+2025-02-25T22:43:22.728Z - Author not found, searching in Readarr lookups
+2025-02-25T22:43:23.578Z - Author search result 1: J.K. Rowling
+2025-02-25T22:43:23.578Z - Selected author: J.K. Rowling (best match for "J. K. Rowling")
+2025-02-25T22:43:23.579Z - Creating new author with payload: {"authorName":"J.K. Rowling","foreignAuthorId":"1077326","titleSlug":"1077326","qualityProfileId":1,"metadataProfileId":1,"rootFolderPath":"/data/media/ebooks/","monitored":true,"monitorNewItems":"all"}
+2025-02-25T22:43:23.706Z - Created new author with ID: 12
+2025-02-25T22:43:25.712Z - Searching for book with term: Harry Potter and the Order of the Phoenix J. K. Rowling
+2025-02-25T22:43:28.934Z - Found 5 books in search results
+2025-02-25T22:43:28.935Z - Book result 1: "Harry Potter And The Order Of The Phoenix (Film): Harry Potter And The Order Of The Phoenix, J. K. Rowling, David Yates, David Heyman, Michael Goldenberg, ... Series), Magic In Harry Potter, Hogwarts" by miller,
+2025-02-25T22:43:28.935Z - Book result 2: ""Harry Potter and the Order of the Phoenix" ... Or, Did J.K. Rowling Ever Read Ayn Rand?" by lalor,
+2025-02-25T22:43:28.935Z - Book result 3: "Harry Potter and the Order of the Phoenix by J. K. Rowling | Chapter Outlines" by bookrags
+2025-02-25T22:43:28.935Z - Book result 4: "Harry Potter and the Order of the Phoenix by J.K. Rowling (Book Analysis): Detailed Summary, Analysis and Reading Guide" by summaries,
+2025-02-25T22:43:28.935Z - Book result 5: "Harry Potter and the Order of the Phoenix" by rowling,
+2025-02-25T22:43:28.938Z - Selected book: Harry Potter and the Order of the Phoenix
+2025-02-25T22:43:28.938Z - Adding book with payload: {"authorId":12,"foreignBookId":"2809203","title":"Harry Potter and the Order of the Phoenix","qualityProfileId":1,"metadataProfileId":1,"rootFolderPath":"/data/media/ebooks/","monitored":true,"addOptions":{"searchForNewBook":true}}
+2025-02-25T22:43:28.947Z - Error adding book with standard approach: Object reference not set to an instance of an object.
+2025-02-25T22:43:28.948Z - Trying to find books by author ID: 12
+2025-02-25T22:43:28.950Z - Error getting author books: Request failed with status code 404
+2025-02-25T22:43:28.950Z - Trying alternative import approach
+2025-02-25T22:43:28.952Z - Import approach failed: Could not find any books for import
+2025-02-25T22:43:28.952Z - ERROR: Could not find any books for import
+2025-02-26T00:24:25.085Z - Starting to add book: All the Colors of the Dark by Chris Whitaker
+2025-02-26T00:24:25.093Z - Using quality profile ID: 1
+2025-02-26T00:24:25.094Z - Using metadata profile ID: 1
+2025-02-26T00:24:25.094Z - Using root folder path: /data/media/ebooks/
+2025-02-26T00:24:25.094Z - Searching for author: Chris Whitaker
+2025-02-26T00:24:25.102Z - Author not found, searching in Readarr lookups
+2025-02-26T00:24:25.423Z - Author search result 1: Chris Whitaker
+2025-02-26T00:24:25.424Z - Selected author: Chris Whitaker (best match for "Chris Whitaker")
+2025-02-26T00:24:25.424Z - Creating new author with payload: {"authorName":"Chris Whitaker","foreignAuthorId":"14950866","titleSlug":"14950866","qualityProfileId":1,"metadataProfileId":1,"rootFolderPath":"/data/media/ebooks/","monitored":true,"monitorNewItems":"none","addOptions":{"monitor":"none","searchForMissingBooks":false}}
+2025-02-26T00:24:25.449Z - Created new author with ID: 13
+2025-02-26T00:24:27.460Z - Warning: Could not update existing books monitoring status: Request failed with status code 404
+2025-02-26T00:24:27.460Z - Searching for book with term: All the Colors of the Dark Chris Whitaker
+2025-02-26T00:24:30.899Z - Found 2 books in search results
+2025-02-26T00:24:30.900Z - Book result 1: "All the Colors of the Dark" by whitaker,
+2025-02-26T00:24:30.900Z - Book result 2: "Chris Whitaker 4 Books Collection Set" by whitaker,
+2025-02-26T00:24:30.901Z - Selected book: All the Colors of the Dark
+2025-02-26T00:24:30.901Z - Adding book with payload: {"authorId":13,"foreignBookId":"178254142","title":"All the Colors of the Dark","qualityProfileId":1,"metadataProfileId":1,"rootFolderPath":"/data/media/ebooks/","monitored":true,"addOptions":{"searchForNewBook":true}}
+2025-02-26T00:24:30.910Z - Error adding book with standard approach: Object reference not set to an instance of an object.
+2025-02-26T00:24:30.911Z - Trying alternative import approach
+2025-02-26T00:24:30.912Z - Import approach failed: Could not find any books for import
+2025-02-26T00:24:30.913Z - ERROR: Could not find any books for import
+2025-02-26T00:31:59.339Z - Starting to add book: It Ends With Us by Colleen Hoover
+2025-02-26T00:31:59.349Z - Using profiles - Quality: 1, Metadata: 1, Root: /data/media/ebooks/
+2025-02-26T00:31:59.349Z - Searching for book: It Ends With Us by Colleen Hoover
+2025-02-26T00:32:00.139Z - Found 10 books in initial search
+2025-02-26T00:32:00.139Z - Selected book: undefined
+2025-02-26T00:32:00.139Z - Adding book using command API...
+2025-02-26T00:32:00.146Z - Author not found in system, adding first...
+2025-02-26T00:32:00.591Z - Added author with ID: 14
+2025-02-26T00:32:02.977Z - Adding book: Summary of It Ends With Us by Colleen Hoover (ID: 93211198)
+2025-02-26T00:32:02.983Z - Standard book add failed. Error: Request failed with status code 500
+2025-02-26T00:32:02.984Z - Trying simple add first, then update...
+2025-02-26T00:32:02.989Z - Alternative approach failed: Request failed with status code 500
+2025-02-26T00:32:02.989Z - Error with author processing: Request failed with status code 500
+2025-02-26T00:32:02.989Z - Command approach failed: Request failed with status code 500
+2025-02-26T00:32:02.989Z - Trying final approach - manual addition...
+2025-02-26T00:32:03.305Z - Found book in search: undefined
+2025-02-26T00:32:03.307Z - Manual approach failed: Request failed with status code 405
+2025-02-26T00:32:03.308Z - ERROR: All attempts to add book failed: It Ends With Us by Colleen Hoover
+2025-02-26T00:40:09.350Z - Starting to add book: The 48 Laws of Power by Robert Greene
+2025-02-26T00:40:09.360Z - Using profiles - Quality: 1, Metadata: 1, Root: /data/media/ebooks/
+2025-02-26T00:40:09.988Z - Creating author with payload: {"authorName":"Robert Greene","foreignAuthorId":"865","titleSlug":"865","qualityProfileId":1,"metadataProfileId":1,"rootFolderPath":"/data/media/ebooks/","monitored":true,"monitorNewItems":"none","addOptions":{"monitor":"none","searchForMissingBooks":false}}
+2025-02-26T00:40:10.042Z - Created author with ID: 15
+2025-02-26T00:40:12.052Z - Searching for book: The 48 Laws of Power Robert Greene
+2025-02-26T00:40:12.775Z - Selected book: Summary: The 48 Laws of Power by Robert Greene
+2025-02-26T00:40:12.775Z - Adding book with payload: {"authorId":15,"foreignBookId":"58274009","title":"Summary: The 48 Laws of Power by Robert Greene","qualityProfileId":1,"metadataProfileId":1,"rootFolderPath":"/data/media/ebooks/","monitored":true}
+2025-02-26T00:40:12.795Z - ERROR: Request failed with status code 500
+2025-02-26T05:06:28.550Z - Starting to add book: Atomic Habits by James Clear
+2025-02-26T05:06:28.559Z - Using profiles - Quality: 1, Metadata: 1, Root: /data/media/ebooks/
+2025-02-26T05:06:33.436Z - Creating author with payload: {"authorName":"James Clear","foreignAuthorId":"7327369","titleSlug":"7327369","qualityProfileId":1,"metadataProfileId":1,"rootFolderPath":"/data/media/ebooks/","monitored":true,"monitorNewItems":"none","addOptions":{"monitor":"none","searchForMissingBooks":false}}
+2025-02-26T05:06:33.491Z - Created author with ID: 16
+2025-02-26T05:06:35.496Z - Searching for book: Atomic Habits James Clear
+2025-02-26T05:06:36.049Z - Selected book: Summary of Atomic Habits by James Clear
+2025-02-26T05:06:36.049Z - Adding book with payload: {"authorId":16,"foreignBookId":"66977448","title":"Summary of Atomic Habits by James Clear","qualityProfileId":1,"metadataProfileId":1,"rootFolderPath":"/data/media/ebooks/","monitored":true}
+2025-02-26T05:06:36.058Z - ERROR: Request failed with status code 500
+2025-02-26T06:15:14.759Z - Starting to add book: A Game of Thrones by George R. R. Martin
+2025-02-26T06:15:14.769Z - Using profiles - Quality: 1, Metadata: 1, Root: /data/media/ebooks/
+2025-02-26T06:15:17.530Z - Creating author with payload: {"authorName":"George R.R. Martin","foreignAuthorId":"346732","titleSlug":"346732","qualityProfileId":1,"metadataProfileId":1,"rootFolderPath":"/data/media/ebooks/","monitored":true,"monitorNewItems":"none","addOptions":{"monitor":"none","searchForMissingBooks":false}}
+2025-02-26T06:15:17.681Z - Created author with ID: 17
+2025-02-26T06:15:19.686Z - Getting books for author ID: 17
+2025-02-26T06:15:19.729Z - Found 121 books for author
+2025-02-26T06:15:19.729Z - Found matching book: "A Game of Thrones" with ID: 233
+2025-02-26T06:15:19.729Z - Setting book to monitored
+2025-02-26T06:15:19.740Z - ERROR: Request failed with status code 500
+2025-02-26T06:27:10.483Z - Starting to add book: Can't Hurt Me by David Goggins
+2025-02-26T06:27:10.492Z - Using profiles - Quality: 1, Metadata: 1, Root: /data/media/ebooks/
+2025-02-26T06:27:12.314Z - Creating author with payload: {"authorName":"David Goggins","foreignAuthorId":"17977069","titleSlug":"17977069","qualityProfileId":1,"metadataProfileId":1,"rootFolderPath":"/data/media/ebooks/","monitored":true,"monitorNewItems":"none","addOptions":{"monitor":"none","searchForMissingBooks":false}}
+2025-02-26T06:27:12.327Z - Created author with ID: 18
+2025-02-26T06:27:14.333Z - Getting books for author ID: 18
+2025-02-26T06:27:14.342Z - Found 4 books for author
+2025-02-26T06:27:14.342Z - Found matching book: "Can't Hurt Me: Master Your Mind and Defy the Odds" with ID: 288
+2025-02-26T06:27:14.342Z - Triggering search for book ID: 288
+2025-02-26T06:27:14.346Z - Search command successful: Command ID: 254674, Status: queued
+2025-02-26T06:31:16.627Z - Starting to add book: A Storm of Swords by George R. R. Martin
+2025-02-26T06:31:16.637Z - Using profiles - Quality: 1, Metadata: 1, Root: /data/media/ebooks/
+2025-02-26T06:31:17.068Z - Creating author with payload: {"authorName":"George R.R. Martin","foreignAuthorId":"346732","titleSlug":"346732","qualityProfileId":1,"metadataProfileId":1,"rootFolderPath":"/data/media/ebooks/","monitored":true,"monitorNewItems":"none","addOptions":{"monitor":"none","searchForMissingBooks":false}}
+2025-02-26T06:31:17.073Z - ERROR: Request failed with status code 400

@@ -1,0 +1,38 @@
+version: '3'
+services:
+  readarr-requests:
+    build: .
+    container_name: readarr-requests
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
+      - MONGO_URI=mongodb://mongo:27017/readarr-requests
+      - JWT_SECRET=change_this_to_a_secure_secret
+      - READARR_API_URL=http://readarr:8787
+      - READARR_API_KEY=your_readarr_api_key
+    volumes:
+      - ./logs:/app/logs
+    depends_on:
+      - mongo
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  mongo:
+    image: mongo:latest
+    container_name: readarr-requests-mongo
+    volumes:
+      - mongo-data:/data/db
+    ports:
+      - "27017:27017"
+    restart: unless-stopped
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  mongo-data:
