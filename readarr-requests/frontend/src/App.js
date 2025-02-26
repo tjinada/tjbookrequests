@@ -4,6 +4,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { AuthProvider } from './context/AuthContext';
+import { AppProvider } from './context/AppContext';
 import PrivateRoute from './components/routing/PrivateRoute';
 
 // Pages
@@ -45,23 +46,25 @@ function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <AuthProvider>
-        <Router>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
+        <AppProvider>
+          <Router>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
 
-            <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
-              <Route path="/" element={<Home />} />
-              <Route path="/search" element={<Search />} />
-              <Route path="/book/:id" element={<BookDetail />} />
-              <Route path="/requests" element={<Requests />} />
-              <Route path="/admin/requests" element={<AdminRequests />} />
-              <Route path="/profile" element={<Profile />} />
-            </Route>
+              <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
+                <Route path="/" element={<Home />} />
+                <Route path="/search" element={<Search />} />
+                <Route path="/book/:id" element={<BookDetail />} />
+                <Route path="/requests" element={<Requests />} />
+                <Route path="/admin/requests" element={<AdminRequests />} />
+                <Route path="/profile" element={<Profile />} />
+              </Route>
 
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Router>
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Router>
+        </AppProvider>
       </AuthProvider>
     </ThemeProvider>
   );

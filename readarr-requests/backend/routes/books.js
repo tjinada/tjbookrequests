@@ -19,4 +19,6 @@ router.get('/latest', auth, bookController.getLatestBooks);
 // @access  Private
 router.get('/:id', auth, bookController.getBookDetails);
 
+router.get('/popular', auth, bookController.getPopularBooks);
+
 module.exports = router;

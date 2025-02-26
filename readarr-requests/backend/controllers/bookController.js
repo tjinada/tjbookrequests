@@ -27,6 +27,16 @@ exports.getLatestBooks = async (req, res) => {
   }
 };
 
+exports.getPopularBooks = async (req, res) => {
+  try {
+    const popularBooks = await openLibraryAPI.getPopularBooks();
+    res.json(popularBooks);
+  } catch (err) {
+    console.error('Error getting popular books:', err);
+    res.status(500).send('Server error');
+  }
+};
+
 exports.getBookDetails = async (req, res) => {
   try {
     const { id } = req.params;
