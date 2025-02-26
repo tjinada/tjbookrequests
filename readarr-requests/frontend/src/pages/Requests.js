@@ -1,5 +1,5 @@
 // src/pages/Requests.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
@@ -8,84 +8,65 @@ import Grid from '@mui/material/Grid';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import Chip from '@mui/material/Chip';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
-import CardMedia from '@mui/material/CardMedia';
 import Button from '@mui/material/Button';
 import SearchIcon from '@mui/icons-material/Search';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import Tooltip from '@mui/material/Tooltip';
-import noImage from '../assets/no-image.png'; // You'll need this file
+import noImage from '../assets/no-image.png';
 import api from '../utils/api';
 
-const statusColors = {
-  pending: 'warning',
-  approved: 'info',
-  denied: 'error',
-  available: 'success'
-};
-
-const statusLabels = {
-  pending: 'Pending Approval',
-  approved: 'Approved - Processing',
-  denied: 'Request Denied',
-  available: 'Available in Library'
-};
-
-const RequestCard = ({ request }) => {
-  return (
-    <Card sx={{ display: 'flex', height: '100%' }}>
-      <CardMedia
-        component="img"
-        sx={{ width: 120, objectFit: 'contain', p: 1 }}
-        image={request.cover || noImage}
-        alt={request.title}
-      />
-      <Box sx={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
-        <CardContent sx={{ flex: '1 0 auto' }}>
-          <Typography component="div" variant="h6">
-            {request.title}
-          </Typography>
-          <Typography variant="subtitle1" color="text.secondary" component="div">
-            {request.author}
-          </Typography>
-
-          <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Chip 
-              label={statusLabels[request.status]} 
-              color={statusColors[request.status]}
-              size="small"
-            />
-
-            <Typography variant="caption" color="text.secondary">
-              Requested: {new Date(request.createdAt).toLocaleDateString()}
-            </Typography>
-          </Box>
-        </CardContent>
-      </Box>
-    </Card>
-  );
-};
+// Import or define RequestCard component
+import RequestCard from '../components/requests/RequestCard';
 
 const Requests = () => {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    const fetchRequests = async () => {
-      try {
-        const res = await api.get('/requests/me');
-        setRequests(res.data);
-        setLoading(false);
-      } catch (err) {
-        setError('Failed to load your requests');
-        setLoading(false);
-      }
-    };
-
-    fetchRequests();
+  // Fetch requests function using useCallback to avoid infinite loops
+  const fetchRequests = useCallback(async () => {
+    try {
+      setError(null); // Clear previous errors
+      const res = await api.get('/requests/me');
+      console.log('Requests data:', res.data); // Add this for debugging
+      setRequests(res.data);
+      setLoading(false);
+    } catch (err) {
+      console.error('Error fetching requests:', err); // Add detailed error logging
+      setError('Failed to load your requests. Please try again.');
+      setLoading(false);
+    }
   }, []);
+
+  // Initial load
+  useEffect(() => {
+    fetchRequests();
+  }, [fetchRequests]);
+
+  // Auto-refresh for approved requests
+  useEffect(() => {
+    // Only setup refresh if we have approved requests that aren't errored
+    const hasApprovedRequests = requests.some(req => 
+      req.status === 'approved' && req.readarrStatus !== 'error'
+    );
+
+    let refreshTimer;
+    if (hasApprovedRequests) {
+      refreshTimer = setInterval(() => {
+        fetchRequests();
+      }, 30000); // 30 seconds
+    }
+
+    return () => {
+      if (refreshTimer) clearInterval(refreshTimer);
+    };
+  }, [requests, fetchRequests]);
+
+  // Helper functions
+  const handleRetry = () => {
+    setLoading(true);
+    fetchRequests();
+  };
 
   if (loading) {
     return (
@@ -124,7 +105,15 @@ const Requests = () => {
       </Box>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert 
+          severity="error" 
+          sx={{ mb: 2 }}
+          action={
+            <Button color="inherit" size="small" onClick={handleRetry}>
+              Retry
+            </Button>
+          }
+        >
           {error}
         </Alert>
       )}

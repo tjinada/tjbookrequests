@@ -33,6 +33,17 @@ const RequestSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now
+  },
+  readarrId: {
+    type: String
+  },
+  readarrStatus: {
+    type: String,
+    enum: ['pending', 'added', 'downloaded', 'error'],
+    default: 'pending'
+  },
+  readarrMessage: {
+    type: String
   }
 });
 

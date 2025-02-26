@@ -48,6 +48,38 @@ module.exports = {
     }
   },
 
+  getPopularBooks: async () => {
+    try {
+      // Get popular books from OpenLibrary's subjects API
+      const response = await openLibraryAPI.get('/subjects/fiction.json?limit=10');
+      console.log("Getting Data");
+      console.log(response.data.works);
+  
+      // Map to consistent format
+      const books = response.data.works.map(work => {
+        let coverUrl = null;
+        if (work.cover_id) {
+          coverUrl = `https://covers.openlibrary.org/b/id/${work.cover_id}-L.jpg`;
+        }
+  
+        return {
+          id: work.key.replace('/works/', ''),
+          title: work.title,
+          author: work.authors?.map(a => a.name).join(', ') || 'Unknown Author',
+          overview: work.description || '',
+          cover: coverUrl,
+          releaseDate: work.first_publish_year ? `${work.first_publish_year}-01-01` : null,
+          rating: work.ratings_average || 0
+        };
+      });
+  
+      return books;
+    } catch (error) {
+      console.error('Error fetching popular books from OpenLibrary:', error);
+      throw error;
+    }
+  },
+
   /**
    * Search books in OpenLibrary
    */

@@ -24,4 +24,6 @@ router.get('/', auth, requestController.getAllRequests);
 // @access  Private/Admin
 router.put('/:id', auth, requestController.updateRequestStatus);
 
+router.post('/check-status', auth, requestController.checkRequestsStatus);
+
 module.exports = router;

@@ -24,6 +24,7 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import LibraryAddCheckIcon from '@mui/icons-material/LibraryAddCheck';
 import AuthContext from '../context/AuthContext';
 import api from '../utils/api';
+import StatusChecker from '../components/admin/StatusChecker';
 
 const statusColors = {
   pending: 'warning',
@@ -135,6 +136,8 @@ const AdminRequests = () => {
       <Typography variant="h4" component="h1" gutterBottom>
         Manage Book Requests
       </Typography>
+
+      <StatusChecker />
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
