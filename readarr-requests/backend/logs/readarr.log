@@ -206,3 +206,89 @@
 2025-02-26T16:41:00.091Z - Search command successful: Command ID: 255809, Status: queued
 2025-02-26T16:46:38.097Z - Checking status for book ID: 294
 2025-02-26T16:46:38.103Z - Book status: Downloaded=true, Percent=100%
+2025-02-26T17:20:22.305Z - Starting to add book: The Life Impossible by Unknown Author
+2025-02-26T17:20:22.314Z - Using profiles - Quality: 1, Metadata: 1, Root: /data/media/ebooks/
+2025-02-26T17:20:22.314Z - Checking if author exists: Unknown Author
+2025-02-26T17:20:22.327Z - No matching author found among 20 existing authors
+2025-02-26T17:20:22.328Z - Author not found in existing authors, looking up in Readarr's database
+2025-02-26T17:20:24.393Z - Creating new author with payload: {"authorName":"Don Foster","foreignAuthorId":"277863","titleSlug":"277863","qualityProfileId":1,"metadataProfileId":1,"rootFolderPath":"/data/media/ebooks/","monitored":true,"monitorNewItems":"none","addOptions":{"monitor":"none","searchForMissingBooks":false}}
+2025-02-26T17:20:24.406Z - Created new author with ID: 22
+2025-02-26T17:20:27.418Z - Getting books for author ID: 22
+2025-02-26T17:20:27.425Z - Found 1 books for author
+2025-02-26T17:20:27.426Z - Requested book not found in author's current library, need to look it up
+2025-02-26T17:20:27.426Z - ERROR: Could not find or add the requested book: The Life Impossible
+2025-02-26T17:21:22.179Z - Starting to add book: Life Impossible by Matt Haig
+2025-02-26T17:21:22.188Z - Using profiles - Quality: 1, Metadata: 1, Root: /data/media/ebooks/
+2025-02-26T17:21:22.188Z - Checking if author exists: Matt Haig
+2025-02-26T17:21:22.196Z - No matching author found among 21 existing authors
+2025-02-26T17:21:22.196Z - Author not found in existing authors, looking up in Readarr's database
+2025-02-26T17:21:23.686Z - Creating new author with payload: {"authorName":"Matt Haig","foreignAuthorId":"76360","titleSlug":"76360","qualityProfileId":1,"metadataProfileId":1,"rootFolderPath":"/data/media/ebooks/","monitored":true,"monitorNewItems":"none","addOptions":{"monitor":"none","searchForMissingBooks":false}}
+2025-02-26T17:21:23.761Z - Created new author with ID: 23
+2025-02-26T17:21:26.763Z - Getting books for author ID: 23
+2025-02-26T17:21:26.781Z - Found 24 books for author
+2025-02-26T17:21:26.782Z - Requested book not found in author's current library, need to look it up
+2025-02-26T17:21:26.782Z - ERROR: Could not find or add the requested book: Life Impossible
+2025-02-26T19:30:35.909Z - Starting to add book: The Psychology of Money by Morgan Housel
+2025-02-26T19:30:35.918Z - Using profiles - Quality: 1, Metadata: 1, Root: /data/media/ebooks/
+2025-02-26T19:30:35.918Z - Checking if author exists: Morgan Housel
+2025-02-26T19:30:35.926Z - No matching author found among 22 existing authors
+2025-02-26T19:30:35.926Z - Author not found in existing authors, looking up in Readarr's database
+2025-02-26T19:30:36.540Z - Creating new author with payload: {"authorName":"Morgan Housel","foreignAuthorId":"7499284","titleSlug":"7499284","qualityProfileId":1,"metadataProfileId":1,"rootFolderPath":"/data/media/ebooks/","monitored":true,"monitorNewItems":"none","addOptions":{"monitor":"none","searchForMissingBooks":false}}
+2025-02-26T19:30:36.569Z - Created new author with ID: 24
+2025-02-26T19:30:39.578Z - Getting books for author ID: 24
+2025-02-26T19:30:39.587Z - Found 4 books for author
+2025-02-26T19:30:39.588Z - Found matching book in author's library: "The Psychology of Money" with ID: 323
+2025-02-26T19:30:39.588Z - Triggering search for book ID: 323
+2025-02-26T19:30:39.591Z - Search command successful: Command ID: 256130, Status: queued
+2025-02-26T19:33:08.949Z - Checking status for book ID: 323
+2025-02-26T19:33:08.957Z - Book status: Downloaded=true, Percent=100%
+2025-02-26T19:36:01.758Z - Looking for tag: mekala
+2025-02-26T19:36:01.766Z - Creating new tag: mekala
+2025-02-26T19:36:01.775Z - Created tag with ID: 1
+2025-02-26T19:36:01.776Z - Updating tags for book ID: 323
+2025-02-26T19:36:01.790Z - Error updating book tags: Request failed with status code 500
+2025-02-26T21:09:36.844Z - Starting to add book: Harry Potter and the Prisoner of Azkaban by J. K. Rowling
+2025-02-26T21:09:36.845Z - With tags: user-requested
+2025-02-26T21:09:36.854Z - Using profiles - Quality: 1, Metadata: 1, Root: /data/media/calibre/
+2025-02-26T21:09:36.855Z - Checking if author exists: J. K. Rowling
+2025-02-26T21:09:36.869Z - Found existing author: J.K. Rowling with ID: 12
+2025-02-26T21:09:36.869Z - Looking for tag: user-requested
+2025-02-26T21:09:36.873Z - Creating new tag: user-requested
+2025-02-26T21:09:36.878Z - Created tag with ID: 2
+2025-02-26T21:09:36.878Z - Processed tags: 2
+2025-02-26T21:09:36.878Z - Getting books for author ID: 12
+2025-02-26T21:09:36.913Z - Found 34 books for author
+2025-02-26T21:09:36.914Z - Found matching book in author's library: "Harry Potter and the Prisoner of Azkaban" with ID: 94
+2025-02-26T21:09:36.914Z - Triggering search for book ID: 94
+2025-02-26T21:09:36.917Z - Search command successful: Command ID: 256312, Status: queued
+2025-02-26T21:17:28.597Z - Checking status for book ID: 94
+2025-02-26T21:17:28.611Z - Book status: Downloaded=true, Percent=100%
+2025-02-26T21:17:28.612Z - Error checking book status: tagIds is not defined
+2025-02-26T21:20:38.216Z - Checking status for book ID: 94
+2025-02-26T21:20:38.228Z - Book status: Downloaded=true, Percent=100%
+2025-02-26T21:24:21.759Z - Starting to add book: Twisted Love by Ana Huang
+2025-02-26T21:24:21.760Z - With tags: user-requested
+2025-02-26T21:24:21.768Z - Using profiles - Quality: 1, Metadata: 1, Root: /data/media/calibre/
+2025-02-26T21:24:21.768Z - Checking if author exists: Ana Huang
+2025-02-26T21:24:21.781Z - No matching author found among 23 existing authors
+2025-02-26T21:24:21.782Z - Looking for tag: user-requested
+2025-02-26T21:24:21.784Z - Found existing tag: user-requested (ID: 2)
+2025-02-26T21:24:21.784Z - Processed tags: 2
+2025-02-26T21:24:21.784Z - Author not found in existing authors, looking up in Readarr's database
+2025-02-26T21:24:22.168Z - Creating new author with payload: {"authorName":"Ana Huang","foreignAuthorId":"5758632","titleSlug":"5758632","qualityProfileId":1,"metadataProfileId":1,"rootFolderPath":"/data/media/calibre/","monitored":true,"monitorNewItems":"none","addOptions":{"monitor":"none","searchForMissingBooks":false}}
+2025-02-26T21:24:22.183Z - Created new author with ID: 25
+2025-02-26T21:24:25.193Z - Getting books for author ID: 25
+2025-02-26T21:24:25.208Z - Found 12 books for author
+2025-02-26T21:24:25.208Z - Found matching book in author's library: "Twisted Love" with ID: 338
+2025-02-26T21:24:25.208Z - Triggering search for book ID: 338
+2025-02-26T21:24:25.214Z - Search command successful: Command ID: 256346, Status: queued
+2025-02-26T21:27:03.465Z - Checking status for book ID: 338
+2025-02-26T21:27:03.471Z - Book status: Downloaded=false, Percent=0%
+2025-02-26T22:24:35.339Z - Checking status for book ID: 338
+2025-02-26T22:24:35.347Z - Book status: Downloaded=false, Percent=0%
+2025-02-26T22:31:34.769Z - Checking status for book ID: 338
+2025-02-26T22:31:34.777Z - Book status: Downloaded=true, Percent=100%
+2025-02-26T22:32:39.896Z - Looking for tag: mekala
+2025-02-26T22:32:39.901Z - Found existing tag: mekala (ID: 1)
+2025-02-26T22:32:39.901Z - Updating tags for book ID: 338
+2025-02-26T22:32:39.913Z - Error updating book tags: Request failed with status code 500

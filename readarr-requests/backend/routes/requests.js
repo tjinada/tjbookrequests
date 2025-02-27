@@ -26,4 +26,6 @@ router.put('/:id', auth, requestController.updateRequestStatus);
 
 router.post('/check-status', auth, requestController.checkRequestsStatus);
 
+router.put('/:id/tags', auth, requestController.updateRequestTags);
+
 module.exports = router;

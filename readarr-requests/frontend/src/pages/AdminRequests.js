@@ -1,5 +1,5 @@
 // src/pages/AdminRequests.js
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useCallback, useContext } from 'react';
 import { Navigate } from 'react-router-dom';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
@@ -24,7 +24,10 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import LibraryAddCheckIcon from '@mui/icons-material/LibraryAddCheck';
 import AuthContext from '../context/AuthContext';
 import api from '../utils/api';
+
+// Import the components we need
 import StatusChecker from '../components/admin/StatusChecker';
+import TagManager from '../components/admin/TagManager';
 
 const statusColors = {
   pending: 'warning',
@@ -34,6 +37,7 @@ const statusColors = {
 };
 
 const AdminRequests = () => {
+  // Move the context usage to the top level
   const { user } = useContext(AuthContext);
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -43,34 +47,29 @@ const AdminRequests = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [filterMenuAnchor, setFilterMenuAnchor] = useState(null);
   const [updateLoading, setUpdateLoading] = useState({});
-  const [isAdmin, setIsAdmin] = useState(true); // Default to true, will check in useEffect
 
-  useEffect(() => {
-    // Check if user is admin
-    if (user && user.role !== 'admin') {
-      setIsAdmin(false);
-      return; // Return early but don't exit the function altogether
+  // Define fetchRequests function at the top level
+  const fetchRequests = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await api.get('/requests');
+      setRequests(res.data);
+      setLoading(false);
+    } catch (err) {
+      setError('Failed to load requests');
+      setLoading(false);
     }
+  }, []);
 
-    const fetchRequests = async () => {
-      try {
-        const res = await api.get('/requests');
-        setRequests(res.data);
-        setLoading(false);
-      } catch (err) {
-        setError('Failed to load requests');
-        setLoading(false);
-      }
-    };
+  // Load requests on initial render
+  useEffect(() => {
+    // Only fetch if the user is an admin
+    if (user && user.role === 'admin') {
+      fetchRequests();
+    }
+  }, [fetchRequests, user]);
 
-    fetchRequests();
-  }, [user]);
-
-  // If not admin, redirect to home
-  if (!isAdmin) {
-    return <Navigate to="/" replace />;
-  }
-
+  // Define all other handlers at the top level
   const handleChangePage = (event, newPage) => {
     setPage(newPage);
   };
@@ -98,12 +97,10 @@ const AdminRequests = () => {
     setUpdateLoading(prev => ({ ...prev, [requestId]: true }));
 
     try {
-      const res = await api.put(`/requests/${requestId}`, { status: newStatus });
+      await api.put(`/requests/${requestId}`, { status: newStatus });
 
       // Update the requests array with the updated request
-      setRequests(requests.map(req => 
-        req._id === requestId ? { ...req, status: newStatus } : req
-      ));
+      fetchRequests(); // Refresh all requests to get latest data
 
       setUpdateLoading(prev => ({ ...prev, [requestId]: false }));
     } catch (err) {
@@ -111,6 +108,11 @@ const AdminRequests = () => {
       setUpdateLoading(prev => ({ ...prev, [requestId]: false }));
     }
   };
+
+  // Check if user is admin AFTER all hooks are called
+  if (user && user.role !== 'admin') {
+    return <Navigate to="/" replace />;
+  }
 
   // Filter requests based on selected status
   const filteredRequests = requests.filter(request => 
@@ -137,7 +139,7 @@ const AdminRequests = () => {
         Manage Book Requests
       </Typography>
 
-      <StatusChecker />
+      <StatusChecker onStatusUpdated={fetchRequests} />
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -200,6 +202,7 @@ const AdminRequests = () => {
               <TableCell>Requested By</TableCell>
               <TableCell>Date</TableCell>
               <TableCell>Status</TableCell>
+              <TableCell>Tags</TableCell>
               <TableCell align="right">Actions</TableCell>
             </TableRow>
           </TableHead>
@@ -236,7 +239,33 @@ const AdminRequests = () => {
                       size="small" 
                     />
                   </TableCell>
+                  <TableCell>
+                    {request.readarrTags && request.readarrTags.length > 0 ? (
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                        {request.readarrTags.map((tag, index) => (
+                          <Chip 
+                            key={index} 
+                            label={tag} 
+                            size="small" 
+                            variant="outlined"
+                            sx={{ fontSize: '0.7rem' }}
+                          />
+                        ))}
+                      </Box>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">
+                        No tags
+                      </Typography>
+                    )}
+                  </TableCell>
                   <TableCell align="right">
+                    {/* Tag Manager */}
+                    <TagManager 
+                      request={request} 
+                      onTagsUpdated={fetchRequests} 
+                    />
+
+                    {/* Status Update Buttons */}
                     {request.status === 'pending' && (
                       <Box>
                         <Button
@@ -276,7 +305,7 @@ const AdminRequests = () => {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={5} align="center">
+                <TableCell colSpan={6} align="center">
                   <Typography sx={{ py: 2 }}>
                     No requests found with the selected filter.
                   </Typography>

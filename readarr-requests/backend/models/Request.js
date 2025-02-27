@@ -44,7 +44,11 @@ const RequestSchema = new mongoose.Schema({
   },
   readarrMessage: {
     type: String
-  }
+  },
+  readarrTags: {
+    type: [String],
+    default: []
+  },
 });
 
 module.exports = mongoose.model('Request', RequestSchema);

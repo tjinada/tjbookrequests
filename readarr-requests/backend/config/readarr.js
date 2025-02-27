@@ -21,6 +21,40 @@ const log = (message) => {
   console.log(message);
 };
 
+const getOrCreateTag = async (tagName) => {
+  try {
+    log(`Looking for tag: ${tagName}`);
+
+    // Get all existing tags
+    const tagsResponse = await readarrAPI.get('/api/v1/tag');
+
+    if (tagsResponse.data) {
+      // Check if tag already exists
+      const existingTag = tagsResponse.data.find(
+        tag => tag.label.toLowerCase() === tagName.toLowerCase()
+      );
+
+      if (existingTag) {
+        log(`Found existing tag: ${existingTag.label} (ID: ${existingTag.id})`);
+        return existingTag.id;
+      }
+    }
+
+    // Tag doesn't exist, create it
+    log(`Creating new tag: ${tagName}`);
+    const createResponse = await readarrAPI.post('/api/v1/tag', {
+      label: tagName
+    });
+
+    log(`Created tag with ID: ${createResponse.data.id}`);
+    return createResponse.data.id;
+  } catch (error) {
+    log(`Error managing tag: ${error.message}`);
+    // Return null but continue the process - tags are helpful but not critical
+    return null;
+  }
+};
+
 // Helper function to find the best match by title
 function findBestBookMatch(books, searchTitle) {
   if (!books || books.length === 0) return null;
@@ -87,9 +121,14 @@ function findAuthorMatch(authors, searchName) {
 
 module.exports = {
   // Updated addBook function with improved existing author handling
-  addBook: async (bookData) => {
+  getOrCreateTag,
+  addBook: async (bookData, tags = []) => {
     try {
       log(`Starting to add book: ${bookData.title} by ${bookData.author}`);
+
+      if (tags.length > 0) {
+        log(`With tags: ${tags.join(', ')}`);
+      }
 
       // Step 1: Get profiles
       const [qualityProfiles, metadataProfiles, rootFolders] = await Promise.all([
@@ -104,7 +143,7 @@ module.exports = {
 
       const qualityProfileId = qualityProfiles.data[0].id;
       const metadataProfileId = metadataProfiles.data[0].id;
-      const rootFolderPath = rootFolders.data[0].path;
+      const rootFolderPath = rootFolders.data[1].path;
 
       log(`Using profiles - Quality: ${qualityProfileId}, Metadata: ${metadataProfileId}, Root: ${rootFolderPath}`);
 
@@ -126,6 +165,19 @@ module.exports = {
         } else {
           log(`No matching author found among ${existingAuthorsResponse.data.length} existing authors`);
         }
+      }
+
+      // Process tags - convert tag names to tag IDs
+      let tagIds = [];
+      if (tags.length > 0) {
+        // Process each tag
+        for (const tagName of tags) {
+          const tagId = await getOrCreateTag(tagName);
+          if (tagId) {
+            tagIds.push(tagId);
+          }
+        }
+        log(`Processed tags: ${tagIds.join(', ')}`);
       }
 
       // If author doesn't exist, create a new one
@@ -248,6 +300,7 @@ module.exports = {
           metadataProfileId: metadataProfileId,
           rootFolderPath: rootFolderPath,
           monitored: true,
+          tags: tagIds,
           addOptions: {
             searchForNewBook: false // We'll trigger search separately
           }
@@ -324,7 +377,7 @@ module.exports = {
     }
   },
 
-  getBookStatus: async (bookId) => {
+  getBookStatus: async (bookId, tagIds) => {
     try {
       log(`Checking status for book ID: ${bookId}`);
   
@@ -347,10 +400,39 @@ module.exports = {
         isDownloaded: isDownloaded,
         percentOfBook: percentOfBook,
         hasFile: bookResponse.data.statistics?.bookFileCount > 0,
-        sizeOnDisk: bookResponse.data.statistics?.sizeOnDisk || 0
+        sizeOnDisk: bookResponse.data.statistics?.sizeOnDisk || 0,
+        tags: tagIds
       };
     } catch (error) {
       log(`Error checking book status: ${error.message}`);
+      throw error;
+    }
+  },
+
+  updateBookTags: async (bookId, tagIds) => {
+    try {
+      log(`Updating tags for book ID: ${bookId}`);
+
+      // First get the current book data
+      const bookResponse = await readarrAPI.get(`/api/v1/book/${bookId}`);
+
+      if (!bookResponse.data) {
+        throw new Error(`Book with ID ${bookId} not found`);
+      }
+
+      // Create update payload with new tags
+      const updatePayload = {
+        ...bookResponse.data,
+        tags: tagIds
+      };
+
+      // Update the book
+      await readarrAPI.put(`/api/v1/book/${bookId}`, updatePayload);
+      log(`Tags updated successfully for book ID: ${bookId}`);
+
+      return true;
+    } catch (error) {
+      log(`Error updating book tags: ${error.message}`);
       throw error;
     }
   }

@@ -69,16 +69,23 @@ exports.updateRequestStatus = async (req, res) => {
     if (status === 'approved' && request.status !== 'approved') {
       try {
         const readarrAPI = require('../config/readarr');
+        const tags = [];
+        if (request.user && request.user.username) {
+          tags.push(`${request.user.username}`);
+        }
+        tags.push('user-requested');
         const readarrResult = await readarrAPI.addBook({
           title: request.title,
           author: request.author,
           isbn: request.isbn
-        });
+        },
+        tags );
 
         // Add information about the readarr result to the request
         request.readarrStatus = 'added';
         request.readarrId = readarrResult.id?.toString() || '';
         request.readarrMessage = 'Successfully added to Readarr';
+        request.readarrTags = tags;
 
       } catch (error) {
         console.error('Error adding book to Readarr:', error);
@@ -175,6 +182,58 @@ exports.checkRequestsStatus = async (req, res) => {
     });
   } catch (err) {
     console.error('Error checking requests status:', err);
+    res.status(500).send('Server error');
+  }
+};
+
+exports.updateRequestTags = async (req, res) => {
+  try {
+    // Only admin can update tags
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    const { id } = req.params;
+    const { tags } = req.body;
+
+    if (!Array.isArray(tags)) {
+      return res.status(400).json({ message: 'Tags must be an array' });
+    }
+
+    const request = await Request.findById(id);
+    if (!request) {
+      return res.status(404).json({ message: 'Request not found' });
+    }
+
+    // Update tags in the database
+    request.readarrTags = tags;
+    await request.save();
+
+    // Also update tags in Readarr if we have a readarrId
+    if (request.readarrId) {
+      try {
+        const readarrAPI = require('../config/readarr');
+
+        // Convert tag names to Readarr tag IDs
+        const tagIds = [];
+        for (const tagName of tags) {
+          const tagId = await readarrAPI.getOrCreateTag(tagName);
+          if (tagId) {
+            tagIds.push(tagId);
+          }
+        }
+
+        // Update the book's tags in Readarr
+        await readarrAPI.updateBookTags(request.readarrId, tagIds);
+      } catch (error) {
+        console.error('Error updating tags in Readarr:', error);
+        // Continue anyway - database update is more important
+      }
+    }
+
+    res.json({ message: 'Tags updated successfully', tags: request.readarrTags });
+  } catch (err) {
+    console.error('Error updating request tags:', err);
     res.status(500).send('Server error');
   }
 };
