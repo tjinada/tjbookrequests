@@ -24,6 +24,8 @@ import LocalLibraryIcon from '@mui/icons-material/LocalLibrary';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import BookCard from '../components/books/BookCard';
 import AppContext from '../context/AppContext';
+import CachePurger from '../components/admin/CachePurger';
+import AuthContext from '../context/AuthContext';
 
 // Tab panel component
 function TabPanel(props) {
@@ -51,6 +53,8 @@ const Home = () => {
   const [mainTab, setMainTab] = useState(0);
   const [genreTab, setGenreTab] = useState(0);
   const [loading, setLoading] = useState(true);
+  const { user } = useContext(AuthContext);
+  const isAdmin = user && user.role === 'admin';
 
   // Get data and functions from context
   const { 
@@ -219,6 +223,15 @@ const Home = () => {
           </MenuItem>
         </Select>
       </FormControl>
+
+      {/* Add the cache purger for admins */}
+      {isAdmin && (
+        <CachePurger 
+          onSuccess={() => {
+            handleRefresh();
+          }} 
+        />
+      )}
 
       <Button 
         size="small" 

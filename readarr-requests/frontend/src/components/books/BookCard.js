@@ -17,6 +17,19 @@ import Chip from '@mui/material/Chip';
 import noImage from '../../assets/no-image.png';
 
 const BookCard = ({ book, showEditionCount = false }) => {
+  
+  const getBookDetailUrl = (book) => {
+    // If it's a Google Books source
+    if (book.source === 'google') {
+      // For Google Books IDs, remove the 'gb-' prefix
+      const googleId = book.id.startsWith('gb-') ? book.id.substring(3) : book.id;
+      return `/book/google/${googleId}`;
+    }
+  
+    // For OpenLibrary books (default)
+    return `/book/${book.id}`;
+  };
+  
   const truncate = (str, n) => {
     return str?.length > n ? str.substr(0, n - 1) + '...' : str;
   };
@@ -87,7 +100,7 @@ const BookCard = ({ book, showEditionCount = false }) => {
         <Button 
           size="small" 
           component={Link} 
-          to={`/book/${book.id}`}
+          to={getBookDetailUrl(book)}
           startIcon={<InfoIcon />}
         >
           Details
@@ -97,7 +110,7 @@ const BookCard = ({ book, showEditionCount = false }) => {
             size="small" 
             color="primary"
             component={Link}
-            to={`/book/${book.id}`}
+            to={getBookDetailUrl(book)}
             startIcon={<BookmarkAddIcon />}
           >
             Request

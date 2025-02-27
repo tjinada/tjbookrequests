@@ -79,7 +79,7 @@ const processBookData = (work, genreOrCategory = '') => {
 };
 
 // Helper function to filter and sort books
-const filterAndSortBooks = (books, limit = 20) => {
+const filterAndSortBooks = (books, limit = 100) => {
   // Filter out books with no cover image (improves quality)
   let filteredBooks = books.filter(book => book.cover !== null);
 
@@ -142,7 +142,7 @@ module.exports = {
   /**
    * Get books by genre using the subjects API
    */
-  getBooksByGenre: async (genre, limit = 20) => {
+  getBooksByGenre: async (genre, limit = 100) => {
     try {
       // Check cache first
       const now = Date.now();
@@ -202,7 +202,7 @@ module.exports = {
   /**
    * Get trending books
    */
-  getTrendingBooks: async (limit = 20) => {
+  getTrendingBooks: async (limit = 100) => {
     try {
       // Check cache first
       const now = Date.now();
@@ -243,7 +243,7 @@ module.exports = {
   /**
    * Get popular books
    */
-  getPopularBooks: async (limit = 20) => {
+  getPopularBooks: async (limit = 100) => {
     try {
       // Check cache first
       const now = Date.now();
@@ -283,7 +283,7 @@ module.exports = {
   /**
    * Get New York Times bestsellers
    */
-  getNytBestsellers: async (limit = 20) => {
+  getNytBestsellers: async (limit = 100) => {
     try {
       // Check cache first
       const now = Date.now();
@@ -323,7 +323,7 @@ module.exports = {
   /**
    * Get award-winning books
    */
-  getAwardWinners: async (limit = 20) => {
+  getAwardWinners: async (limit = 100) => {
     try {
       // Check cache first
       const now = Date.now();
@@ -363,7 +363,7 @@ module.exports = {
   /**
    * Get recently published books
    */
-  getRecentBooks: async (limit = 20) => {
+  getRecentBooks: async (limit = 100) => {
     try {
       // Check cache first
       const now = Date.now();
@@ -507,5 +507,68 @@ module.exports = {
       console.error('Error getting book details from OpenLibrary:', error);
       throw error;
     }
-  }
+  },
+
+    /**
+   * Search books in OpenLibrary
+   */
+    searchBooks: async (query) => {
+      try {
+        const response = await openLibraryAPI.get(`/search.json?q=${encodeURIComponent(query)}`);
+  
+        // Map the response to a consistent format
+        const books = response.data.docs.slice(0, 30).map(book => {
+          // Get cover if available
+          let coverUrl = null;
+          if (book.cover_i) {
+            coverUrl = `https://covers.openlibrary.org/b/id/${book.cover_i}-L.jpg`;
+          }
+  
+          // Format author names
+          const authorNames = book.author_name ? book.author_name.join(', ') : 'Unknown Author';
+  
+          return {
+            id: book.key.replace('/works/', ''),
+            title: book.title,
+            author: authorNames,
+            overview: book.excerpt || book.description || '',
+            cover: coverUrl,
+            releaseDate: book.first_publish_year ? `${book.first_publish_year}-01-01` : null,
+            olid: book.key,
+            isbn: book.isbn ? book.isbn[0] : null
+          };
+        });
+  
+        return books;
+      } catch (error) {
+        console.error('Error searching books from OpenLibrary:', error);
+        throw error;
+      }
+    }
+};
+
+// Export a function to purge the cache
+module.exports.purgeCache = function() {
+  console.log('Purging OpenLibrary cache...');
+  // Reset all cache objects
+  Object.keys(cache.genres).forEach(key => {
+    delete cache.genres[key];
+  });
+  cache.trending = null;
+  cache.popular = null;
+  cache.nytBestsellers = null;
+  cache.awardWinners = null;
+  cache.recentBooks = null;
+  // Reset all timestamps
+  Object.keys(cache.genreTimestamps).forEach(key => {
+    delete cache.genreTimestamps[key];
+  });
+  cache.trendingTimestamp = 0;
+  cache.popularTimestamp = 0;
+  cache.nytTimestamp = 0;
+  cache.awardsTimestamp = 0;
+  cache.recentTimestamp = 0;
+
+  console.log('OpenLibrary cache has been purged');
+  return true;
 };

@@ -33,4 +33,6 @@ router.get('/search', auth, bookController.searchBooks);
 // Get book details
 router.get('/:id', auth, bookController.getBookDetails);
 
+router.get('/google/:id', auth, bookController.getGoogleBookDetails);
+
 module.exports = router;

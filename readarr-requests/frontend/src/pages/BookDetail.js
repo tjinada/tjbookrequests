@@ -16,7 +16,7 @@ import noImage from '../assets/no-image.png'; // You'll need this file
 import api from '../utils/api';
 
 const BookDetail = () => {
-  const { id } = useParams();
+  const { id, source } = useParams()
   const navigate = useNavigate();
 
   const [book, setBook] = useState(null);
@@ -27,11 +27,29 @@ const BookDetail = () => {
   const [requestError, setRequestError] = useState(null);
 
   useEffect(() => {
+    
+    if (!id) {
+      setError('Invalid book ID.');
+      return;
+    }
+    
     const fetchBookDetails = async () => {
+      setLoading(true);
+      setError(null);
+  
       try {
-        const res = await api.get(`/books/${id}`);
-        setBook(res.data);
-
+        let response;
+  
+        if (source === 'google' || id.startsWith('google-')) {
+          const googleBookId = id.startsWith('google-') ? id.substring(7) : id;
+          response = await api.get(`/books/google/${googleBookId}`);
+        } else {
+          // OpenLibrary books
+          response = await api.get(`/books/${id}`);
+        }
+  
+        setBook(response.data);
+  
         // Check if book is already requested
         try {
           const requestRes = await api.get('/requests/me');
@@ -42,16 +60,16 @@ const BookDetail = () => {
         } catch (reqErr) {
           console.error('Error checking request status:', reqErr);
         }
-
+  
         setLoading(false);
       } catch (err) {
         setError('Failed to load book details');
         setLoading(false);
       }
     };
-
+  
     fetchBookDetails();
-  }, [id]);
+  }, [id, source]);
 
   const handleRequestBook = async () => {
     setRequesting(true);

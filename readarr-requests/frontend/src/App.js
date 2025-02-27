@@ -59,6 +59,7 @@ function App() {
                 <Route path="/requests" element={<Requests />} />
                 <Route path="/admin/requests" element={<AdminRequests />} />
                 <Route path="/profile" element={<Profile />} />
+                <Route path="/book/google/:id" element={<BookDetail source="google" />} />
               </Route>
 
               <Route path="*" element={<Navigate to="/" replace />} />
