@@ -4,21 +4,35 @@ const router = express.Router();
 const bookController = require('../controllers/bookController');
 const auth = require('../middleware/auth');
 
-// @route   GET api/books/search
-// @desc    Search books
-// @access  Private
-router.get('/search', auth, bookController.searchBooks);
+// SPECIFIC ROUTES FIRST
+// Get all genres
+router.get('/genres', auth, bookController.getGenres);
 
-// @route   GET api/books/latest
-// @desc    Get latest books
-// @access  Private
+// Get books by genre
+router.get('/genre/:genre', auth, bookController.getBooksByGenre);
+
+// Get trending/latest books
 router.get('/latest', auth, bookController.getLatestBooks);
 
-// @route   GET api/books/:id
-// @desc    Get book details
-// @access  Private
+// Get popular books
+router.get('/popular', auth, bookController.getPopularBooks);
+
+// Get NYT bestsellers
+router.get('/nyt', auth, bookController.getNytBestsellers);
+
+// Get award-winning books
+router.get('/awards', auth, bookController.getAwardWinners);
+
+// Get recent books
+router.get('/recent', auth, bookController.getRecentBooks);
+
+// Search books
+router.get('/search', auth, bookController.searchBooks);
+
+// PARAMETER ROUTES LAST
+// Get book details
 router.get('/:id', auth, bookController.getBookDetails);
 
-router.get('/popular', auth, bookController.getPopularBooks);
+router.get('/google/:id', auth, bookController.getGoogleBookDetails);
 
 module.exports = router;

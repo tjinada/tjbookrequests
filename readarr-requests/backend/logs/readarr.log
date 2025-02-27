@@ -206,3 +206,27 @@
 2025-02-26T16:41:00.091Z - Search command successful: Command ID: 255809, Status: queued
 2025-02-26T16:46:38.097Z - Checking status for book ID: 294
 2025-02-26T16:46:38.103Z - Book status: Downloaded=true, Percent=100%
+2025-02-27T05:35:24.900Z - Starting to add book: Divergent by Veronica Roth
+2025-02-27T05:35:24.929Z - Using profiles - Quality: 1, Metadata: 1, Root: /data/media/ebooks/
+2025-02-27T05:35:24.930Z - Checking if author exists: Veronica Roth
+2025-02-27T05:35:24.937Z - No matching author found among 24 existing authors
+2025-02-27T05:35:24.938Z - Author not found in existing authors, looking up in Readarr's database
+2025-02-27T05:35:25.373Z - Creating new author with payload: {"authorName":"Veronica Roth","foreignAuthorId":"4039811","titleSlug":"4039811","qualityProfileId":1,"metadataProfileId":1,"rootFolderPath":"/data/media/ebooks/","monitored":true,"monitorNewItems":"none","addOptions":{"monitor":"none","searchForMissingBooks":false}}
+2025-02-27T05:35:25.423Z - Created new author with ID: 26
+2025-02-27T05:35:28.433Z - Getting books for author ID: 26
+2025-02-27T05:35:28.456Z - Found 21 books for author
+2025-02-27T05:35:28.456Z - Found matching book in author's library: "Inside Divergent: The Initiate's World" with ID: 342
+2025-02-27T05:35:28.457Z - Triggering search for book ID: 342
+2025-02-27T05:35:28.461Z - Search command successful: Command ID: 257237, Status: queued
+2025-02-27T05:41:37.027Z - Checking status for book ID: 342
+2025-02-27T05:41:37.035Z - Book status: Downloaded=false, Percent=0%
+2025-02-27T16:34:14.833Z - Starting to add book: How to Win at Chess by Levy Rozman
+2025-02-27T16:34:14.864Z - Using profiles - Quality: 1, Metadata: 1, Root: /data/media/ebooks/
+2025-02-27T16:34:14.865Z - Checking if author exists: Levy Rozman
+2025-02-27T16:34:14.876Z - No matching author found among 25 existing authors
+2025-02-27T16:34:14.876Z - Author not found in existing authors, looking up in Readarr's database
+2025-02-27T16:34:17.199Z - Creating new author with payload: {"authorName":"Levy Rozman","foreignAuthorId":"30451278","titleSlug":"30451278","qualityProfileId":1,"metadataProfileId":1,"rootFolderPath":"/data/media/ebooks/","monitored":true,"monitorNewItems":"none","addOptions":{"monitor":"none","searchForMissingBooks":false}}
+2025-02-27T16:34:17.212Z - Created new author with ID: 27
+2025-02-27T16:34:20.212Z - Getting books for author ID: 27
+2025-02-27T16:34:20.221Z - Found 0 books for author
+2025-02-27T16:34:20.221Z - ERROR: Could not find or add the requested book: How to Win at Chess
