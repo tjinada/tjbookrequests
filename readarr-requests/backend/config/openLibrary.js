@@ -1,4 +1,4 @@
-// backend/config/openLibrary.js
+// config/openLibrary.js
 const axios = require('axios');
 
 // Create axios instance for OpenLibrary
@@ -7,6 +7,7 @@ const openLibraryAPI = axios.create({
   timeout: 10000,
 });
 
+// List of popular genres with their subject identifiers
 const genres = {
   'fiction': 'fiction',
   'science-fiction': 'science_fiction',
@@ -17,24 +18,119 @@ const genres = {
   'fantasy': 'fantasy',
   'biography': 'biography',
   'horror': 'horror',
-  'classics': 'classics'
+  'classics': 'classics',
+  'non-fiction': 'non-fiction',
+  'young-adult': 'young_adult',
+  'children': 'children',
+  'poetry': 'poetry',
+  'comics': 'comics'
 };
 
 // Simple in-memory cache for API responses
 const cache = {
   genres: {},
   trending: null,
+  popular: null,
+  nytBestsellers: null,
+  awardWinners: null,
+  recentBooks: null,
+  genreTimestamps: {},
   trendingTimestamp: 0,
   popularTimestamp: 0,
-  genreTimestamps: {}
+  nytTimestamp: 0,
+  awardsTimestamp: 0,
+  recentTimestamp: 0
 };
 
 // Cache expiration time (4 hours in milliseconds)
 const CACHE_EXPIRY = 4 * 60 * 60 * 1000;
 
+// Helper function to process book data into consistent format
+const processBookData = (work, genreOrCategory = '') => {
+  // Get cover URL
+  let coverUrl = null;
+  if (work.cover_id) {
+    coverUrl = `https://covers.openlibrary.org/b/id/${work.cover_id}-L.jpg`;
+  }
+
+  // Extract author names
+  const authorNames = work.authors 
+    ? work.authors.map(a => a.name).join(', ') 
+    : 'Unknown Author';
+
+  // Format publish year
+  const publishYear = work.first_publish_year || 0;
+  const publishDate = publishYear 
+    ? new Date(publishYear, 0, 1).toISOString().split('T')[0]
+    : null;
+
+  return {
+    id: work.key.replace('/works/', ''),
+    title: work.title,
+    author: authorNames,
+    overview: work.description || '',
+    cover: coverUrl,
+    releaseDate: publishDate,
+    year: publishYear,
+    genre: genreOrCategory,
+    rating: work.ratings_average || 0,
+    ratings_count: work.ratings_count || 0
+  };
+};
+
+// Helper function to filter and sort books
+const filterAndSortBooks = (books, limit = 20) => {
+  // Filter out books with no cover image (improves quality)
+  let filteredBooks = books.filter(book => book.cover !== null);
+
+  // Get current year for age calculations
+  const currentYear = new Date().getFullYear();
+
+  // First, try to get books from last 30 years but don't exclude classics entirely
+  const recentBooks = filteredBooks.filter(book => 
+    book.year && book.year >= (currentYear - 30)
+  );
+
+  // If we have enough recent books, prioritize them
+  if (recentBooks.length >= limit / 2) {
+    filteredBooks = recentBooks;
+  }
+
+  // Sort primarily by rating, with a bonus for recent books
+  filteredBooks.sort((a, b) => {
+    // Start with the raw rating (0-5)
+    let scoreA = a.rating || 0;
+    let scoreB = b.rating || 0;
+
+    // Add recency bonus - max 1.5 points for very recent books
+    const recentYearThreshold = currentYear - 5;
+    if (a.year && a.year >= recentYearThreshold) {
+      scoreA += 1.5;
+    } else if (a.year && a.year >= currentYear - 15) {
+      scoreA += 1; // Smaller bonus for books from last 15 years
+    } else if (a.year && a.year >= currentYear - 30) {
+      scoreA += 0.5; // Minimal bonus for books from last 30 years
+    }
+
+    if (b.year && b.year >= recentYearThreshold) {
+      scoreB += 1.5;
+    } else if (b.year && b.year >= currentYear - 15) {
+      scoreB += 1;
+    } else if (b.year && b.year >= currentYear - 30) {
+      scoreB += 0.5;
+    }
+
+    // Sort descending by total score
+    return scoreB - scoreA;
+  });
+
+  // Take only the requested number of books
+  return filteredBooks.slice(0, limit);
+};
+
 module.exports = {
   /**
-   * Get trending books from OpenLibrary
+   * Get list of available genres
    */
   getGenres: () => {
     return Object.keys(genres).map(key => ({
@@ -44,7 +140,7 @@ module.exports = {
   },
 
   /**
-   * Get books by genre using the subjects API with sorting
+   * Get books by genre using the subjects API
    */
   getBooksByGenre: async (genre, limit = 20) => {
     try {
@@ -58,246 +154,276 @@ module.exports = {
         console.log(`Using cached data for genre: ${genre}`);
         return cache.genres[genre];
       }
-  
+
       // Get the correct subject key for the requested genre
       const subjectKey = genres[genre] || genre;
-  
+
       console.log(`Fetching books for genre: ${genre} (subject: ${subjectKey})`);
-  
+
       // Request more books than we need so we can filter and sort
-      const requestLimit = Math.min(100, limit * 5);
-  
-      // Use the subjects API - for newer books we don't sort by editions
-      // as that tends to favor classics
+      const requestLimit = Math.min(100, limit * 3);
+
+      // Use the subjects API without editions sorting
       const response = await openLibraryAPI.get(`/subjects/${subjectKey}.json?limit=${requestLimit}`);
-  
+
       // Check for valid response
       if (!response.data || !response.data.works || !Array.isArray(response.data.works)) {
         console.error(`Invalid response for genre ${genre}:`, response.data);
         return [];
       }
-  
-      // Map to consistent format and filter for better quality data
-      let books = response.data.works.map(work => {
-        // Get cover URL
-        let coverUrl = null;
-        if (work.cover_id) {
-          coverUrl = `https://covers.openlibrary.org/b/id/${work.cover_id}-L.jpg`;
-        }
-  
-        // Extract author names
-        const authorNames = work.authors 
-          ? work.authors.map(a => a.name).join(', ') 
-          : 'Unknown Author';
-  
-        // Format publish year
-        const publishYear = work.first_publish_year || 0;
-        const publishDate = publishYear 
-          ? new Date(publishYear, 0, 1).toISOString().split('T')[0]
-          : null;
-  
-        return {
-          id: work.key.replace('/works/', ''),
-          title: work.title,
-          author: authorNames,
-          overview: work.description || '',
-          cover: coverUrl,
-          releaseDate: publishDate,
-          year: publishYear,
-          genre: genre,
-          editions_count: work.edition_count || 0,
-          rating: work.ratings_average || 0,
-          ratings_count: work.ratings_count || 0
-        };
-      });
-  
-      // Filter out books with no cover image (improves quality)
-      books = books.filter(book => book.cover !== null);
-  
-      // Filter for more recent books (at least from 1990 onward)
-      // but keep some classics too (don't filter too aggressively)
-      const currentYear = new Date().getFullYear();
-  
-      // First, try to get books from last 30 years
-      let recentBooks = books.filter(book => 
-        book.year && book.year >= (currentYear - 30)
-      );
-  
-      // If we got enough recent books, use those
-      if (recentBooks.length >= limit / 2) {
-        books = recentBooks;
-      } else {
-        // Otherwise, just make sure we have at least some recent books
-        // by sorting to prioritize newer books with higher ratings
-        console.log(`Not enough recent books for ${genre}, using mixed results`);
-      }
-  
-      // Sort by a combination of ratings, year, and edition count
-      books.sort((a, b) => {
-        // Scoring system:
-        // 1. Rating is most important (0-5 points)
-        // 2. Recent publication bonus (0-3 points)
-        // 3. Popularity/editions tiebreaker (0-2 points)
-  
-        // Start with the raw rating (0-5)
-        let scoreA = a.rating || 0;
-        let scoreB = b.rating || 0;
-  
-        // Add recency bonus - max 3 points for books published in the last 5 years
-        const recentYearThreshold = currentYear - 5;
-        if (a.year && a.year >= recentYearThreshold) {
-          scoreA += 3;
-        } else if (a.year && a.year >= currentYear - 15) {
-          scoreA += 2; // Some bonus for books from last 15 years
-        } else if (a.year && a.year >= currentYear - 30) {
-          scoreA += 1; // Small bonus for books from last 30 years
-        }
-  
-        if (b.year && b.year >= recentYearThreshold) {
-          scoreB += 3;
-        } else if (b.year && b.year >= currentYear - 15) {
-          scoreB += 2;
-        } else if (b.year && b.year >= currentYear - 30) {
-          scoreB += 1;
-        }
-  
-        // Add popularity bonus (based on edition count)
-        if (a.editions_count > 50) scoreA += 1;
-        if (a.editions_count > 100) scoreA += 1;
-        if (b.editions_count > 50) scoreB += 1;
-        if (b.editions_count > 100) scoreB += 1;
-  
-        // Sort descending by total score
-        return scoreB - scoreA;
-      });
-  
-      // Take only the requested number of books
-      books = books.slice(0, limit);
-  
-      console.log(`Returning ${books.length} ${genre} books after filtering and sorting`);
-  
+
+      // Map to consistent format
+      const books = response.data.works.map(work => processBookData(work, genre));
+
+      // Filter and sort by rating/recency
+      const processedBooks = filterAndSortBooks(books, limit);
+
+      console.log(`Returning ${processedBooks.length} ${genre} books`);
+
       // Update cache
-      cache.genres[genre] = books;
+      cache.genres[genre] = processedBooks;
       cache.genreTimestamps[genre] = now;
-  
-      return books;
+
+      return processedBooks;
     } catch (error) {
       console.error(`Error fetching ${genre} books from OpenLibrary:`, error);
-  
+
       // Return cached data if available
       if (cache.genres[genre]) {
         console.log(`Returning expired cache for ${genre} due to API error`);
         return cache.genres[genre];
       }
-  
+
       // Return empty array as fallback
       return [];
     }
   },
-  
-  getTrendingBooks: async () => {
+
+  /**
+   * Get trending books
+   */
+  getTrendingBooks: async (limit = 20) => {
     try {
-      // Get trending books from OpenLibrary
-      const response = await openLibraryAPI.get('/trending/daily.json');
+      // Check cache first
+      const now = Date.now();
+      if (cache.trending && now - cache.trendingTimestamp < CACHE_EXPIRY) {
+        console.log('Using cached trending books');
+        return cache.trending;
+      }
 
-      // Map the response to a consistent format
-      const books = await Promise.all(
-        response.data.works.slice(0, 20).map(async (work) => {
-          // Get cover if available
-          let coverUrl = null;
-          if (work.cover_i) {
-            coverUrl = `https://covers.openlibrary.org/b/id/${work.cover_i}-L.jpg`;
-          }
+      // Use a popular subject
+      const requestLimit = Math.min(100, limit * 3);
+      const response = await openLibraryAPI.get(`/subjects/bestseller.json?limit=${requestLimit}`);
 
-          // Format author names
-          const authorNames = work.author_name ? work.author_name.join(', ') : 'Unknown Author';
+      if (!response.data || !response.data.works) {
+        return [];
+      }
 
-          return {
-            id: work.key.replace('/works/', ''),
-            title: work.title,
-            author: authorNames,
-            overview: work.excerpt || work.description || '',
-            cover: coverUrl,
-            releaseDate: work.first_publish_year ? `${work.first_publish_year}-01-01` : null,
-            olid: work.key,
-            isbn: work.isbn ? work.isbn[0] : null
-          };
-        })
-      );
+      // Process and filter books
+      const books = response.data.works.map(work => processBookData(work, 'trending'));
+      const processedBooks = filterAndSortBooks(books, limit);
 
-      return books;
+      // Update cache
+      cache.trending = processedBooks;
+      cache.trendingTimestamp = now;
+
+      return processedBooks;
     } catch (error) {
-      console.error('Error fetching trending books from OpenLibrary:', error);
-      throw error;
-    }
-  },
+      console.error('Error fetching trending books:', error);
 
-  getPopularBooks: async () => {
-    try {
-      // Get popular books from OpenLibrary's subjects API
-      const response = await openLibraryAPI.get('/subjects/fiction.json?limit=10');
-      console.log("Getting Data");
-      console.log(response.data.works);
-  
-      // Map to consistent format
-      const books = response.data.works.map(work => {
-        let coverUrl = null;
-        if (work.cover_id) {
-          coverUrl = `https://covers.openlibrary.org/b/id/${work.cover_id}-L.jpg`;
-        }
-  
-        return {
-          id: work.key.replace('/works/', ''),
-          title: work.title,
-          author: work.authors?.map(a => a.name).join(', ') || 'Unknown Author',
-          overview: work.description || '',
-          cover: coverUrl,
-          releaseDate: work.first_publish_year ? `${work.first_publish_year}-01-01` : null,
-          rating: work.ratings_average || 0
-        };
-      });
-  
-      return books;
-    } catch (error) {
-      console.error('Error fetching popular books from OpenLibrary:', error);
-      throw error;
+      // Return cached data if available
+      if (cache.trending) {
+        return cache.trending;
+      }
+
+      return [];
     }
   },
 
   /**
-   * Search books in OpenLibrary
+   * Get popular books
    */
-  searchBooks: async (query) => {
+  getPopularBooks: async (limit = 20) => {
     try {
-      const response = await openLibraryAPI.get(`/search.json?q=${encodeURIComponent(query)}`);
+      // Check cache first
+      const now = Date.now();
+      if (cache.popular && now - cache.popularTimestamp < CACHE_EXPIRY) {
+        console.log('Using cached popular books');
+        return cache.popular;
+      }
 
-      // Map the response to a consistent format
-      const books = response.data.docs.slice(0, 30).map(book => {
-        // Get cover if available
-        let coverUrl = null;
-        if (book.cover_i) {
-          coverUrl = `https://covers.openlibrary.org/b/id/${book.cover_i}-L.jpg`;
+      // Use a different subject for popular books
+      const requestLimit = Math.min(100, limit * 3);
+      const response = await openLibraryAPI.get(`/subjects/popular.json?limit=${requestLimit}`);
+
+      if (!response.data || !response.data.works) {
+        return [];
+      }
+
+      // Process and filter books
+      const books = response.data.works.map(work => processBookData(work, 'popular'));
+      const processedBooks = filterAndSortBooks(books, limit);
+
+      // Update cache
+      cache.popular = processedBooks;
+      cache.popularTimestamp = now;
+
+      return processedBooks;
+    } catch (error) {
+      console.error('Error fetching popular books:', error);
+
+      if (cache.popular) {
+        return cache.popular;
+      }
+
+      return [];
+    }
+  },
+
+  /**
+   * Get New York Times bestsellers
+   */
+  getNytBestsellers: async (limit = 20) => {
+    try {
+      // Check cache first
+      const now = Date.now();
+      if (cache.nytBestsellers && now - cache.nytTimestamp < CACHE_EXPIRY) {
+        console.log('Using cached NYT bestsellers');
+        return cache.nytBestsellers;
+      }
+
+      // Fetch New York Times bestsellers
+      const requestLimit = Math.min(100, limit * 3);
+      const response = await openLibraryAPI.get(`/subjects/new_york_times_bestseller.json?limit=${requestLimit}`);
+
+      if (!response.data || !response.data.works) {
+        return [];
+      }
+
+      // Process and filter books
+      const books = response.data.works.map(work => processBookData(work, 'nyt_bestseller'));
+      const processedBooks = filterAndSortBooks(books, limit);
+
+      // Update cache
+      cache.nytBestsellers = processedBooks;
+      cache.nytTimestamp = now;
+
+      return processedBooks;
+    } catch (error) {
+      console.error('Error fetching NYT bestsellers:', error);
+
+      if (cache.nytBestsellers) {
+        return cache.nytBestsellers;
+      }
+
+      return [];
+    }
+  },
+
+  /**
+   * Get award-winning books
+   */
+  getAwardWinners: async (limit = 20) => {
+    try {
+      // Check cache first
+      const now = Date.now();
+      if (cache.awardWinners && now - cache.awardsTimestamp < CACHE_EXPIRY) {
+        console.log('Using cached award winners');
+        return cache.awardWinners;
+      }
+
+      // Fetch award-winning books
+      const requestLimit = Math.min(100, limit * 3);
+      const response = await openLibraryAPI.get(`/subjects/awards.json?limit=${requestLimit}`);
+
+      if (!response.data || !response.data.works) {
+        return [];
+      }
+
+      // Process and filter books
+      const books = response.data.works.map(work => processBookData(work, 'award_winner'));
+      const processedBooks = filterAndSortBooks(books, limit);
+
+      // Update cache
+      cache.awardWinners = processedBooks;
+      cache.awardsTimestamp = now;
+
+      return processedBooks;
+    } catch (error) {
+      console.error('Error fetching award-winning books:', error);
+
+      if (cache.awardWinners) {
+        return cache.awardWinners;
+      }
+
+      return [];
+    }
+  },
+
+  /**
+   * Get recently published books
+   */
+  getRecentBooks: async (limit = 20) => {
+    try {
+      // Check cache first
+      const now = Date.now();
+      if (cache.recentBooks && now - cache.recentTimestamp < CACHE_EXPIRY) {
+        console.log('Using cached recent books');
+        return cache.recentBooks;
+      }
+
+      // Fetch a large set of books and filter by publication year
+      const requestLimit = Math.min(150, limit * 5); // Need more books to filter effectively
+      const response = await openLibraryAPI.get(`/subjects/accessible_book.json?limit=${requestLimit}`);
+
+      if (!response.data || !response.data.works) {
+        return [];
+      }
+
+      // Map to our format
+      const allBooks = response.data.works.map(work => processBookData(work, 'recent'));
+
+      // Filter for books published in the last 5 years
+      const currentYear = new Date().getFullYear();
+      const recentYearThreshold = currentYear - 5;
+
+      let recentBooks = allBooks.filter(book => 
+        book.year && book.year >= recentYearThreshold && book.cover !== null
+      );
+
+      // If we don't have enough recent books, expand the range
+      if (recentBooks.length < limit) {
+        recentBooks = allBooks.filter(book => 
+          book.year && book.year >= (currentYear - 10) && book.cover !== null
+        );
+      }
+
+      // Sort by year (descending) and then by rating
+      recentBooks.sort((a, b) => {
+        // First by year (newest first)
+        if (b.year !== a.year) {
+          return b.year - a.year;
         }
-
-        // Format author names
-        const authorNames = book.author_name ? book.author_name.join(', ') : 'Unknown Author';
-
-        return {
-          id: book.key.replace('/works/', ''),
-          title: book.title,
-          author: authorNames,
-          overview: book.excerpt || book.description || '',
-          cover: coverUrl,
-          releaseDate: book.first_publish_year ? `${book.first_publish_year}-01-01` : null,
-          olid: book.key,
-          isbn: book.isbn ? book.isbn[0] : null
-        };
+        // Then by rating
+        return b.rating - a.rating;
       });
 
-      return books;
+      // Take only what we need
+      const processedBooks = recentBooks.slice(0, limit);
+
+      // Update cache
+      cache.recentBooks = processedBooks;
+      cache.recentTimestamp = now;
+
+      return processedBooks;
     } catch (error) {
-      console.error('Error searching books from OpenLibrary:', error);
-      throw error;
+      console.error('Error fetching recent books:', error);
+
+      if (cache.recentBooks) {
+        return cache.recentBooks;
+      }
+
+      return [];
     }
   },
 
@@ -306,6 +432,11 @@ module.exports = {
    */
   getBookDetails: async (bookId) => {
     try {
+      // Check if bookId is one of our special routes
+      if (['genres', 'genre', 'latest', 'popular', 'search'].includes(bookId)) {
+        throw new Error(`Invalid book ID: ${bookId} is a reserved route name`);
+      }
+
       // Format the work ID if needed
       let workId = bookId;
       if (!workId.includes('/')) {
@@ -345,7 +476,10 @@ module.exports = {
           : (bookData.description || ''),
         cover: null,
         releaseDate: bookData.first_publish_date || null,
-        genres: bookData.subjects ? bookData.subjects.slice(0, 5) : []
+        year: bookData.first_publish_year || null,
+        genres: bookData.subjects ? bookData.subjects.slice(0, 5) : [],
+        rating: bookData.ratings_average || 0,
+        ratings_count: bookData.ratings_count || 0
       };
 
       // Get cover if available

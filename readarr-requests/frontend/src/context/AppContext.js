@@ -5,126 +5,187 @@ import api from '../utils/api';
 const AppContext = createContext();
 
 export const AppProvider = ({ children }) => {
+  // Books data
   const [trendingBooks, setTrendingBooks] = useState([]);
   const [popularBooks, setPopularBooks] = useState([]);
+  const [nytBooks, setNytBooks] = useState([]);
+  const [awardBooks, setAwardBooks] = useState([]);
+  const [recentBooks, setRecentBooks] = useState([]);
   const [genreBooks, setGenreBooks] = useState({});
+
+  // Additional state
   const [genres, setGenres] = useState([]);
   const [currentGenre, setCurrentGenre] = useState('');
-  const [homeDataLoaded, setHomeDataLoaded] = useState(false);
-  const [genresLoaded, setGenresLoaded] = useState(false);
-  const [homeDataError, setHomeDataError] = useState(null);
+  const [loading, setLoading] = useState({
+    home: false,
+    genres: false,
+    genre: {}
+  });
+  const [error, setError] = useState({
+    home: null,
+    genres: null,
+    genre: {}
+  });
 
-  // Function to fetch both trending and popular books
+  // Filter state
+  const [yearFilter, setYearFilter] = useState('all');
+  const [ratingFilter, setRatingFilter] = useState(0);
+
+  // Function to fetch trending and popular books
   const fetchHomeData = useCallback(async () => {
-    if (homeDataLoaded) return; // Skip if already loaded
+    setLoading(prev => ({ ...prev, home: true }));
+    setError(prev => ({ ...prev, home: null }));
 
     try {
-      // Fetch both in parallel
-      const [trendingResponse, popularResponse] = await Promise.all([
-        api.get('/books/latest'),
-      ]);
+      const [trendingResponse, popularResponse, nytResponse, awardsResponse, recentResponse] = 
+        await Promise.all([
+          api.get('/books/latest'),
+          api.get('/books/popular'),
+          api.get('/books/nyt'),
+          api.get('/books/awards'),
+          api.get('/books/recent')
+        ]);
 
       setTrendingBooks(trendingResponse.data);
-      setHomeDataLoaded(true);
+      setPopularBooks(popularResponse.data);
+      setNytBooks(nytResponse.data);
+      setAwardBooks(awardsResponse.data);
+      setRecentBooks(recentResponse.data);
     } catch (err) {
       console.error('Error fetching home data:', err);
-      setHomeDataError('Failed to load book discovery data');
+      setError(prev => ({ ...prev, home: 'Failed to load book discovery data' }));
+    } finally {
+      setLoading(prev => ({ ...prev, home: false }));
     }
-  }, [homeDataLoaded]);
+  }, []);
 
   // Function to fetch available genres
   const fetchGenres = useCallback(async () => {
-    if (genresLoaded) return; // Skip if already loaded
+    setLoading(prev => ({ ...prev, genres: true }));
+    setError(prev => ({ ...prev, genres: null }));
 
     try {
       const response = await api.get('/books/genres');
       setGenres(response.data);
-      setGenresLoaded(true);
 
-      // Set the first genre as current if none selected
-      if (!currentGenre && response.data.length > 0) {
+      // If we have genres but no current genre is selected, select the first one
+      if (response.data.length > 0 && !currentGenre) {
         setCurrentGenre(response.data[0].id);
+        fetchGenreBooks(response.data[0].id);
       }
     } catch (err) {
       console.error('Error fetching genres:', err);
+      setError(prev => ({ ...prev, genres: 'Failed to load genres' }));
+    } finally {
+      setLoading(prev => ({ ...prev, genres: false }));
     }
-  }, [genresLoaded, currentGenre]);
+  }, [currentGenre]);
 
+  // Function to fetch books for a specific genre
   const fetchGenreBooks = useCallback(async (genreId) => {
+    // Skip if we already have this genre's books
+    if (genreBooks[genreId]) return;
+
+    setLoading(prev => ({ 
+      ...prev, 
+      genre: { ...prev.genre, [genreId]: true } 
+    }));
+    setError(prev => ({ 
+      ...prev, 
+      genre: { ...prev.genre, [genreId]: null } 
+    }));
+
     try {
-      console.log(`Making API call to fetch books for genre: ${genreId}`); // Add logging
+      console.log(`Fetching books for genre: ${genreId}`);
       const response = await api.get(`/books/genre/${genreId}`);
-      console.log(`API response received for genre ${genreId}: ${response.data.length} books`); // Add logging
-  
+
       setGenreBooks(prev => ({
         ...prev,
         [genreId]: response.data
       }));
     } catch (err) {
-      console.error(`Error fetching genre ${genreId} books:`, err);
+      console.error(`Error fetching books for genre ${genreId}:`, err);
+      setError(prev => ({ 
+        ...prev, 
+        genre: { ...prev.genre, [genreId]: `Failed to load ${genreId} books` } 
+      }));
+    } finally {
+      setLoading(prev => ({ 
+        ...prev, 
+        genre: { ...prev.genre, [genreId]: false } 
+      }));
     }
-  }, []);
+  }, [genreBooks]);
 
   // Function to set current genre and fetch its books if needed
   const selectGenre = useCallback((genreId) => {
-    console.log(`selectGenre called with: ${genreId}`); // Add logging
+    console.log(`Selecting genre: ${genreId}`);
     setCurrentGenre(genreId);
-  
-    // Check if we already have this genre's books
+
+    // Fetch this genre's books if we don't have them yet
     if (!genreBooks[genreId]) {
-      console.log(`Fetching books for genre: ${genreId}`); // Add logging
       fetchGenreBooks(genreId);
-    } else {
-      console.log(`Using cached books for genre: ${genreId}`); // Add logging
     }
   }, [genreBooks, fetchGenreBooks]);
 
-  // Fetch genres when component mounts
-  useEffect(() => {
-    fetchGenres();
-  }, [fetchGenres]);
+  // Apply filters to books
+  const filterBooks = useCallback((books) => {
+    if (!books || !Array.isArray(books)) return [];
 
-  // Function to force refresh all data
-  const refreshAllData = useCallback(async () => {
-    try {
-      // Fetch trending and popular
-      const [trendingResponse, popularResponse] = await Promise.all([
-        api.get('/books/latest'),
-      ]);
+    return books.filter(book => {
+      // Apply year filter
+      if (yearFilter !== 'all') {
+        const currentYear = new Date().getFullYear();
 
-      setTrendingBooks(trendingResponse.data);
-      setPopularBooks(popularResponse.data);
-
-      // Refresh current genre if selected
-      if (currentGenre) {
-        const genreResponse = await api.get(`/books/genre/${currentGenre}`);
-        setGenreBooks(prev => ({
-          ...prev,
-          [currentGenre]: genreResponse.data
-        }));
+        if (yearFilter === 'recent' && (!book.year || book.year < currentYear - 5)) return false;
+        if (yearFilter === 'decade' && (!book.year || book.year < currentYear - 10)) return false;
+        if (yearFilter === 'century' && (!book.year || book.year < 2000)) return false;
+        if (yearFilter === 'classic' && (!book.year || book.year > 1960)) return false;
       }
-    } catch (err) {
-      console.error('Error refreshing data:', err);
-      setHomeDataError('Failed to refresh data');
-    }
-  }, [currentGenre]);
+
+      // Apply rating filter
+      if (ratingFilter > 0 && (!book.rating || book.rating < ratingFilter)) return false;
+
+      return true;
+    });
+  }, [yearFilter, ratingFilter]);
+
+  // Initial data load
+  useEffect(() => {
+    fetchHomeData();
+    fetchGenres();
+  }, [fetchHomeData, fetchGenres]);
 
   // Provide the context value
   return (
     <AppContext.Provider
       value={{
+        // Book data
         trendingBooks,
         popularBooks,
+        nytBooks,
+        awardBooks,
+        recentBooks,
         genres,
         genreBooks,
         currentGenre,
-        homeDataError,
-        homeDataLoaded,
+
+        // Loading and error states
+        loading,
+        error,
+
+        // Filter state and functions
+        yearFilter,
+        setYearFilter,
+        ratingFilter,
+        setRatingFilter,
+        filterBooks,
+
+        // Actions
         fetchHomeData,
         fetchGenres,
         fetchGenreBooks,
-        selectGenre,
-        refreshAllData
+        selectGenre
       }}
     >
       {children}

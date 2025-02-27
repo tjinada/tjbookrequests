@@ -11,17 +11,26 @@ router.get('/genres', auth, bookController.getGenres);
 // Get books by genre
 router.get('/genre/:genre', auth, bookController.getBooksByGenre);
 
-// Get latest/trending books
+// Get trending/latest books
 router.get('/latest', auth, bookController.getLatestBooks);
 
 // Get popular books
 router.get('/popular', auth, bookController.getPopularBooks);
 
-// Search books (make sure this is before the :id route)
+// Get NYT bestsellers
+router.get('/nyt', auth, bookController.getNytBestsellers);
+
+// Get award-winning books
+router.get('/awards', auth, bookController.getAwardWinners);
+
+// Get recent books
+router.get('/recent', auth, bookController.getRecentBooks);
+
+// Search books
 router.get('/search', auth, bookController.searchBooks);
 
 // PARAMETER ROUTES LAST
-// Get book details (this must be last because it will match any /books/:something)
+// Get book details
 router.get('/:id', auth, bookController.getBookDetails);
 
 module.exports = router;
