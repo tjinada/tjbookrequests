@@ -35,32 +35,17 @@ services:
       - GOOGLE_BOOKS_API_KEY=${GOOGLE_BOOKS_API_KEY}
       - ADMIN_KEY=${ADMIN_KEY}
 
-  # Frontend App
+ # Frontend with Nginx (combined)
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      args:
-        - REACT_APP_API_URL=/api
     container_name: readarr-requests-frontend
-    restart: unless-stopped
-    depends_on:
-      - backend
-    networks:
-      - app_network
-
-  # Nginx Web Server (Reverse Proxy)
-  nginx:
-    image: nginx:alpine
-    container_name: readarr-requests-nginx
     restart: unless-stopped
     ports:
       - "${EXTERNAL_PORT}:80"
-    volumes:
-      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
     depends_on:
       - backend
-      - frontend
     networks:
       - app_network
 
