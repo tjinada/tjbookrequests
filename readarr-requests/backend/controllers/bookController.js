@@ -47,3 +47,30 @@ exports.getBookDetails = async (req, res) => {
     res.status(500).send('Server error');
   }
 };
+
+// Get genres list
+exports.getGenres = async (req, res) => {
+  try {
+    const genres = openLibraryAPI.getGenres();
+    res.json(genres);
+  } catch (err) {
+    console.error('Error getting genres:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Get books by genre
+exports.getBooksByGenre = async (req, res) => {
+  try {
+    const { genre } = req.params;
+    if (!genre) {
+      return res.status(400).json({ message: 'Genre parameter is required' });
+    }
+
+    const books = await openLibraryAPI.getBooksByGenre(genre);
+    res.json(books);
+  } catch (err) {
+    console.error(`Error getting books for genre ${req.params.genre}:`, err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
