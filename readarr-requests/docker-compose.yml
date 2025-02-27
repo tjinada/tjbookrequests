@@ -28,7 +28,7 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=5000
-      - MONGO_URI=mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongodb:27017/${MONGO_DATABASE}?authSource=admin
+      - MONGO_URI=mongodb://mongodb:27017/readarr-requests
       - JWT_SECRET=${JWT_SECRET}
       - READARR_API_URL=${READARR_API_URL}
       - READARR_API_KEY=${READARR_API_KEY}
