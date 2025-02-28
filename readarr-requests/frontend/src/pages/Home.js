@@ -29,6 +29,7 @@ import AuthContext from '../context/AuthContext';
 import PullToRefresh from 'react-pull-to-refresh';
 import SwipeableBookCard from '../components/books/SwipeableBookCard';
 import SwipeTutorial from '../components/common/SwipeTutorial';
+import BookRequestDialog from '../components/books/BookRequestDialog'; 
 
 // Tab panel component
 function TabPanel(props) {
@@ -58,6 +59,8 @@ const Home = () => {
   const [loading, setLoading] = useState(true);
   const { user } = useContext(AuthContext);
   const isAdmin = user && user.role === 'admin';
+  const [requestDialogOpen, setRequestDialogOpen] = useState(false);
+  const [selectedBook, setSelectedBook] = useState(null);
 
   // Get data and functions from context
   const { 
@@ -78,6 +81,12 @@ const Home = () => {
     setRatingFilter,
     filterBooks
   } = useContext(AppContext);
+
+  // Handle book request
+  const handleRequestBook = (book) => {
+    setSelectedBook(book);
+    setRequestDialogOpen(true);
+  };
 
   // Load data when component mounts
   useEffect(() => {
@@ -423,6 +432,13 @@ const Home = () => {
             </Box>
           )}
         </TabPanel>
+        {selectedBook && (
+          <BookRequestDialog
+            open={requestDialogOpen}
+            onClose={() => setRequestDialogOpen(false)}
+            book={selectedBook}
+          />
+        )}
         <SwipeTutorial />
       </Box>
     </PullToRefresh>
