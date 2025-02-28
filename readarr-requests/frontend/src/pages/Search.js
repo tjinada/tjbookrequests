@@ -11,15 +11,24 @@ import SearchIcon from '@mui/icons-material/Search';
 import Pagination from '@mui/material/Pagination';
 import api from '../utils/api';
 import BookCard from '../components/books/BookCard';
+import SwipeableBookCard from '../components/books/SwipeableBookCard';
+import BookRequestDialog from '../components/books/BookRequestDialog';
 
 const Search = () => {
   const [query, setQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
+  const [requestDialogOpen, setRequestDialogOpen] = useState(false);
+  const [selectedBook, setSelectedBook] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [page, setPage] = useState(1);
   const [hasSearched, setHasSearched] = useState(false);
   const booksPerPage = 12;
+
+  const handleRequestBook = (book) => {
+    setSelectedBook(book);
+    setRequestDialogOpen(true);
+  };
 
   const handleSearch = async (e) => {
     e.preventDefault();
@@ -115,7 +124,10 @@ const Search = () => {
               <Grid container spacing={3}>
                 {paginatedResults.map((book) => (
                   <Grid item xs={12} sm={6} md={4} lg={3} key={book.id}>
-                    <BookCard book={book} />
+                    <SwipeableBookCard 
+                      book={book} 
+                      onRequest={handleRequestBook}
+                    />
                   </Grid>
                 ))}
               </Grid>
@@ -146,6 +158,13 @@ const Search = () => {
                 </Typography>
               </Box>
             )
+          )}
+          {selectedBook && (
+            <BookRequestDialog
+              open={requestDialogOpen}
+              onClose={() => setRequestDialogOpen(false)}
+              book={selectedBook}
+            />
           )}
         </>
       )}

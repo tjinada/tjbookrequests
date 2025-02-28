@@ -1,23 +1,28 @@
 // src/components/layout/Layout.js
-import React, { useState, useContext } from 'react';
+import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
-import { styled } from '@mui/material/styles';
+import { styled, useTheme } from '@mui/material/styles';
 import Box from '@mui/material/Box';
-import Navbar from './Navbar';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import CssBaseline from '@mui/material/CssBaseline';
+import ResponsiveAppBar from './ResponsiveAppBar';
 import Sidebar from './Sidebar';
-import AuthContext from '../../context/AuthContext';
+import BottomNav from './BottomNav';
+import ScrollContainer from './ScrollContainer';
 
 const drawerWidth = 240;
 
+// Modify Main component to better handle scrolling
 const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })(
-  ({ theme, open }) => ({
+  ({ theme, open, isMobile }) => ({
     flexGrow: 1,
     padding: theme.spacing(3),
+    paddingBottom: isMobile ? theme.spacing(10) : theme.spacing(3), // Space for bottom nav
     transition: theme.transitions.create('margin', {
       easing: theme.transitions.easing.sharp,
       duration: theme.transitions.duration.leavingScreen,
     }),
-    marginLeft: `-${drawerWidth}px`,
+    marginLeft: isMobile ? 0 : `-${drawerWidth}px`,
     ...(open && {
       transition: theme.transitions.create('margin', {
         easing: theme.transitions.easing.easeOut,
@@ -25,36 +30,65 @@ const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })(
       }),
       marginLeft: 0,
     }),
+    overflowY: 'auto', // Allow scrolling within main content
+    overflowX: 'hidden',
+    WebkitOverflowScrolling: 'touch', // Smooth scrolling on iOS
+    touchAction: 'pan-y', // Enable vertical scrolling
+    height: '100%',
+    '@supports (padding: max(0px))': {
+      paddingBottom: isMobile ? 
+        `max(${theme.spacing(10)}, env(safe-area-inset-bottom))` : 
+        theme.spacing(3)
+    }
   }),
 );
 
 const Layout = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const { user } = useContext(AuthContext);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
   };
 
   return (
-    <Box sx={{ display: 'flex' }}>
-      <Navbar 
-        open={sidebarOpen} 
-        toggleSidebar={toggleSidebar}
-        drawerWidth={drawerWidth} 
-      />
+    <Box sx={{ 
+      display: 'flex', 
+      flexDirection: 'column',
+      height: '100vh', // Full viewport height
+      overflow: 'hidden' // Prevent double scrollbars
+    }}>
+      <CssBaseline />
 
-      <Sidebar 
-        open={sidebarOpen} 
-        drawerWidth={drawerWidth} 
-        isAdmin={user?.role === 'admin'} 
-      />
+      <ResponsiveAppBar toggleSidebar={toggleSidebar} />
 
-      <Main open={sidebarOpen}>
-        <Box component="div" sx={{ mt: 8, p: 2 }}>
-          <Outlet />
-        </Box>
-      </Main>
+      <Box sx={{ 
+        display: 'flex', 
+        flexGrow: 1,
+        overflow: 'hidden' // Contain scrolling inside Main
+      }}>
+        {!isMobile && (
+          <Sidebar 
+            open={sidebarOpen} 
+            drawerWidth={drawerWidth}
+          />
+        )}
+
+        <Main 
+          open={sidebarOpen} 
+          isMobile={isMobile}
+          sx={{ 
+            pt: { xs: 7, sm: 8 }, // Account for different AppBar heights
+          }}
+        >
+          <ScrollContainer>
+            <Outlet />
+          </ScrollContainer>
+        </Main>
+      </Box>
+
+      <BottomNav />
     </Box>
   );
 };

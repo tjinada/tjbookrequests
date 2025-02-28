@@ -19,6 +19,23 @@ COPY --from=build /app/build /usr/share/nginx/html
 # Create a simple default nginx config
 RUN echo 'server { \
     listen 80; \
+    server_name localhost; \
+    include /etc/nginx/mime.types; \
+    default_type application/octet-stream; \
+    types { \
+        text/html                             html htm shtml; \
+        text/css                              css; \
+        text/javascript                       js; \
+        application/json                      json; \
+        image/png                             png; \
+        image/jpeg                            jpg jpeg; \
+        image/svg+xml                         svg svgz; \
+        application/woff                      woff; \
+        application/woff2                     woff2; \
+        application/x-font-ttf                ttf; \
+        application/manifest+json             webmanifest; \
+    } \
+    add_header Service-Worker-Allowed "/"; \
     root /usr/share/nginx/html; \
     index index.html; \
     location / { \
