@@ -1,22 +1,36 @@
 // src/App.js
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import CircularProgress from '@mui/material/CircularProgress';
+import Box from '@mui/material/Box';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { AuthProvider } from './context/AuthContext';
 import { AppProvider } from './context/AppContext';
-import PrivateRoute from './components/routing/PrivateRoute';
+import InstallPrompt from './components/common/InstallPrompt';
 
-// Pages
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Home from './pages/Home';
-import Search from './pages/Search';
-import BookDetail from './pages/BookDetail';
-import Requests from './pages/Requests';
-import AdminRequests from './pages/AdminRequests';
-import Profile from './pages/Profile';
+import PrivateRoute from './components/routing/PrivateRoute';
 import Layout from './components/layout/Layout';
+
+
+// Lazy-loaded components
+const Login = lazy(() => import('./pages/Login'));
+const Register = lazy(() => import('./pages/Register'));
+const Home = lazy(() => import('./pages/Home'));
+const Search = lazy(() => import('./pages/Search'));
+const BookDetail = lazy(() => import('./pages/BookDetail'));
+const Requests = lazy(() => import('./pages/Requests'));
+const AdminRequests = lazy(() => import('./pages/AdminRequests'));
+const Profile = lazy(() => import('./pages/Profile'));
+
+
+// Loading fallback
+const LoadingFallback = () => (
+  <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+    <CircularProgress />
+  </Box>
+);
+
 
 // Create a theme
 const theme = createTheme({
@@ -48,22 +62,25 @@ function App() {
       <AuthProvider>
         <AppProvider>
           <Router>
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
+            <Suspense fallback={<LoadingFallback />}>
+              <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
 
-              <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
-                <Route path="/" element={<Home />} />
-                <Route path="/search" element={<Search />} />
-                <Route path="/book/:id" element={<BookDetail />} />
-                <Route path="/requests" element={<Requests />} />
-                <Route path="/admin/requests" element={<AdminRequests />} />
-                <Route path="/profile" element={<Profile />} />
-                <Route path="/book/google/:id" element={<BookDetail source="google" />} />
-              </Route>
+                <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
+                  <Route path="/" element={<Home />} />
+                  <Route path="/search" element={<Search />} />
+                  <Route path="/book/:id" element={<BookDetail />} />
+                  <Route path="/requests" element={<Requests />} />
+                  <Route path="/admin/requests" element={<AdminRequests />} />
+                  <Route path="/profile" element={<Profile />} />
+                  <Route path="/book/google/:id" element={<BookDetail source="google" />} />
+                </Route>
 
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+              <InstallPrompt />
+            </Suspense>
           </Router>
         </AppProvider>
       </AuthProvider>

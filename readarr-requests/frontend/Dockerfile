@@ -19,6 +19,10 @@ COPY --from=build /app/build /usr/share/nginx/html
 # Create a simple default nginx config
 RUN echo 'server { \
     listen 80; \
+    add_header Service-Worker-Allowed "/"; \
+    types { \
+      application/manifest+json  webmanifest; \
+    } \
     root /usr/share/nginx/html; \
     index index.html; \
     location / { \

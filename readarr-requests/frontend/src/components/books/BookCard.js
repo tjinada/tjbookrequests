@@ -1,6 +1,7 @@
 // src/components/books/BookCard.js
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate  } from 'react-router-dom';
+import { useMediaQuery, useTheme } from '@mui/material';
 import Card from '@mui/material/Card';
 import CardActions from '@mui/material/CardActions';
 import CardContent from '@mui/material/CardContent';
@@ -16,7 +17,15 @@ import AutoStoriesIcon from '@mui/icons-material/AutoStories';
 import Chip from '@mui/material/Chip';
 import noImage from '../../assets/no-image.png';
 
-const BookCard = ({ book, showEditionCount = false }) => {
+const BookCard = ({ book, showRating = true }) => {
+
+  const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
+  const handleCardClick = () => {
+    navigate(`/book/${book.id}`);
+  };
   
   const getBookDetailUrl = (book) => {
     // If it's a Google Books source
@@ -45,55 +54,45 @@ const BookCard = ({ book, showEditionCount = false }) => {
       display: 'flex', 
       flexDirection: 'column',
       transition: 'transform 0.2s',
-      '&:hover': {
-        transform: 'scale(1.03)'
+      '&:active': {
+        transform: isMobile ? 'scale(0.98)' : 'none'
       }
     }}>
       <CardMedia
         component="img"
-        height="250"
+        height={isMobile ? "160" : "240"}
         image={book.cover || noImage}
         alt={book.title}
         sx={{ objectFit: 'contain', p: 1 }}
       />
       <CardContent sx={{ flexGrow: 1 }}>
-        <Typography gutterBottom variant="h6" component="div" sx={{ fontWeight: 'bold' }}>
-          {truncate(book.title, 40)}
+      <Typography gutterBottom variant="h6" component="div" sx={{ fontWeight: 'bold', fontSize: isMobile ? '0.9rem' : '1rem' }}>
+          {truncate(book.title, isMobile ? 40 : 50)}
         </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {book.author}
+        <Typography variant="body2" color="text.secondary" sx={{ fontSize: isMobile ? '0.75rem' : '0.875rem' }}>
+          {truncate(book.author, isMobile ? 30 : 40)}
         </Typography>
 
         {/* Rating display */}
-        {book.rating > 0 && (
+        {showRating && book.rating > 0 && (
           <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
             <Rating 
               value={book.rating} 
               readOnly 
               precision={0.1} 
               size="small"
+              sx={{ fontSize: isMobile ? '0.8rem' : '1rem' }}
             />
-            <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ ml: 0.5, fontSize: isMobile ? '0.7rem' : '0.75rem' }}>
               {book.rating.toFixed(1)}
             </Typography>
           </Box>
         )}
 
         <Box sx={{ mt: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" color="text.secondary" sx={{ fontSize: isMobile ? '0.7rem' : '0.75rem' }}>
             {year}
           </Typography>
-
-          {showEditionCount && book.editions_count > 0 && (
-            <Tooltip title="Number of editions">
-              <Chip
-                icon={<AutoStoriesIcon />}
-                label={book.editions_count}
-                size="small"
-                variant="outlined"
-              />
-            </Tooltip>
-          )}
         </Box>
       </CardContent>
       <CardActions>

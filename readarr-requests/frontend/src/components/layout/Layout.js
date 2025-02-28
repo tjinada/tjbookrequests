@@ -6,6 +6,7 @@ import Box from '@mui/material/Box';
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
 import AuthContext from '../../context/AuthContext';
+import BottomNav from './BottomNav';
 
 const drawerWidth = 240;
 
@@ -37,7 +38,7 @@ const Layout = () => {
   };
 
   return (
-    <Box sx={{ display: 'flex' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh'  }}>
       <Navbar 
         open={sidebarOpen} 
         toggleSidebar={toggleSidebar}
@@ -55,6 +56,20 @@ const Layout = () => {
           <Outlet />
         </Box>
       </Main>
+
+      <Box 
+        component="main" 
+        sx={{ 
+          flexGrow: 1,
+          p: 2,
+          pb: { xs: 8, md: 2 }, // Add bottom padding on mobile for the nav bar
+          mt: 8 // Account for AppBar height
+        }}
+      >
+        <Outlet />
+      </Box>
+      <BottomNav />
+
     </Box>
   );
 };

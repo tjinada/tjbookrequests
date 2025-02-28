@@ -26,6 +26,7 @@ import BookCard from '../components/books/BookCard';
 import AppContext from '../context/AppContext';
 import CachePurger from '../components/admin/CachePurger';
 import AuthContext from '../context/AuthContext';
+import PullToRefresh from 'react-pull-to-refresh';
 
 // Tab panel component
 function TabPanel(props) {
@@ -254,163 +255,171 @@ const Home = () => {
     );
   }
 
+  
+
   return (
-    <Box>
-      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          Discover Books
-        </Typography>
-        <Button 
-          variant="contained" 
-          component={Link} 
-          to="/search" 
-          startIcon={<SearchIcon />}
-        >
-          Search Books
-        </Button>
-      </Box>
+    <PullToRefresh
+    onRefresh={handleRefresh}
+    pullDownThreshold={70}
+    resistance={2.5}
+    >
+      <Box>
+        <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="h4" component="h1" gutterBottom>
+            Discover Books
+          </Typography>
+          <Button 
+            variant="contained" 
+            component={Link} 
+            to="/search" 
+            startIcon={<SearchIcon />}
+          >
+            Search Books
+          </Button>
+        </Box>
 
-      {/* Filters */}
-      {renderFilters()}
+        {/* Filters */}
+        {renderFilters()}
 
-      {/* Main Tabs */}
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-        <Tabs 
-          value={mainTab} 
-          onChange={handleMainTabChange} 
-          aria-label="discovery tabs"
-          variant="scrollable"
-          scrollButtons="auto"
-        >
-          <Tab 
-            icon={<TrendingUpIcon />} 
-            iconPosition="start"
-            label="Trending" 
-            id="tab-0" 
-            aria-controls="tabpanel-0" 
-          />
-          <Tab 
-            icon={<StarIcon />} 
-            iconPosition="start"
-            label="Popular" 
-            id="tab-1" 
-            aria-controls="tabpanel-1" 
-          />
-          <Tab 
-            icon={<AutoAwesomeIcon />} 
-            iconPosition="start"
-            label="NYT Bestsellers" 
-            id="tab-2" 
-            aria-controls="tabpanel-2" 
-          />
-          <Tab 
-            icon={<EmojiEventsIcon />} 
-            iconPosition="start"
-            label="Award Winners" 
-            id="tab-3" 
-            aria-controls="tabpanel-3" 
-          />
-          <Tab 
-            icon={<NewReleasesIcon />} 
-            iconPosition="start"
-            label="Recent Books" 
-            id="tab-4" 
-            aria-controls="tabpanel-4" 
-          />
-          <Tab 
-            icon={<LocalLibraryIcon />} 
-            iconPosition="start"
-            label="Genres" 
-            id="tab-5" 
-            aria-controls="tabpanel-5" 
-          />
-        </Tabs>
-      </Box>
+        {/* Main Tabs */}
+        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+          <Tabs 
+            value={mainTab} 
+            onChange={handleMainTabChange} 
+            aria-label="discovery tabs"
+            variant="scrollable"
+            scrollButtons="auto"
+          >
+            <Tab 
+              icon={<TrendingUpIcon />} 
+              iconPosition="start"
+              label="Trending" 
+              id="tab-0" 
+              aria-controls="tabpanel-0" 
+            />
+            <Tab 
+              icon={<StarIcon />} 
+              iconPosition="start"
+              label="Popular" 
+              id="tab-1" 
+              aria-controls="tabpanel-1" 
+            />
+            <Tab 
+              icon={<AutoAwesomeIcon />} 
+              iconPosition="start"
+              label="NYT Bestsellers" 
+              id="tab-2" 
+              aria-controls="tabpanel-2" 
+            />
+            <Tab 
+              icon={<EmojiEventsIcon />} 
+              iconPosition="start"
+              label="Award Winners" 
+              id="tab-3" 
+              aria-controls="tabpanel-3" 
+            />
+            <Tab 
+              icon={<NewReleasesIcon />} 
+              iconPosition="start"
+              label="Recent Books" 
+              id="tab-4" 
+              aria-controls="tabpanel-4" 
+            />
+            <Tab 
+              icon={<LocalLibraryIcon />} 
+              iconPosition="start"
+              label="Genres" 
+              id="tab-5" 
+              aria-controls="tabpanel-5" 
+            />
+          </Tabs>
+        </Box>
 
-      {/* Tab Panels */}
-      <TabPanel value={mainTab} index={0}>
-        {renderBookGrid(trendingBooks, "No trending books match your filters.")}
-      </TabPanel>
+        {/* Tab Panels */}
+        <TabPanel value={mainTab} index={0}>
+          {renderBookGrid(trendingBooks, "No trending books match your filters.")}
+        </TabPanel>
 
-      <TabPanel value={mainTab} index={1}>
-        {renderBookGrid(popularBooks, "No popular books match your filters.")}
-      </TabPanel>
+        <TabPanel value={mainTab} index={1}>
+          {renderBookGrid(popularBooks, "No popular books match your filters.")}
+        </TabPanel>
 
-      <TabPanel value={mainTab} index={2}>
-        {renderBookGrid(nytBooks, "No NYT bestsellers match your filters.")}
-      </TabPanel>
+        <TabPanel value={mainTab} index={2}>
+          {renderBookGrid(nytBooks, "No NYT bestsellers match your filters.")}
+        </TabPanel>
 
-      <TabPanel value={mainTab} index={3}>
-        {renderBookGrid(awardBooks, "No award-winning books match your filters.")}
-      </TabPanel>
+        <TabPanel value={mainTab} index={3}>
+          {renderBookGrid(awardBooks, "No award-winning books match your filters.")}
+        </TabPanel>
 
-      <TabPanel value={mainTab} index={4}>
-        {renderBookGrid(recentBooks, "No recent books match your filters.")}
-      </TabPanel>
+        <TabPanel value={mainTab} index={4}>
+          {renderBookGrid(recentBooks, "No recent books match your filters.")}
+        </TabPanel>
 
-      <TabPanel value={mainTab} index={5}>
-        {/* Genre Sub-tabs */}
-        {genres.length > 0 ? (
-          <>
-            <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-              <Tabs 
-                value={genreTab} 
-                onChange={handleGenreTabChange} 
-                aria-label="genre tabs"
-                variant="scrollable"
-                scrollButtons="auto"
-                sx={{ 
-                  maxWidth: '100%',
-                  '& .MuiTabs-flexContainer': {
-                    flexWrap: { xs: 'wrap', md: 'nowrap' }
-                  }
-                }}
-              >
-                {genres.map((genre, index) => (
-                  <Tab 
-                    key={genre.id}
-                    label={genre.name} 
-                    id={`genre-tab-${index}`}
-                    aria-controls={`genre-tabpanel-${index}`}
-                    sx={{ minWidth: { xs: 120, md: 'auto' } }}
-                  />
-                ))}
-              </Tabs>
+        <TabPanel value={mainTab} index={5}>
+          {/* Genre Sub-tabs */}
+          {genres.length > 0 ? (
+            <>
+              <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+                <Tabs 
+                  value={genreTab} 
+                  onChange={handleGenreTabChange} 
+                  aria-label="genre tabs"
+                  variant="scrollable"
+                  scrollButtons="auto"
+                  sx={{ 
+                    maxWidth: '100%',
+                    '& .MuiTabs-flexContainer': {
+                      flexWrap: { xs: 'wrap', md: 'nowrap' }
+                    }
+                  }}
+                >
+                  {genres.map((genre, index) => (
+                    <Tab 
+                      key={genre.id}
+                      label={genre.name} 
+                      id={`genre-tab-${index}`}
+                      aria-controls={`genre-tabpanel-${index}`}
+                      sx={{ minWidth: { xs: 120, md: 'auto' } }}
+                    />
+                  ))}
+                </Tabs>
+              </Box>
+
+              {/* Genre Tab Contents */}
+              {genres.map((genre, index) => (
+                <div 
+                  key={genre.id}
+                  role="tabpanel" 
+                  hidden={genreTab !== index}
+                  id={`genre-tabpanel-${index}`} 
+                  aria-labelledby={`genre-tab-${index}`}
+                >
+                  {genreTab === index && (
+                    <>
+                      {!genreBooks[genre.id] ? (
+                        <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
+                          <CircularProgress />
+                        </Box>
+                      ) : (
+                        renderBookGrid(
+                          genreBooks[genre.id], 
+                          `No ${genre.name} books match your filters.`
+                        )
+                      )}
+                    </>
+                  )}
+                </div>
+              ))}
+            </>
+          ) : (
+            <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
+              <CircularProgress />
             </Box>
-
-            {/* Genre Tab Contents */}
-            {genres.map((genre, index) => (
-              <div 
-                key={genre.id}
-                role="tabpanel" 
-                hidden={genreTab !== index}
-                id={`genre-tabpanel-${index}`} 
-                aria-labelledby={`genre-tab-${index}`}
-              >
-                {genreTab === index && (
-                  <>
-                    {!genreBooks[genre.id] ? (
-                      <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
-                        <CircularProgress />
-                      </Box>
-                    ) : (
-                      renderBookGrid(
-                        genreBooks[genre.id], 
-                        `No ${genre.name} books match your filters.`
-                      )
-                    )}
-                  </>
-                )}
-              </div>
-            ))}
-          </>
-        ) : (
-          <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
-            <CircularProgress />
-          </Box>
-        )}
-      </TabPanel>
-    </Box>
+          )}
+        </TabPanel>
+      </Box>
+    </PullToRefresh>
   );
 };
 
