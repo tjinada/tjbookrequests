@@ -24,7 +24,7 @@ const BookRequestDialog = ({ open, onClose, book }) => {
     setError(null);
 
     try {
-      await api.post('/api/requests', {
+      await api.post('/requests', {
         bookId: book.id,
         title: book.title,
         author: book.author,
