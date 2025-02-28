@@ -31,10 +31,10 @@ const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })(
 );
 
 const Layout = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const theme = useTheme();
   const { user } = useContext(AuthContext);
+  const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
