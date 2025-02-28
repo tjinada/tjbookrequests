@@ -1,12 +1,13 @@
 // src/components/layout/Layout.js
 import React, { useState, useContext } from 'react';
 import { Outlet } from 'react-router-dom';
-import { styled } from '@mui/material/styles';
+import { styled, useTheme } from '@mui/material/styles';
 import Box from '@mui/material/Box';
 import Sidebar from './Sidebar';
 import AuthContext from '../../context/AuthContext';
 import BottomNav from './BottomNav';
 import ResponsiveAppBar from './ResponsiveAppBar';
+import useMediaQuery from '@mui/material/useMediaQuery';
 
 const drawerWidth = 240;
 
@@ -32,6 +33,7 @@ const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })(
 const Layout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const theme = useTheme();
   const { user } = useContext(AuthContext);
 
   const toggleSidebar = () => {
