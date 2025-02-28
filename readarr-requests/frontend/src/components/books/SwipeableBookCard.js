@@ -15,6 +15,12 @@ const SwipeableBookCard = ({ book, onRequest }) => {
 
   const handlers = useSwipeable({
     onSwiping: (eventData) => {
+      // Only handle horizontal swipes to avoid interfering with scrolling
+      if (Math.abs(eventData.deltaY) > Math.abs(eventData.deltaX)) {
+        // This is likely a scroll attempt, don't interfere
+        return;
+      }
+
       // Calculate swipe percentage (0-100)
       const maxSwipeDistance = 150; // pixels
       const percentage = Math.min(100, Math.abs(eventData.deltaX) / maxSwipeDistance * 100);
@@ -22,19 +28,25 @@ const SwipeableBookCard = ({ book, onRequest }) => {
       setSwipeDirection(eventData.deltaX > 0 ? 'right' : 'left');
       setSwipePercentage(percentage);
     },
-    onSwipedLeft: () => {
-      // Request action
-      if (swipePercentage > 40 && onRequest) { // Only trigger if swiped far enough
-        onRequest(book);
+    onSwipedLeft: (eventData) => {
+      // Only trigger if this was primarily a horizontal swipe
+      if (Math.abs(eventData.deltaY) < Math.abs(eventData.deltaX)) {
+        // Only trigger if swiped far enough
+        if (swipePercentage > 40 && onRequest) {
+          onRequest(book);
+        }
       }
       // Reset state
       setSwipeDirection(null);
       setSwipePercentage(0);
     },
-    onSwipedRight: () => {
-      // Details action
-      if (swipePercentage > 40) { // Only trigger if swiped far enough
-        navigate(`/book/${book.id}`);
+    onSwipedRight: (eventData) => {
+      // Only trigger if this was primarily a horizontal swipe
+      if (Math.abs(eventData.deltaY) < Math.abs(eventData.deltaX)) {
+        // Only trigger if swiped far enough
+        if (swipePercentage > 40) {
+          navigate(`/book/${book.id}`);
+        }
       }
       // Reset state
       setSwipeDirection(null);
@@ -45,10 +57,12 @@ const SwipeableBookCard = ({ book, onRequest }) => {
       setSwipeDirection(null);
       setSwipePercentage(0);
     },
-    trackMouse: false, // Only track touch events for better mobile experience
-    preventScrollOnSwipe: true,
-    delta: 10, // Min distance in px before a swipe starts
-    trackTouch: true
+    // Critical settings for proper scrolling behavior
+    trackMouse: false,
+    preventScrollOnSwipe: false, // This is key - don't prevent scrolling
+    trackTouch: true,
+    delta: 15, // Increase this to require more intentional swipes
+    swipeDuration: 250 // Faster swipes are more likely to be intentional
   });
 
   // Calculate styles based on swipe
@@ -72,7 +86,7 @@ const SwipeableBookCard = ({ book, onRequest }) => {
       {...handlers} 
       sx={{ 
         position: 'relative', 
-        touchAction: 'pan-y',
+        touchAction: 'pan-y', // Allow vertical scrolling
         height: '100%',
         overflow: 'hidden',
         borderRadius: 1
@@ -92,7 +106,8 @@ const SwipeableBookCard = ({ book, onRequest }) => {
             alignItems: 'center',
             justifyContent: 'center',
             opacity: swipePercentage / 200, // Fade in gradually
-            zIndex: 1
+            zIndex: 1,
+            pointerEvents: 'none' // Allow scroll events to pass through
           }}
         >
           <BookmarkAddIcon sx={{ color: 'white', fontSize: '2rem' }} />
@@ -112,7 +127,8 @@ const SwipeableBookCard = ({ book, onRequest }) => {
             alignItems: 'center',
             justifyContent: 'center',
             opacity: swipePercentage / 200, // Fade in gradually
-            zIndex: 1
+            zIndex: 1,
+            pointerEvents: 'none' // Allow scroll events to pass through
           }}
         >
           <InfoIcon sx={{ color: 'white', fontSize: '2rem' }} />
@@ -126,7 +142,8 @@ const SwipeableBookCard = ({ book, onRequest }) => {
         height: '100%',
         position: 'relative',
         zIndex: 2,
-        bgcolor: 'background.paper'
+        bgcolor: 'background.paper',
+        touchAction: 'pan-y' // Allow vertical scrolling
       }}>
         <BookCard book={book} />
       </Box>

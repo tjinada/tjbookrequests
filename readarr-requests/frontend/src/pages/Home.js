@@ -171,7 +171,7 @@ const Home = () => {
     }
 
     return (
-      <Grid container spacing={3}>
+      <Grid container spacing={3} sx={{ touchAction: 'pan-y' }}>
         {filteredBooks.map((book) => (
           <Grid item xs={12} sm={6} md={4} lg={3} key={book.id}>
             <SwipeableBookCard 
@@ -278,7 +278,15 @@ const Home = () => {
     resistance={2.5}
     >
       <Box>
-        <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Box
+          sx={{ 
+            // Ensure the container doesn't interfere with scrolling
+            overflowY: 'visible',
+            touchAction: 'pan-y',
+            // Add bottom padding to ensure content isn't hidden behind bottom nav
+            pb: { xs: 8, sm: 4 }
+          }}
+        >
           <Typography variant="h4" component="h1" gutterBottom>
             Discover Books
           </Typography>
@@ -296,13 +304,29 @@ const Home = () => {
         {renderFilters()}
 
         {/* Main Tabs */}
-        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+        <Box 
+          sx={{ 
+            borderBottom: 1, 
+            borderColor: 'divider', 
+            mb: 3,
+            position: 'relative',
+            zIndex: 10, // Ensure it's above content but doesn't break scrolling
+            bgcolor: 'background.paper'
+          }}
+        >
           <Tabs 
             value={mainTab} 
             onChange={handleMainTabChange} 
             aria-label="discovery tabs"
             variant="scrollable"
             scrollButtons="auto"
+            sx={{
+              // Improve touch scrolling on the tabs
+              '& .MuiTabs-scroller': {
+                touchAction: 'pan-x',
+                overflowX: 'auto'
+              }
+            }}
           >
             <Tab 
               icon={<TrendingUpIcon />} 
