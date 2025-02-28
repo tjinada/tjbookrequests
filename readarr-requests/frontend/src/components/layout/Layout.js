@@ -3,22 +3,22 @@ import React, { useState, useContext } from 'react';
 import { Outlet } from 'react-router-dom';
 import { styled } from '@mui/material/styles';
 import Box from '@mui/material/Box';
-import Navbar from './Navbar';
 import Sidebar from './Sidebar';
 import AuthContext from '../../context/AuthContext';
 import BottomNav from './BottomNav';
+import ResponsiveAppBar from './ResponsiveAppBar';
 
 const drawerWidth = 240;
 
 const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })(
-  ({ theme, open }) => ({
+  ({ theme, open, isMobile  }) => ({
     flexGrow: 1,
     padding: theme.spacing(3),
     transition: theme.transitions.create('margin', {
       easing: theme.transitions.easing.sharp,
       duration: theme.transitions.duration.leavingScreen,
     }),
-    marginLeft: `-${drawerWidth}px`,
+    marginLeft: isMobile ? 0 : `-${drawerWidth}px`,
     ...(open && {
       transition: theme.transitions.create('margin', {
         easing: theme.transitions.easing.easeOut,
@@ -31,6 +31,7 @@ const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })(
 
 const Layout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { user } = useContext(AuthContext);
 
   const toggleSidebar = () => {
@@ -39,35 +40,28 @@ const Layout = () => {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh'  }}>
-      <Navbar 
-        open={sidebarOpen} 
+      <ResponsiveAppBar 
         toggleSidebar={toggleSidebar}
-        drawerWidth={drawerWidth} 
       />
 
-      <Sidebar 
+      {!isMobile && (
+        <Sidebar 
+          open={sidebarOpen} 
+          drawerWidth={drawerWidth}
+          isAdmin={user?.role === 'admin'} 
+        />
+      )}
+
+      <Main 
         open={sidebarOpen} 
-        drawerWidth={drawerWidth} 
-        isAdmin={user?.role === 'admin'} 
-      />
-
-      <Main open={sidebarOpen}>
-        <Box component="div" sx={{ mt: 8, p: 2 }}>
-          <Outlet />
-        </Box>
-      </Main>
-
-      <Box 
-        component="main" 
+        isMobile={isMobile}
         sx={{ 
-          flexGrow: 1,
-          p: 2,
-          pb: { xs: 8, md: 2 }, // Add bottom padding on mobile for the nav bar
-          mt: 8 // Account for AppBar height
+          pt: { xs: 7, sm: 8 }, // Account for different AppBar heights
         }}
       >
         <Outlet />
-      </Box>
+      </Main>
+
       <BottomNav />
 
     </Box>
