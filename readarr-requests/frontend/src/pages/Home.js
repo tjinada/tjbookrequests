@@ -27,6 +27,8 @@ import AppContext from '../context/AppContext';
 import CachePurger from '../components/admin/CachePurger';
 import AuthContext from '../context/AuthContext';
 import PullToRefresh from 'react-pull-to-refresh';
+import SwipeableBookCard from '../components/books/SwipeableBookCard';
+import SwipeTutorial from '../components/common/SwipeTutorial';
 
 // Tab panel component
 function TabPanel(props) {
@@ -163,7 +165,10 @@ const Home = () => {
       <Grid container spacing={3}>
         {filteredBooks.map((book) => (
           <Grid item xs={12} sm={6} md={4} lg={3} key={book.id}>
-            <BookCard book={book} showRating={true} />
+            <SwipeableBookCard 
+              book={book} 
+              onRequest={handleRequestBook}
+            />
           </Grid>
         ))}
       </Grid>
@@ -418,6 +423,7 @@ const Home = () => {
             </Box>
           )}
         </TabPanel>
+        <SwipeTutorial />
       </Box>
     </PullToRefresh>
   );

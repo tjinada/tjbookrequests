@@ -1,5 +1,5 @@
 // src/components/layout/Sidebar.js
-import React from 'react';
+import React, { useContext } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import Drawer from '@mui/material/Drawer';
 import List from '@mui/material/List';
@@ -15,9 +15,12 @@ import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import PersonIcon from '@mui/icons-material/Person';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
+import AuthContext from '../../context/AuthContext';
 
-const Sidebar = ({ open, drawerWidth, isAdmin }) => {
+const Sidebar = ({ open, drawerWidth }) => {
   const location = useLocation();
+  const { user } = useContext(AuthContext);
+  const isAdmin = user && user.role === 'admin';
 
   const menuItems = [
     { text: 'Home', icon: <HomeIcon />, path: '/' },
@@ -38,6 +41,8 @@ const Sidebar = ({ open, drawerWidth, isAdmin }) => {
         '& .MuiDrawer-paper': {
           width: drawerWidth,
           boxSizing: 'border-box',
+          top: { xs: 56, sm: 64 }, // Account for AppBar height
+          height: { xs: 'calc(100% - 56px)', sm: 'calc(100% - 64px)' }
         },
       }}
       variant="persistent"
