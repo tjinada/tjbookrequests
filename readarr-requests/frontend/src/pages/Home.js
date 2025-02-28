@@ -272,11 +272,6 @@ const Home = () => {
   
 
   return (
-    <PullToRefresh
-    onRefresh={handleRefresh}
-    pullDownThreshold={70}
-    resistance={2.5}
-    >
       <Box>
         <Box
           sx={{ 
@@ -465,7 +460,6 @@ const Home = () => {
         )}
         <SwipeTutorial />
       </Box>
-    </PullToRefresh>
   );
 };
 
