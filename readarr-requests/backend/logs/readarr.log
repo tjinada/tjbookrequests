@@ -230,3 +230,16 @@
 2025-02-27T16:34:20.212Z - Getting books for author ID: 27
 2025-02-27T16:34:20.221Z - Found 0 books for author
 2025-02-27T16:34:20.221Z - ERROR: Could not find or add the requested book: How to Win at Chess
+2025-02-27T20:42:51.323Z - Starting to add book: Allegiant by Veronica Roth
+2025-02-27T20:42:51.331Z - Using profiles - Quality: 1, Metadata: 1, Root: /data/media/ebooks/
+2025-02-27T20:42:51.331Z - Checking if author exists: Veronica Roth
+2025-02-27T20:42:51.340Z - Found existing author: Veronica Roth with ID: 26
+2025-02-27T20:42:51.340Z - Getting books for author ID: 26
+2025-02-27T20:42:51.352Z - Found 21 books for author
+2025-02-27T20:42:51.353Z - Found matching book in author's library: "Allegiant" with ID: 341
+2025-02-27T20:42:51.353Z - Triggering search for book ID: 341
+2025-02-27T20:42:51.356Z - Search command successful: Command ID: 258884, Status: started
+2025-02-27T20:44:09.616Z - Checking status for book ID: 342
+2025-02-27T20:44:09.624Z - Book status: Downloaded=false, Percent=0%
+2025-02-27T20:44:09.624Z - Checking status for book ID: 341
+2025-02-27T20:44:09.629Z - Book status: Downloaded=true, Percent=100%
