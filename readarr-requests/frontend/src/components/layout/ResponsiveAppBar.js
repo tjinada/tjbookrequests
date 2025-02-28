@@ -19,6 +19,7 @@ import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { useTheme, useMediaQuery } from '@mui/material';
 import AuthContext from '../../context/AuthContext';
+import ThemeToggle from '../common/ThemeToggle';
 
 const ResponsiveAppBar = ({ toggleSidebar }) => {
   const theme = useTheme();
@@ -226,6 +227,11 @@ const ResponsiveAppBar = ({ toggleSidebar }) => {
               <SearchIcon />
             </IconButton>
           )}
+
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <ThemeToggle />
+            {/* User menu */}
+            </Box>
 
           {/* User Menu */}
           <Box sx={{ flexShrink: 0 }}>

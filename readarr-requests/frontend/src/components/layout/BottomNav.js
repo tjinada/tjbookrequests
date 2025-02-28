@@ -1,25 +1,20 @@
 // src/components/layout/BottomNav.js
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import Paper from '@mui/material/Paper';
 import BottomNavigation from '@mui/material/BottomNavigation';
 import BottomNavigationAction from '@mui/material/BottomNavigationAction';
-import Paper from '@mui/material/Paper';
 import HomeIcon from '@mui/icons-material/Home';
 import SearchIcon from '@mui/icons-material/Search';
 import BookmarkIcon from '@mui/icons-material/Bookmark';
 import PersonIcon from '@mui/icons-material/Person';
-import { useMediaQuery, useTheme } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 
 const BottomNav = () => {
+  const theme = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
-  // Don't render on desktop
-  if (!isMobile) return null;
-
-  // Determine active tab from current path
   const getActiveTab = () => {
     const path = location.pathname;
     if (path === '/') return 0;
@@ -30,17 +25,24 @@ const BottomNav = () => {
   };
 
   return (
-    <Paper 
-      sx={{ 
-        position: 'fixed', 
-        bottom: 0, 
-        left: 0, 
-        right: 0, 
+    <Paper
+      sx={{
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
         zIndex: 1000,
-        // Handle iPhone safe areas
-        paddingBottom: 'env(safe-area-inset-bottom)'
-      }} 
-      elevation={3}
+        borderTop: `1px solid ${
+          theme.palette.mode === 'dark' 
+            ? 'rgba(255,255,255,0.1)' 
+            : 'rgba(0,0,0,0.1)'
+        }`,
+        background: theme.palette.background.paper,
+        backdropFilter: 'blur(10px)',
+        // Add safe area padding for iOS
+        paddingBottom: 'env(safe-area-inset-bottom)',
+      }}
+      elevation={0}
     >
       <BottomNavigation
         value={getActiveTab()}
@@ -54,11 +56,34 @@ const BottomNav = () => {
           }
         }}
         showLabels
+        sx={{
+          height: 60,
+          '& .MuiBottomNavigationAction-root': {
+            padding: '6px 0 8px',
+            minWidth: 'auto',
+            color: theme.palette.text.secondary,
+            '&.Mui-selected': {
+              color: theme.palette.primary.main,
+            },
+          },
+        }}
       >
-        <BottomNavigationAction label="Home" icon={<HomeIcon />} />
-        <BottomNavigationAction label="Search" icon={<SearchIcon />} />
-        <BottomNavigationAction label="Requests" icon={<BookmarkIcon />} />
-        <BottomNavigationAction label="Profile" icon={<PersonIcon />} />
+        <BottomNavigationAction 
+          label="Home" 
+          icon={<HomeIcon />} 
+        />
+        <BottomNavigationAction 
+          label="Search" 
+          icon={<SearchIcon />} 
+        />
+        <BottomNavigationAction 
+          label="Requests" 
+          icon={<BookmarkIcon />} 
+        />
+        <BottomNavigationAction 
+          label="Profile" 
+          icon={<PersonIcon />} 
+        />
       </BottomNavigation>
     </Paper>
   );

@@ -3,11 +3,11 @@ import React, { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import CircularProgress from '@mui/material/CircularProgress';
 import Box from '@mui/material/Box';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { AuthProvider } from './context/AuthContext';
 import { AppProvider } from './context/AppContext';
 import InstallPrompt from './components/common/InstallPrompt';
+import { ThemeProvider } from './context/ThemeContext';
 
 import PrivateRoute from './components/routing/PrivateRoute';
 import Layout from './components/layout/Layout';
@@ -32,32 +32,32 @@ const LoadingFallback = () => (
 );
 
 
-// Create a theme
-const theme = createTheme({
-  palette: {
-    primary: {
-      main: '#2196f3',
-    },
-    secondary: {
-      main: '#f50057',
-    },
-    background: {
-      default: '#f5f5f5',
-      paper: '#ffffff',
-    },
-  },
-  typography: {
-    fontFamily: [
-      'Roboto',
-      'Arial',
-      'sans-serif'
-    ].join(','),
-  },
-});
+// // Create a theme
+// const theme = createTheme({
+//   palette: {
+//     primary: {
+//       main: '#2196f3',
+//     },
+//     secondary: {
+//       main: '#f50057',
+//     },
+//     background: {
+//       default: '#f5f5f5',
+//       paper: '#ffffff',
+//     },
+//   },
+//   typography: {
+//     fontFamily: [
+//       'Roboto',
+//       'Arial',
+//       'sans-serif'
+//     ].join(','),
+//   },
+// });
 
 function App() {
   return (
-    <ThemeProvider theme={theme}>
+    <ThemeProvider>
       <CssBaseline />
       <AuthProvider>
         <AppProvider>
