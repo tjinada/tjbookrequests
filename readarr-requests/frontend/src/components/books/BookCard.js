@@ -1,108 +1,189 @@
 // src/components/books/BookCard.js
-// Update BookCard to be more touch-friendly
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useTheme } from '@mui/material/styles';
 import Card from '@mui/material/Card';
-import CardActionArea from '@mui/material/CardActionArea';
 import CardContent from '@mui/material/CardContent';
 import CardMedia from '@mui/material/CardMedia';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import Rating from '@mui/material/Rating';
-import BookmarkAddIcon from '@mui/icons-material/BookmarkAdd';
-import { useMediaQuery, useTheme } from '@mui/material';
+import Chip from '@mui/material/Chip';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import StarIcon from '@mui/icons-material/Star';
+import CalendarTodayOutlinedIcon from '@mui/icons-material/CalendarTodayOutlined';
 import noImage from '../../assets/no-image.png';
 
 const BookCard = ({ book, showRating = true }) => {
-  const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-
-  const handleCardClick = () => {
-    navigate(`/book/${book.id}`);
-  };
-
-  const truncate = (str, n) => {
-    if (!str) return '';
-    return str.length > n ? str.substr(0, n - 1) + '...' : str;
-  };
 
   // Format the year from the release date
   const year = book.releaseDate 
     ? new Date(book.releaseDate).getFullYear() 
-    : (book.year || 'Unknown year');
+    : (book.year || null);
 
   return (
-    <Card 
-      sx={{ 
-        height: '100%', 
-        display: 'flex', 
+    <Card
+      sx={{
+        height: '100%',
+        display: 'flex',
         flexDirection: 'column',
-        transition: 'transform 0.2s',
-        '&:active': {
-          transform: isMobile ? 'scale(0.98)' : 'none'
+        position: 'relative',
+        overflow: 'hidden',
+        borderRadius: 3,
+        boxShadow: theme.palette.mode === 'dark' 
+          ? '0 8px 40px rgba(0,0,0,0.4)'
+          : '0 8px 40px rgba(0,0,0,0.1)',
+        transition: 'all 0.3s ease',
+        transform: 'translateZ(0)', // Hardware acceleration
+        '&:hover': {
+          transform: 'translateY(-8px)',
+          boxShadow: theme.palette.mode === 'dark' 
+            ? '0 20px 60px rgba(0,0,0,0.5)'
+            : '0 20px 60px rgba(0,0,0,0.15)',
+          '& .bookCardOverlay': {
+            opacity: 1,
+            transform: 'translateY(0)'
+          }
         }
       }}
     >
-      <CardActionArea onClick={handleCardClick} sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-        <CardMedia
-          component="img"
-          height={isMobile ? "160" : "240"}
-          image={book.cover || noImage}
-          alt={book.title}
-          sx={{ objectFit: 'contain', p: 1 }}
-        />
-        <CardContent sx={{ flexGrow: 1, width: '100%' }}>
-          <Typography gutterBottom variant="h6" component="div" sx={{ fontWeight: 'bold', fontSize: isMobile ? '0.9rem' : '1rem' }}>
-            {truncate(book.title, isMobile ? 40 : 50)}
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ fontSize: isMobile ? '0.75rem' : '0.875rem' }}>
-            {truncate(book.author, isMobile ? 30 : 40)}
-          </Typography>
+      {/* Full Cover Image */}
+      <CardMedia
+        component="img"
+        image={book.cover || noImage}
+        alt={book.title}
+        sx={{
+          height: '100%',
+          flexGrow: 1,
+          width: '100%',
+          objectFit: 'cover',
+          objectPosition: 'center top',
+          aspectRatio: '2/3'
+        }}
+      />
 
-          {/* Rating display */}
-          {showRating && book.rating > 0 && (
-            <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
-              <Rating 
-                value={book.rating} 
-                readOnly 
-                precision={0.1} 
-                size="small" 
-                sx={{ fontSize: isMobile ? '0.8rem' : '1rem' }}
+      {/* Rating Badge */}
+      {showRating && book.rating > 0 && (
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 12,
+            right: 12,
+            display: 'flex',
+            alignItems: 'center',
+            bgcolor: 'rgba(0,0,0,0.7)',
+            color: 'white',
+            borderRadius: 10,
+            pl: 1,
+            pr: 1.5,
+            py: 0.5,
+            gap: 0.5,
+            backdropFilter: 'blur(10px)',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+          }}
+        >
+          <StarIcon fontSize="small" sx={{ color: 'gold' }} />
+          <Typography variant="body2" fontWeight="bold">
+            {book.rating.toFixed(1)}
+          </Typography>
+        </Box>
+      )}
+
+      {/* Year Badge */}
+      {year && (
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 12,
+            left: 12,
+            display: 'flex',
+            alignItems: 'center',
+            bgcolor: 'rgba(0,0,0,0.7)',
+            color: 'white',
+            borderRadius: 10,
+            px: 1.5,
+            py: 0.5,
+            gap: 0.5,
+            backdropFilter: 'blur(10px)',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+          }}
+        >
+          <CalendarTodayOutlinedIcon fontSize="small" />
+          <Typography variant="body2" fontWeight="bold">
+            {year}
+          </Typography>
+        </Box>
+      )}
+
+      {/* Book Info Overlay (appears on hover) */}
+      <Box
+        className="bookCardOverlay"
+        sx={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.7) 60%, rgba(0,0,0,0) 100%)',
+          color: 'white',
+          p: 2,
+          opacity: isMobile ? 1 : 0.9, // Always visible on mobile
+          transform: isMobile ? 'translateY(0)' : 'translateY(10px)',
+          transition: 'all 0.3s ease',
+          minHeight: '30%',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'flex-end',
+          backdropFilter: 'blur(3px)'
+        }}
+      >
+        <Typography 
+          variant="h6" 
+          component="h2"
+          sx={{ 
+            fontWeight: 'bold',
+            lineHeight: 1.2,
+            mb: 1,
+            textShadow: '0 2px 4px rgba(0,0,0,0.5)',
+            fontSize: isMobile ? '1rem' : '1.1rem'
+          }}
+        >
+          {book.title}
+        </Typography>
+
+        <Typography 
+          variant="body2" 
+          sx={{ 
+            mb: 1,
+            opacity: 0.9,
+            fontWeight: 500,
+            fontSize: '0.9rem'
+          }}
+        >
+          {book.author}
+        </Typography>
+
+        {/* Genres (if available) */}
+        {book.genres && book.genres.length > 0 && (
+          <Box sx={{ display: 'flex', gap: 0.8, flexWrap: 'wrap', mt: 'auto' }}>
+            {book.genres.slice(0, 2).map((genre) => (
+              <Chip
+                key={genre}
+                label={genre}
+                size="small"
+                sx={{
+                  height: 22,
+                  fontSize: '0.7rem',
+                  bgcolor: 'rgba(255,255,255,0.2)',
+                  color: 'white',
+                  fontWeight: 500,
+                  backdropFilter: 'blur(5px)'
+                }}
               />
-              <Typography variant="body2" color="text.secondary" sx={{ ml: 0.5, fontSize: isMobile ? '0.7rem' : '0.75rem' }}>
-                {book.rating.toFixed(1)}
-              </Typography>
-            </Box>
-          )}
-
-          <Box sx={{ mt: 1 }}>
-            <Typography variant="body2" color="text.secondary" sx={{ fontSize: isMobile ? '0.7rem' : '0.75rem' }}>
-              {year}
-            </Typography>
+            ))}
           </Box>
-
-          {/* Request indicator */}
-          <Box 
-            sx={{ 
-              position: 'absolute', 
-              bottom: 8, 
-              right: 8,
-              bgcolor: 'primary.main',
-              color: 'white',
-              borderRadius: '50%',
-              width: 36,
-              height: 36,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: 1
-            }}
-          >
-            <BookmarkAddIcon fontSize="small" />
-          </Box>
-        </CardContent>
-      </CardActionArea>
+        )}
+      </Box>
     </Card>
   );
 };

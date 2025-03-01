@@ -3,21 +3,25 @@ import React, { useState } from 'react';
 import { useSwipeable } from 'react-swipeable';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
-import BookCard from './BookCard';
+import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import BookmarkAddIcon from '@mui/icons-material/BookmarkAdd';
 import InfoIcon from '@mui/icons-material/Info';
+import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
+import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
+import { useTheme } from '@mui/material/styles';
+import BookCard from './BookCard';
 
 const SwipeableBookCard = ({ book, onRequest }) => {
+  const theme = useTheme();
   const navigate = useNavigate();
   const [swipeDirection, setSwipeDirection] = useState(null);
   const [swipePercentage, setSwipePercentage] = useState(0);
 
   const handlers = useSwipeable({
     onSwiping: (eventData) => {
-      // Only handle horizontal swipes to avoid interfering with scrolling
+      // Only handle horizontal swipes
       if (Math.abs(eventData.deltaY) > Math.abs(eventData.deltaX)) {
-        // This is likely a scroll attempt, don't interfere
         return;
       }
 
@@ -57,42 +61,23 @@ const SwipeableBookCard = ({ book, onRequest }) => {
       setSwipeDirection(null);
       setSwipePercentage(0);
     },
-    // Critical settings for proper scrolling behavior
-    trackMouse: false,
-    preventScrollOnSwipe: false, // This is key - don't prevent scrolling
+    preventScrollOnSwipe: false,
     trackTouch: true,
-    delta: 15, // Increase this to require more intentional swipes
-    swipeDuration: 250 // Faster swipes are more likely to be intentional
+    delta: 15,
   });
-
-  // Calculate styles based on swipe
-  const getSwipeStyles = () => {
-    if (!swipeDirection) return {};
-
-    // Calculate opacity based on swipe percentage
-    const opacity = swipePercentage / 100;
-
-    // Calculate transform for the card itself
-    const transform = `translateX(${swipeDirection === 'right' ? swipePercentage : -swipePercentage}px)`;
-
-    return {
-      transform,
-      opacity
-    };
-  };
 
   return (
     <Box 
       {...handlers} 
       sx={{ 
         position: 'relative', 
-        touchAction: 'pan-y', // Allow vertical scrolling
+        touchAction: 'pan-y',
         height: '100%',
-        overflow: 'hidden',
-        borderRadius: 1
+        borderRadius: 3,
+        overflow: 'hidden'
       }}
     >
-      {/* Action indicators that show during swipe */}
+      {/* Left swipe indicator (request) */}
       {swipeDirection === 'left' && (
         <Box
           sx={{
@@ -101,19 +86,64 @@ const SwipeableBookCard = ({ book, onRequest }) => {
             right: 0,
             bottom: 0,
             width: '40%',
-            bgcolor: 'primary.main',
+            bgcolor: theme.palette.mode === 'dark' 
+              ? 'rgba(0, 127, 255, 0.3)'
+              : 'rgba(25, 118, 210, 0.1)',
+            backdropFilter: 'blur(3px)',
+            zIndex: 1,
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            opacity: swipePercentage / 200, // Fade in gradually
-            zIndex: 1,
-            pointerEvents: 'none' // Allow scroll events to pass through
+            opacity: swipePercentage / 100,
+            pointerEvents: 'none'
           }}
         >
-          <BookmarkAddIcon sx={{ color: 'white', fontSize: '2rem' }} />
+          <Box
+            sx={{
+              width: 60,
+              height: 60,
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              bgcolor: 'primary.main',
+              mb: 1,
+              boxShadow: theme.shadows[5]
+            }}
+          >
+            <BookmarkAddIcon sx={{ color: 'white', fontSize: '1.8rem' }} />
+          </Box>
+          <Typography 
+            variant="subtitle1" 
+            color="white"
+            fontWeight="bold"
+            sx={{ 
+              textShadow: '0 2px 4px rgba(0,0,0,0.5)',
+              backgroundColor: 'rgba(0,0,0,0.3)',
+              px: 1.5,
+              py: 0.5,
+              borderRadius: 2
+            }}
+          >
+            Request
+          </Typography>
+          <Box 
+            sx={{ 
+              display: 'flex', 
+              alignItems: 'center',
+              mt: 1
+            }}
+          >
+            <ArrowBackIosNewIcon sx={{ fontSize: '1rem', color: 'white' }} />
+            <Typography variant="caption" color="white">
+              Swipe
+            </Typography>
+          </Box>
         </Box>
       )}
 
+      {/* Right swipe indicator (details) */}
       {swipeDirection === 'right' && (
         <Box
           sx={{
@@ -122,29 +152,75 @@ const SwipeableBookCard = ({ book, onRequest }) => {
             left: 0,
             bottom: 0,
             width: '40%',
-            bgcolor: 'info.main',
+            bgcolor: theme.palette.mode === 'dark' 
+              ? 'rgba(0, 200, 255, 0.3)' 
+              : 'rgba(0, 200, 255, 0.1)',
+            backdropFilter: 'blur(3px)',
+            zIndex: 1,
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            opacity: swipePercentage / 200, // Fade in gradually
-            zIndex: 1,
-            pointerEvents: 'none' // Allow scroll events to pass through
+            opacity: swipePercentage / 100,
+            pointerEvents: 'none'
           }}
         >
-          <InfoIcon sx={{ color: 'white', fontSize: '2rem' }} />
+          <Box
+            sx={{
+              width: 60,
+              height: 60,
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              bgcolor: 'info.main',
+              mb: 1,
+              boxShadow: theme.shadows[5]
+            }}
+          >
+            <InfoIcon sx={{ color: 'white', fontSize: '1.8rem' }} />
+          </Box>
+          <Typography 
+            variant="subtitle1" 
+            color="white"
+            fontWeight="bold"
+            sx={{ 
+              textShadow: '0 2px 4px rgba(0,0,0,0.5)',
+              backgroundColor: 'rgba(0,0,0,0.3)',
+              px: 1.5,
+              py: 0.5,
+              borderRadius: 2
+            }}
+          >
+            Details
+          </Typography>
+          <Box 
+            sx={{ 
+              display: 'flex', 
+              alignItems: 'center',
+              mt: 1
+            }}
+          >
+            <Typography variant="caption" color="white">
+              Swipe
+            </Typography>
+            <ArrowForwardIosIcon sx={{ fontSize: '1rem', color: 'white' }} />
+          </Box>
         </Box>
       )}
 
-      {/* The actual BookCard with transform applied during swipe */}
-      <Box sx={{ 
-        transform: swipeDirection ? getSwipeStyles().transform : 'none',
-        transition: swipeDirection ? 'none' : 'transform 0.3s ease',
-        height: '100%',
-        position: 'relative',
-        zIndex: 2,
-        bgcolor: 'background.paper',
-        touchAction: 'pan-y' // Allow vertical scrolling
-      }}>
+      {/* The BookCard content */}
+      <Box 
+        sx={{ 
+          transform: swipeDirection 
+            ? `translateX(${swipeDirection === 'right' ? swipePercentage : -swipePercentage}px)` 
+            : 'none',
+          transition: swipeDirection ? 'none' : 'transform 0.3s ease',
+          height: '100%',
+          position: 'relative',
+          zIndex: 2
+        }}
+      >
         <BookCard book={book} />
       </Box>
     </Box>
