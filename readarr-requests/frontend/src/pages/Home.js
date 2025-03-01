@@ -29,7 +29,9 @@ import AuthContext from '../context/AuthContext';
 import PullToRefresh from 'react-pull-to-refresh';
 import SwipeableBookCard from '../components/books/SwipeableBookCard';
 import SwipeTutorial from '../components/common/SwipeTutorial';
-import BookRequestDialog from '../components/books/BookRequestDialog'; 
+import BookRequestDialog from '../components/books/BookRequestDialog';
+import AnimatedGrid from '../components/layout/AnimatedGrid';
+import EmptyState from '../components/common/EmptyState';
 
 // Tab panel component
 function TabPanel(props) {
@@ -139,9 +141,8 @@ const Home = () => {
 
   // Render book grid with optional loading and empty states
   const renderBookGrid = (books, emptyMessage) => {
-    // Apply filters to books
     const filteredBooks = filterBooks(books);
-
+  
     if (!books) {
       return (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
@@ -149,38 +150,31 @@ const Home = () => {
         </Box>
       );
     }
-
+  
     if (filteredBooks.length === 0) {
       return (
-        <Box sx={{ textAlign: 'center', py: 4 }}>
-          <Typography variant="h6" color="text.secondary" gutterBottom>
-            {emptyMessage || "No books match your filters."}
-          </Typography>
-          <Button 
-            variant="outlined" 
-            onClick={() => {
-              setYearFilter('all');
-              setRatingFilter(0);
-            }}
-            sx={{ mt: 2 }}
-          >
-            Reset Filters
-          </Button>
-        </Box>
+        <EmptyState 
+          title="No books found"
+          description={emptyMessage || "No books match your filters."}
+          actionText="Reset Filters"
+          onAction={() => {
+            setYearFilter('all');
+            setRatingFilter(0);
+          }}
+        />
       );
     }
-
+  
     return (
-      <Grid container spacing={3} sx={{ touchAction: 'pan-y' }}>
+      <AnimatedGrid spacing={3}>
         {filteredBooks.map((book) => (
-          <Grid item xs={12} sm={6} md={4} lg={3} key={book.id}>
-            <SwipeableBookCard 
-              book={book} 
-              onRequest={handleRequestBook}
-            />
-          </Grid>
+          <SwipeableBookCard 
+            book={book} 
+            onRequest={handleRequestBook}
+            key={book.id}
+          />
         ))}
-      </Grid>
+      </AnimatedGrid>
     );
   };
 
