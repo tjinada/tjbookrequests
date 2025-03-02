@@ -7,7 +7,7 @@ const execAsync = util.promisify(exec);
 const fs = require('fs');
 
 // Calibre configuration
-const calibreServerUrl = process.env.CALIBRE_SERVER_URL || 'http://localhost:8080';
+const calibreServerUrl = process.env.CALIBRE_SERVER_URL
 const calibreUsername = process.env.CALIBRE_USERNAME;
 const calibrePassword = process.env.CALIBRE_PASSWORD;
 const calibreLibraryPath = process.env.CALIBRE_LIBRARY_PATH;
