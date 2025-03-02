@@ -26,4 +26,9 @@ router.put('/:id', auth, requestController.updateRequestStatus);
 
 router.post('/check-status', auth, requestController.checkRequestsStatus);
 
+// @route   POST api/requests/:id/metadata
+// @desc    Manually update metadata for a specific request (admin only)
+// @access  Private/Admin
+router.post('/:id/metadata', auth, requestController.updateRequestMetadata);
+
 module.exports = router;

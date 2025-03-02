@@ -16,6 +16,8 @@ import PersonIcon from '@mui/icons-material/Person';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import AuthContext from '../../context/AuthContext';
+import LibraryBooksIcon from '@mui/icons-material/LibraryBooks';
+import LocalLibraryIcon from '@mui/icons-material/LocalLibrary';
 
 const Sidebar = ({ open, drawerWidth }) => {
   const location = useLocation();
@@ -31,6 +33,7 @@ const Sidebar = ({ open, drawerWidth }) => {
 
   const adminItems = [
     { text: 'Manage Requests', icon: <AdminPanelSettingsIcon />, path: '/admin/requests' },
+    { text: 'Calibre Manager', icon: <LocalLibraryIcon />, path: '/calibre-manager' },
   ];
 
   return (

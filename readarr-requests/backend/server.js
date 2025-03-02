@@ -3,6 +3,8 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const webhookRoutes = require('./routes/webhooks');
+const calibreManagerRoutes = require('./routes/calibreManager');
 
 // Load environment variables
 dotenv.config();
@@ -29,6 +31,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/books', bookRoutes);
 app.use('/api/requests', requestRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/webhooks', webhookRoutes);
+app.use('/api/calibre-manager',calibreManagerRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
