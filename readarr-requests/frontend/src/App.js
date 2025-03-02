@@ -1,68 +1,82 @@
 // src/App.js
-import React, { lazy, Suspense } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import CircularProgress from '@mui/material/CircularProgress';
-import Box from '@mui/material/Box';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import { AuthProvider } from './context/AuthContext';
-import { AppProvider } from './context/AppContext';
-import InstallPrompt from './components/common/InstallPrompt';
-import { ThemeProvider } from './context/ThemeContext';
 
-import PrivateRoute from './components/routing/PrivateRoute';
+// Context Providers
+import { AuthProvider } from './context/AuthContext';
+import { ThemeContext } from './context/ThemeContext';
+
+// Layout Components
 import Layout from './components/layout/Layout';
+
+// Page Components
+import Home from './pages/Home';
+import Search from './pages/Search';
+import BookDetail from './pages/BookDetail';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import Profile from './pages/Profile';
+import Requests from './pages/Requests';
+import AdminRequests from './pages/AdminRequests';
+import CalibreManager from './pages/CalibreManager'; // New page
+
+// Utils
+import PrivateRoute from './components/routing/PrivateRoute';
 import AdminRoute from './components/routing/AdminRoute';
 
-
-
-// Lazy-loaded components
-const Login = lazy(() => import('./pages/Login'));
-const Register = lazy(() => import('./pages/Register'));
-const Home = lazy(() => import('./pages/Home'));
-const Search = lazy(() => import('./pages/Search'));
-const BookDetail = lazy(() => import('./pages/BookDetail'));
-const Requests = lazy(() => import('./pages/Requests'));
-const AdminRequests = lazy(() => import('./pages/AdminRequests'));
-const Profile = lazy(() => import('./pages/Profile'));
-const CalibreManager = lazy(() => import('./pages/CalibreManager'));
-
-
-// Loading fallback
-const LoadingFallback = () => (
-  <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-    <CircularProgress />
-  </Box>
-);
-
 function App() {
+  const { theme } = React.useContext(ThemeContext);
+
   return (
-    <ThemeProvider>
+    <ThemeProvider theme={theme}>
       <CssBaseline />
       <AuthProvider>
-        <AppProvider>
-          <Router>
-            <Suspense fallback={<LoadingFallback />}>
-              <Routes>
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
-
-                <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
-                  <Route path="/" element={<Home />} />
-                  <Route path="/search" element={<Search />} />
-                  <Route path="/book/:id" element={<BookDetail />} />
-                  <Route path="/requests" element={<Requests />} />
-                  <Route path="/admin/requests" element={<AdminRequests />} />
-                  <Route path="/profile" element={<Profile />} />
-                  <Route path="/book/google/:id" element={<BookDetail source="google" />} />
-                  <Route path="calibre-manager" element={<AdminRoute><CalibreManager /></AdminRoute>} />
-                </Route>
-
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-              <InstallPrompt />
-            </Suspense>
-          </Router>
-        </AppProvider>
+        <Router>
+          <Routes>
+            <Route path="/" element={<Layout />}>
+              {/* Public Routes */}
+              <Route index element={<Home />} />
+              <Route path="login" element={<Login />} />
+              <Route path="register" element={<Register />} />
+              
+              {/* Protected Routes */}
+              <Route path="search" element={
+                <PrivateRoute>
+                  <Search />
+                </PrivateRoute>
+              } />
+              <Route path="book/:id" element={
+                <PrivateRoute>
+                  <BookDetail />
+                </PrivateRoute>
+              } />
+              <Route path="requests" element={
+                <PrivateRoute>
+                  <Requests />
+                </PrivateRoute>
+              } />
+              <Route path="profile" element={
+                <PrivateRoute>
+                  <Profile />
+                </PrivateRoute>
+              } />
+              
+              {/* Admin Routes */}
+              <Route path="admin/requests" element={
+                <AdminRoute>
+                  <AdminRequests />
+                </AdminRoute>
+              } />
+              <Route path="calibre-manager" element={
+                <AdminRoute>
+                  <CalibreManager />
+                </AdminRoute>
+              } />
+            </Route>
+          </Routes>
+        </Router>
       </AuthProvider>
     </ThemeProvider>
   );
