@@ -40,6 +40,7 @@ const ResponsiveAppBar = ({ toggleSidebar }) => {
     if (path.startsWith('/book/')) return 'Book Details';
     if (path.startsWith('/requests')) return 'My Requests';
     if (path.startsWith('/admin/requests')) return 'Manage Requests';
+    if (path.startsWith('/calibre-manager')) return 'Calibre Manager';
     if (path.startsWith('/profile')) return 'Profile';
     return 'Readarr Requests';
   };
@@ -53,7 +54,10 @@ const ResponsiveAppBar = ({ toggleSidebar }) => {
 
   // Admin pages
   const adminPages = user && user.role === 'admin' 
-    ? [{ name: 'Manage Requests', path: '/admin/requests' }] 
+    ? [
+        { name: 'Manage Requests', path: '/admin/requests' },
+        { name: 'Calibre Manager', path: '/calibre-manager' }
+      ] 
     : [];
 
   // All navigation pages combined
