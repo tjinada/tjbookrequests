@@ -41,6 +41,34 @@ const log = (message) => {
   console.log(message);
 };
 
+// Function to get current book IDs in library (for loaded_book_ids parameter)
+async function getLoadedBookIds() {
+  try {
+    if (useCliOnly) {
+      // Use CLI to get all book IDs
+      const { stdout } = await execAsync(`calibredb list -f id --with-library="${calibreLibraryPath}"`);
+      // Parse output to get IDs
+      return stdout.trim().split('\n').filter(id => id && id !== 'id').map(id => id.trim());
+    } else {
+      // Use Calibre API to get book IDs
+      const response = await calibreAPI.get('/ajax/search', {
+        params: {
+          query: '',
+          library_id: 'calibre'
+        }
+      });
+      
+      if (response.data && response.data.book_ids) {
+        return response.data.book_ids.map(id => String(id));
+      }
+      return [];
+    }
+  } catch (error) {
+    log(`Error getting loaded book IDs: ${error.message}`);
+    return [];
+  }
+}
+
 module.exports = {
   /**
    * Update book metadata in Calibre
@@ -119,8 +147,7 @@ module.exports = {
         const bookResponse = await calibreAPI.get(`/ajax/book/${bookId}/calibre`);
         const currentMetadata = bookResponse.data;
         
-        // Update the metadata
-        // Prepare the tags to update
+        // Update the metadata - get existing tags
         let updatedTags = [...(currentMetadata.tags || [])];
         
         // Add username as a tag if not already present
@@ -128,16 +155,19 @@ module.exports = {
           updatedTags.push(metadata.user);
         }
         
-        // For user ID custom field
-        const userMetadata = {
-          '#userid': metadata.userId
+        // Get loaded book IDs for payload
+        const loadedBookIds = await getLoadedBookIds();
+        
+        // Create the proper payload format
+        const payload = {
+          changes: {
+            tags: updatedTags
+          },
+          loaded_book_ids: loadedBookIds
         };
         
-        // Post the update
-        await calibreAPI.post(`/cdb/set/calibre/${bookId}`, {
-          'tag_map.tags': updatedTags,
-          'custom:#userid': metadata.userId
-        });
+        // Post the update using the correct endpoint
+        await calibreAPI.post(`/cdb/set-fields/${bookId}/calibre`, payload);
         
         log(`Successfully updated metadata for book ID: ${bookId} using API`);
         return { success: true, bookId };
@@ -382,17 +412,22 @@ module.exports = {
         log(`Successfully updated tags for book ID: ${bookId} using CLI`);
         return { success: true, bookId, tags };
       } else {
-        // Use Calibre Content Server API - match the actual format
-        // First get current metadata
-        const bookResponse = await calibreAPI.get(`/ajax/book/${bookId}/calibre`);
+        // Get loaded book IDs for payload
+        const loadedBookIds = await getLoadedBookIds();
         
-        // Post the update with only the tags
-        await calibreAPI.post(`/cdb/set/calibre/${bookId}`, {
-          'tag_map.tags': tags
-        });
+        // Create the proper payload format matching your example
+        const payload = {
+          changes: {
+            tags: tags
+          },
+          loaded_book_ids: loadedBookIds
+        };
+        
+        // Post the update using the correct endpoint
+        const response = await calibreAPI.post(`/cdb/set-fields/${bookId}/calibre`, payload);
         
         log(`Successfully updated tags for book ID: ${bookId} using API`);
-        return { success: true, bookId, tags };
+        return { success: true, bookId, tags, response: response.data[bookId] };
       }
     } catch (error) {
       log(`Error updating tags: ${error.message}`);
