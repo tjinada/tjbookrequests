@@ -1,7 +1,13 @@
-// config/readarr.js - Updated with better existing author handling
+// config/readarr.js - Updated with book file path retrieval
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
+
+// Ensure logs directory exists
+const logDir = path.join(__dirname, '../logs');
+if (!fs.existsSync(logDir)) {
+  fs.mkdirSync(logDir, { recursive: true });
+}
 
 const readarrAPI = axios.create({
   baseURL: process.env.READARR_API_URL,
@@ -12,7 +18,6 @@ const readarrAPI = axios.create({
 
 // Add logging to help troubleshoot
 const logFile = path.join(__dirname, '../logs/readarr.log');
-fs.mkdirSync(path.dirname(logFile), { recursive: true });
 
 const log = (message) => {
   const timestamp = new Date().toISOString();
@@ -288,7 +293,6 @@ module.exports = {
         throw new Error(`Could not find or add the requested book: ${bookData.title}`);
       }
 
-
       // Step 6: Trigger a search for the book
       log(`Triggering search for book ID: ${targetBook.id}`);
 
@@ -334,12 +338,32 @@ module.exports = {
       if (!bookResponse.data) {
         throw new Error(`Book with ID ${bookId} not found`);
       }
-  
+      
       // Check if the book has been downloaded
       const isDownloaded = bookResponse.data.statistics?.bookFileCount > 0;
       const percentOfBook = bookResponse.data.statistics?.percentOfBooks || 0;
   
       log(`Book status: Downloaded=${isDownloaded}, Percent=${percentOfBook}%`);
+      
+      // Additional info - get book file details if available
+      let bookFilePath = null;
+      if (isDownloaded) {
+        try {
+          // Get book file info
+          const bookFileResponse = await readarrAPI.get(`/api/v1/bookFile`, {
+            params: { bookId }
+          });
+          
+          if (bookFileResponse.data && bookFileResponse.data.length > 0) {
+            bookFilePath = bookFileResponse.data[0].path;
+            log(`Book file path: ${bookFilePath}`);
+          } else {
+            log(`No book files found for book ID: ${bookId}`);
+          }
+        } catch (fileError) {
+          log(`Error getting book file: ${fileError.message}`);
+        }
+      }
   
       return {
         id: bookId,
@@ -347,7 +371,8 @@ module.exports = {
         isDownloaded: isDownloaded,
         percentOfBook: percentOfBook,
         hasFile: bookResponse.data.statistics?.bookFileCount > 0,
-        sizeOnDisk: bookResponse.data.statistics?.sizeOnDisk || 0
+        sizeOnDisk: bookResponse.data.statistics?.sizeOnDisk || 0,
+        bookFilePath: bookFilePath
       };
     } catch (error) {
       log(`Error checking book status: ${error.message}`);
