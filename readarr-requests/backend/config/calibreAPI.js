@@ -7,7 +7,7 @@ const execAsync = util.promisify(exec);
 const fs = require('fs');
 
 // Calibre configuration
-const calibreServerUrl = process.env.CALIBRE_SERVER_URL;
+const calibreServerUrl = process.env.CALIBRE_SERVER_URL || 'http://localhost:8080';
 const calibreUsername = process.env.CALIBRE_USERNAME;
 const calibrePassword = process.env.CALIBRE_PASSWORD;
 const calibreLibraryPath = process.env.CALIBRE_LIBRARY_PATH;
@@ -33,62 +33,6 @@ if (!fs.existsSync(logDir)) {
   fs.mkdirSync(logDir, { recursive: true });
 }
 
-// Helper to get book ID from file path
-async function getBookIdFromPath(filePath) {
-  const filename = path.basename(filePath);
-  
-  if (useCliOnly) {
-    // Use calibredb CLI
-    try {
-      const searchCmd = `calibredb search "file:${filename}" --with-library="${calibreLibraryPath}"`;
-      const { stdout } = await execAsync(searchCmd);
-      const bookId = stdout.trim();
-      
-      if (!bookId || isNaN(parseInt(bookId))) {
-        throw new Error(`Book not found or invalid ID: ${filename}`);
-      }
-      
-      return bookId;
-    } catch (error) {
-      throw new Error(`Error finding book with CLI: ${error.message}`);
-    }
-  } else {
-    // Use Calibre Content Server API
-    try {
-      // First, try to find by exact file match
-      const searchResponse = await calibreAPI.get('/ajax/search', {
-        params: {
-          query: `"=${filename}"`,
-          sort: 'timestamp',
-          library_id: 'default'
-        }
-      });
-      
-      if (searchResponse.data.book_ids && searchResponse.data.book_ids.length > 0) {
-        return searchResponse.data.book_ids[0];
-      }
-      
-      // If exact match fails, try a more permissive search
-      const fallbackResponse = await calibreAPI.get('/ajax/search', {
-        params: {
-          query: filename.replace(/\.[^/.]+$/, ""), // Remove file extension
-          sort: 'timestamp',
-          library_id: 'default'
-        }
-      });
-      
-      if (!fallbackResponse.data.book_ids || fallbackResponse.data.book_ids.length === 0) {
-        throw new Error(`Book not found in Calibre: ${filename}`);
-      }
-      
-      // If multiple results, take the most recent one (assuming it's the one we want)
-      return fallbackResponse.data.book_ids[0];
-    } catch (error) {
-      throw new Error(`Error finding book with API: ${error.message}`);
-    }
-  }
-}
-
 // Log function
 const log = (message) => {
   const timestamp = new Date().toISOString();
@@ -107,14 +51,29 @@ module.exports = {
     try {
       log(`Updating metadata for book at: ${filePath}`);
       
-      // Get the book ID
-      const bookId = await getBookIdFromPath(filePath);
-      log(`Found book in Calibre with ID: ${bookId}`);
+      // Extract book ID from path if possible
+      let bookId;
       
       if (useCliOnly) {
+        // Use Calibre CLI to find the book ID
+        try {
+          // Extract filename from path
+          const filename = path.basename(filePath);
+          const searchCmd = `calibredb search "file:${filename}" --with-library="${calibreLibraryPath}"`;
+          const { stdout } = await execAsync(searchCmd);
+          bookId = stdout.trim();
+          
+          if (!bookId || isNaN(parseInt(bookId))) {
+            throw new Error(`Book not found or invalid ID for file: ${filename}`);
+          }
+        } catch (error) {
+          throw new Error(`Error finding book with CLI: ${error.message}`);
+        }
+        
         // Use Calibre CLI to update metadata
-        // Update tags to include username
         const userTag = metadata.user.replace(/[\s'"]/g, '_'); // Sanitize username for tag
+        
+        // Update tags to include username
         const tagCmd = `calibredb set_metadata ${bookId} --field tags:"+${userTag}" --with-library="${calibreLibraryPath}"`;
         await execAsync(tagCmd);
         log(`Added user tag: ${userTag}`);
@@ -128,50 +87,56 @@ module.exports = {
         log(`Successfully updated metadata for book ID: ${bookId} using CLI`);
         return { success: true, bookId };
       } else {
-        // Use Calibre Content Server API
-        // Get current metadata
-        const bookResponse = await calibreAPI.get('/ajax/book', {
-          params: {
-            id: bookId,
-            library_id: 'default'
-          }
-        });
+        // Extract the numeric ID from the path
+        const pathParts = filePath.split('/');
+        const filenamePart = pathParts[pathParts.length - 2]; // Get the directory name which often has ID
+        const idMatch = filenamePart.match(/\((\d+)\)/);
         
+        if (idMatch && idMatch[1]) {
+          bookId = idMatch[1];
+        } else {
+          // If we can't find ID in the path, search by filename
+          const filename = path.basename(filePath);
+          
+          // Use the Calibre API search to find the book
+          const searchResponse = await calibreAPI.get('/ajax/search', {
+            params: {
+              query: `"=${filename}"`,
+              library_id: 'calibre'
+            }
+          });
+          
+          if (searchResponse.data && searchResponse.data.book_ids && searchResponse.data.book_ids.length > 0) {
+            bookId = searchResponse.data.book_ids[0];
+          } else {
+            throw new Error(`Book not found for file: ${filename}`);
+          }
+        }
+        
+        log(`Found book in Calibre with ID: ${bookId}`);
+        
+        // Get current metadata
+        const bookResponse = await calibreAPI.get(`/ajax/book/${bookId}/calibre`);
         const currentMetadata = bookResponse.data;
         
         // Update the metadata
-        // Add user as a custom field or tag
-        let updatedTags = currentMetadata.tags || [];
+        // Prepare the tags to update
+        let updatedTags = [...(currentMetadata.tags || [])];
         
         // Add username as a tag if not already present
         if (metadata.user && !updatedTags.includes(metadata.user)) {
           updatedTags.push(metadata.user);
         }
         
-        // Prepare the updated metadata object
-        const updatedMetadata = {
-          tags: updatedTags
+        // For user ID custom field
+        const userMetadata = {
+          '#userid': metadata.userId
         };
         
-        // Add custom metadata if it exists
-        if (currentMetadata.custom_metadata) {
-          updatedMetadata.custom_metadata = {
-            ...currentMetadata.custom_metadata
-          };
-          
-          // Add userid as a custom field (assumes the custom field exists in Calibre)
-          // The correct format depends on your Calibre custom column configuration
-          if (metadata.userId) {
-            // For text columns
-            updatedMetadata.custom_metadata['#userid'] = metadata.userId;
-          }
-        }
-        
-        // Send update request
-        await calibreAPI.post('/ajax/set_book_metadata', {
-          id: bookId,
-          library_id: 'default',
-          metadata: updatedMetadata
+        // Post the update
+        await calibreAPI.post(`/cdb/set/calibre/${bookId}`, {
+          'tag_map.tags': updatedTags,
+          'custom:#userid': metadata.userId
         });
         
         log(`Successfully updated metadata for book ID: ${bookId} using API`);
@@ -193,14 +158,19 @@ module.exports = {
     try {
       log(`Checking metadata for book at: ${filePath}`);
       
-      // Get the book ID
-      const bookId = await getBookIdFromPath(filePath);
+      // Extract book ID from path if possible
+      let bookId;
       
       if (useCliOnly) {
-        // Use Calibre CLI to check metadata
+        // Use CLI to get book ID
+        const filename = path.basename(filePath);
+        const searchCmd = `calibredb search "file:${filename}" --with-library="${calibreLibraryPath}"`;
+        const { stdout } = await execAsync(searchCmd);
+        bookId = stdout.trim();
+        
         // Get the metadata
-        const { stdout } = await execAsync(`calibredb show_metadata ${bookId} --as-json --with-library="${calibreLibraryPath}"`);
-        const metadata = JSON.parse(stdout);
+        const { stdout: metadataOutput } = await execAsync(`calibredb show_metadata ${bookId} --as-json --with-library="${calibreLibraryPath}"`);
+        const metadata = JSON.parse(metadataOutput);
         
         // Check if user tag exists
         const tags = metadata.tags || [];
@@ -219,14 +189,34 @@ module.exports = {
           bookId
         };
       } else {
-        // Use Calibre Content Server API
-        const bookResponse = await calibreAPI.get('/ajax/book', {
-          params: {
-            id: bookId,
-            library_id: 'default'
-          }
-        });
+        // Extract the numeric ID from the path
+        const pathParts = filePath.split('/');
+        const filenamePart = pathParts[pathParts.length - 2]; // Get the directory name which often has ID
+        const idMatch = filenamePart.match(/\((\d+)\)/);
         
+        if (idMatch && idMatch[1]) {
+          bookId = idMatch[1];
+        } else {
+          // If we can't find ID in the path, search by filename
+          const filename = path.basename(filePath);
+          
+          // Use the Calibre API search to find the book
+          const searchResponse = await calibreAPI.get('/ajax/search', {
+            params: {
+              query: `"=${filename}"`,
+              library_id: 'calibre'
+            }
+          });
+          
+          if (searchResponse.data && searchResponse.data.book_ids && searchResponse.data.book_ids.length > 0) {
+            bookId = searchResponse.data.book_ids[0];
+          } else {
+            throw new Error(`Book not found for file: ${filename}`);
+          }
+        }
+        
+        // Get book metadata
+        const bookResponse = await calibreAPI.get(`/ajax/book/${bookId}/calibre`);
         const metadata = bookResponse.data;
         
         // Check if user tag exists
@@ -235,8 +225,8 @@ module.exports = {
         
         // Check if user ID exists in custom field
         let hasUserId = false;
-        if (metadata.custom_metadata && metadata.custom_metadata['#userid']) {
-          hasUserId = metadata.custom_metadata['#userid'] === userInfo.userId;
+        if (metadata.user_metadata && metadata.user_metadata['#userid'] && metadata.user_metadata['#userid']['#value#']) {
+          hasUserId = metadata.user_metadata['#userid']['#value#'] === userInfo.userId;
         }
         
         return {
@@ -281,13 +271,7 @@ module.exports = {
         };
       } else {
         // Use Calibre Content Server API
-        const bookResponse = await calibreAPI.get('/ajax/book', {
-          params: {
-            id: bookId,
-            library_id: 'default'
-          }
-        });
-        
+        const bookResponse = await calibreAPI.get(`/ajax/book/${bookId}/calibre`);
         const book = bookResponse.data;
         
         return {
@@ -296,12 +280,13 @@ module.exports = {
           author: book.authors?.join(', ') || 'Unknown Author',
           tags: book.tags || [],
           formats: book.formats || [],
-          path: book.path || book.book_path || '',
+          path: book.format_metadata ? Object.values(book.format_metadata)[0]?.path || '' : '',
           uuid: book.uuid || '',
           added: book.timestamp || '',
-          cover: book.cover_url || null,
+          cover: `${calibreServerUrl}${book.cover}` || null,
+          thumbnail: book.thumbnail ? `${calibreServerUrl}${book.thumbnail}` : null,
           comments: book.comments || '',
-          customFields: book.custom_metadata || {}
+          customFields: book.user_metadata || {}
         };
       }
     } catch (error) {
@@ -334,7 +319,7 @@ module.exports = {
           params: {
             query: query === '*' ? '' : query,
             sort: 'timestamp',
-            library_id: 'default'
+            library_id: 'calibre'
           }
         });
         
@@ -346,16 +331,21 @@ module.exports = {
         const books = [];
         for (const id of response.data.book_ids) {
           try {
-            const bookResponse = await calibreAPI.get('/ajax/book', {
-              params: {
-                id,
-                library_id: 'default'
-              }
-            });
+            const bookResponse = await calibreAPI.get(`/ajax/book/${id}/calibre`);
             
             books.push({
-              ...bookResponse.data,
-              id
+              id,
+              title: bookResponse.data.title || 'Unknown Title',
+              author: bookResponse.data.authors?.join(', ') || 'Unknown Author',
+              tags: bookResponse.data.tags || [],
+              formats: bookResponse.data.formats || [],
+              added: bookResponse.data.timestamp || '',
+              cover: bookResponse.data.cover ? `${calibreServerUrl}${bookResponse.data.cover}` : null,
+              thumbnail: bookResponse.data.thumbnail ? `${calibreServerUrl}${bookResponse.data.thumbnail}` : null,
+              uuid: bookResponse.data.uuid || '',
+              publisher: bookResponse.data.publisher || '',
+              rating: bookResponse.data.rating || 0,
+              comments: bookResponse.data.comments || ''
             });
           } catch (err) {
             log(`Error fetching details for book ${id}: ${err.message}`);
@@ -392,28 +382,13 @@ module.exports = {
         log(`Successfully updated tags for book ID: ${bookId} using CLI`);
         return { success: true, bookId, tags };
       } else {
-        // Use Calibre Content Server API
+        // Use Calibre Content Server API - match the actual format
         // First get current metadata
-        const bookResponse = await calibreAPI.get('/ajax/book', {
-          params: {
-            id: bookId,
-            library_id: 'default'
-          }
-        });
+        const bookResponse = await calibreAPI.get(`/ajax/book/${bookId}/calibre`);
         
-        const currentMetadata = bookResponse.data;
-        
-        // Update metadata with new tags
-        const updatedMetadata = {
-          ...currentMetadata,
-          tags: tags
-        };
-        
-        // Send update request
-        await calibreAPI.post('/ajax/set_book_metadata', {
-          id: bookId,
-          library_id: 'default',
-          metadata: updatedMetadata
+        // Post the update with only the tags
+        await calibreAPI.post(`/cdb/set/calibre/${bookId}`, {
+          'tag_map.tags': tags
         });
         
         log(`Successfully updated tags for book ID: ${bookId} using API`);

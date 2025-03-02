@@ -44,18 +44,17 @@ exports.getAllBooks = async (req, res) => {
 
     // Process books to standardize format
     const books = rawBooks.map(book => {
-      // Extract fields based on whether we're using CLI or Content Server
       return {
-        id: book.id || book.book_id,
+        id: book.id,
         title: book.title || 'Unknown Title',
-        author: book.author_sort || book.authors?.join(', ') || 'Unknown Author',
-        tags: Array.isArray(book.tags) ? book.tags : (book.tags ? book.tags.split(',').map(t => t.trim()) : []),
+        author: book.author || 'Unknown Author',
+        tags: book.tags || [],
         formats: book.formats || [],
-        path: book.path || book.book_path || '',
-        added: book.timestamp || book.added || '',
-        cover: book.cover || book.cover_url || null,
-        uuid: book.uuid || '',
-        customFields: book.user_metadata || book.custom_metadata || {}
+        cover: book.cover || null,
+        thumbnail: book.thumbnail || null,
+        added: book.added || '',
+        rating: book.rating || 0,
+        publisher: book.publisher || ''
       };
     });
 
