@@ -11,6 +11,8 @@ import { ThemeProvider } from './context/ThemeContext';
 
 import PrivateRoute from './components/routing/PrivateRoute';
 import Layout from './components/layout/Layout';
+import AdminRoute from './components/routing/AdminRoute';
+
 
 
 // Lazy-loaded components
@@ -22,6 +24,7 @@ const BookDetail = lazy(() => import('./pages/BookDetail'));
 const Requests = lazy(() => import('./pages/Requests'));
 const AdminRequests = lazy(() => import('./pages/AdminRequests'));
 const Profile = lazy(() => import('./pages/Profile'));
+const CalibreManager = lazy(() => import('./pages/CalibreManager'));
 
 
 // Loading fallback
@@ -30,30 +33,6 @@ const LoadingFallback = () => (
     <CircularProgress />
   </Box>
 );
-
-
-// // Create a theme
-// const theme = createTheme({
-//   palette: {
-//     primary: {
-//       main: '#2196f3',
-//     },
-//     secondary: {
-//       main: '#f50057',
-//     },
-//     background: {
-//       default: '#f5f5f5',
-//       paper: '#ffffff',
-//     },
-//   },
-//   typography: {
-//     fontFamily: [
-//       'Roboto',
-//       'Arial',
-//       'sans-serif'
-//     ].join(','),
-//   },
-// });
 
 function App() {
   return (
@@ -75,6 +54,7 @@ function App() {
                   <Route path="/admin/requests" element={<AdminRequests />} />
                   <Route path="/profile" element={<Profile />} />
                   <Route path="/book/google/:id" element={<BookDetail source="google" />} />
+                  <Route path="calibre-manager" element={<AdminRoute><CalibreManager /></AdminRoute>} />
                 </Route>
 
                 <Route path="*" element={<Navigate to="/" replace />} />
