@@ -24,55 +24,86 @@ const log = (message) => {
  * Search for books across multiple sources
  */
 exports.searchBooks = async (req, res) => {
-  try {
-    const { query, source = 'all', limit = 20 } = req.query;
-    
-    if (!query) {
-      return res.status(400).json({ message: 'Search query is required' });
+    try {
+      const { query, source = 'all', limit = 20 } = req.query;
+      
+      if (!query) {
+        return res.status(400).json({ message: 'Search query is required' });
+      }
+  
+      log(`Searching for books with query: "${query}", source: ${source}, limit: ${limit}`);
+      
+      let results = { google: [], openLibrary: [], combined: [] };
+      
+      // Perform searches based on selected source
+      if (source === 'all' || source === 'google') {
+        try {
+          results.google = await googleBooksAPI.searchBooks(query, parseInt(limit));
+          log(`Found ${results.google.length} results from Google Books`);
+          
+          // Sort Google results by popularity (rating * ratings_count)
+          results.google.sort((a, b) => {
+            const popScoreA = (a.rating || 0) * (a.ratings_count || 0);
+            const popScoreB = (b.rating || 0) * (b.ratings_count || 0);
+            return popScoreB - popScoreA;
+          });
+        } catch (err) {
+          log(`Error searching Google Books: ${err.message}`);
+          results.google = [];
+        }
+      }
+      
+      if (source === 'all' || source === 'openLibrary') {
+        try {
+          results.openLibrary = await openLibraryAPI.searchBooks(query);
+          log(`Found ${results.openLibrary.length} results from Open Library`);
+          
+          // Sort Open Library results by popularity (rating)
+          results.openLibrary.sort((a, b) => {
+            return (b.rating || 0) - (a.rating || 0);
+          });
+        } catch (err) {
+          log(`Error searching Open Library: ${err.message}`);
+          results.openLibrary = [];
+        }
+      }
+      
+      // Combine and deduplicate results if needed
+      if (source === 'all') {
+        results.combined = combineAndDeduplicate(results.google, results.openLibrary);
+        
+        // Sort combined results by a calculated popularity score
+        results.combined.sort((a, b) => {
+          // Calculate popularity scores
+          let scoreA = (a.rating || 0) * Math.min(1000, (a.ratings_count || 1));
+          let scoreB = (b.rating || 0) * Math.min(1000, (b.ratings_count || 1));
+          
+          // Year bonus for recent books
+          const currentYear = new Date().getFullYear();
+          if (a.year && a.year > (currentYear - 5)) scoreA *= 1.2;
+          if (b.year && b.year > (currentYear - 5)) scoreB *= 1.2;
+          
+          return scoreB - scoreA;
+        });
+        
+        log(`Combined results: ${results.combined.length} books`);
+      }
+      
+      const responseData = {
+        query,
+        source,
+        results: source === 'all' ? 
+          { google: results.google, openLibrary: results.openLibrary, combined: results.combined } : 
+          results[source] || []
+      };
+      
+      res.json(responseData);
+    } catch (err) {
+      log(`Error searching books: ${err.message}`);
+      console.error('Error searching books:', err);
+      res.status(500).json({ message: 'Server error', error: err.message });
     }
-
-    log(`Searching for books with query: "${query}", source: ${source}, limit: ${limit}`);
-    
-    let results = { google: [], openLibrary: [], combined: [] };
-    
-    // Perform searches based on selected source
-    if (source === 'all' || source === 'google') {
-      results.google = await googleBooksAPI.searchBooks(query, parseInt(limit));
-      log(`Found ${results.google.length} results from Google Books`);
-    }
-    
-    if (source === 'all' || source === 'openLibrary') {
-      results.openLibrary = await openLibraryAPI.searchBooks(query);
-      log(`Found ${results.openLibrary.length} results from Open Library`);
-    }
-    
-    // Combine and deduplicate results
-    if (source === 'all') {
-      results.combined = combineAndDeduplicate(results.google, results.openLibrary);
-      log(`Combined results: ${results.combined.length} books`);
-    }
-
-    // Pre-check with Readarr to add availability information
-    if (results.combined.length > 0 || results[source].length > 0) {
-      const booksToCheck = source === 'all' ? results.combined : results[source];
-      await addReadarrAvailabilityInfo(booksToCheck);
-    }
-    
-    const responseData = {
-      query,
-      source,
-      results: source === 'all' ? 
-        { google: results.google, openLibrary: results.openLibrary, combined: results.combined } : 
-        results[source] || []
-    };
-    
-    res.json(responseData);
-  } catch (err) {
-    log(`Error searching books: ${err.message}`);
-    console.error('Error searching books:', err);
-    res.status(500).json({ message: 'Server error', error: err.message });
-  }
-};
+  };
 
 /**
  * Get book details from a specific source
