@@ -18,6 +18,47 @@ const SwipeableBookCard = ({ book, onRequest }) => {
   const [swipeDirection, setSwipeDirection] = useState(null);
   const [swipePercentage, setSwipePercentage] = useState(0);
 
+  // Function to optimize image URL for better quality
+  const getOptimizedImageUrl = (url) => {
+    if (!url) return null;
+    
+    // Google Books specific optimizations
+    if (url.includes('books.google.com')) {
+      let optimizedUrl = url;
+      
+      // Ensure HTTPS
+      if (optimizedUrl.startsWith('http://')) {
+        optimizedUrl = optimizedUrl.replace('http://', 'https://');
+      }
+      
+      // Remove edge curl effect
+      optimizedUrl = optimizedUrl.replace('&edge=curl', '');
+      
+      // Set zoom to 0 (best quality)
+      if (optimizedUrl.includes('zoom=')) {
+        optimizedUrl = optimizedUrl.replace(/zoom=\d/, 'zoom=0');
+      } else {
+        optimizedUrl = optimizedUrl + '&zoom=0';
+      }
+      
+      return optimizedUrl;
+    }
+    
+    // OpenLibrary specific optimizations
+    if (url.includes('openlibrary.org')) {
+      // Ensure we're using the largest image size
+      return url.replace('-M.jpg', '-L.jpg');
+    }
+    
+    return url;
+  };
+
+  // Create optimized version of the book with high-quality cover
+  const optimizedBook = {
+    ...book,
+    cover: getOptimizedImageUrl(book.cover)
+  };
+
   const handlers = useSwipeable({
     onSwiping: (eventData) => {
       // Only handle horizontal swipes
@@ -37,7 +78,7 @@ const SwipeableBookCard = ({ book, onRequest }) => {
       if (Math.abs(eventData.deltaY) < Math.abs(eventData.deltaX)) {
         // Only trigger if swiped far enough
         if (swipePercentage > 40 && onRequest) {
-          onRequest(book);
+          onRequest(optimizedBook); // Pass the optimized book to maintain high quality
         }
       }
       // Reset state
@@ -221,7 +262,7 @@ const SwipeableBookCard = ({ book, onRequest }) => {
           zIndex: 2
         }}
       >
-        <BookCard book={book} />
+        <BookCard book={optimizedBook} /> {/* Use the optimized book with high-quality cover */}
       </Box>
     </Box>
   );

@@ -111,19 +111,28 @@ const BookRequestDialog = ({ open, onClose, book }) => {
       </DialogTitle>
       <DialogContent>
         <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
-          {book.cover && (
-            <Box
-              component="img"
-              src={book.cover}
-              alt={book.title}
-              sx={{ 
-                width: 100, 
-                mr: 2, 
-                borderRadius: 1,
-                objectFit: 'contain'
-              }}
-            />
-          )}
+        {book.cover && (
+          <Box
+            component="img"
+            src={book.cover}
+            alt={book.title}
+            sx={{ 
+              width: 120, 
+              height: 180,
+              mr: 2, 
+              borderRadius: 1,
+              objectFit: 'cover',
+              objectPosition: 'center top',
+              boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+              transition: 'transform 0.2s ease-in-out',
+              '&:hover': {
+                transform: 'scale(1.05)',
+                boxShadow: '0 6px 12px rgba(0,0,0,0.15)',
+              },
+              imageRendering: 'high-quality'
+            }}
+          />
+        )}
           <Box>
             <Typography variant="h6" component="div">
               {book.title}

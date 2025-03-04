@@ -66,12 +66,33 @@ const processGoogleBook = (book) => {
   // Extract best available image
   let coverImage = null;
   if (info.imageLinks) {
-    // Try to get the best available image in this order
+    // Request higher quality images by trying to get the best available in this order
     coverImage = info.imageLinks.extraLarge || 
                 info.imageLinks.large || 
                 info.imageLinks.medium || 
                 info.imageLinks.small || 
                 info.imageLinks.thumbnail;
+                
+    // If the URL starts with http:// instead of https://, swap it
+    if (coverImage && coverImage.startsWith('http://')) {
+      coverImage = coverImage.replace('http://', 'https://');
+    }
+    
+    // Remove any zoom parameters that might reduce quality
+    if (coverImage) {
+      coverImage = coverImage.replace('&zoom=1', '&zoom=0')
+                            .replace('&edge=curl', '');
+                            
+      // For Google Books API, try to get higher resolution by replacing zoom level
+      if (coverImage.includes('books.google.com')) {
+        // Replace any existing zoom parameter or add a new one for max quality
+        if (coverImage.includes('zoom=')) {
+          coverImage = coverImage.replace(/zoom=\d/, 'zoom=0');
+        } else {
+          coverImage = coverImage + '&zoom=0';
+        }
+      }
+    }
   }
   
   return {
