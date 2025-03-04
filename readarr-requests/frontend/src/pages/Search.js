@@ -1,7 +1,8 @@
 // src/pages/Search.js
 import React, { useState, useEffect } from 'react';
 import { 
-  Box, 
+  Box,
+  Button,
   Typography, 
   Grid, 
   CircularProgress, 
