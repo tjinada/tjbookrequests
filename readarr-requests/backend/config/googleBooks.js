@@ -380,8 +380,7 @@ module.exports = {
       console.error('Error fetching NYT bestsellers from Google Books:', error);
       return [];
     }
-  }
-};
+  },
 
 
 
