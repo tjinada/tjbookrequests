@@ -1,4 +1,4 @@
-// config/readarr.js - Robust implementation with improved matching
+// config/readarr.js - Enhanced with improved matching
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
@@ -41,7 +41,7 @@ function preprocessBookData(bookData) {
   const result = { ...bookData };
   
   // Fix cases where title contains "by Author"
-  if (result.title.includes(' by ') && !result.title.startsWith('by ')) {
+  if (result.title && result.title.includes(' by ') && !result.title.startsWith('by ')) {
     // This format is likely "Book Title by Author Name"
     const parts = result.title.split(' by ');
     if (parts.length >= 2) {
@@ -697,7 +697,6 @@ module.exports = {
         }
       }
 
-      // Make sure we have a target
       // Make sure we have a target book at this point
       if (!targetBook) {
         throw new Error(`Could not find or add the requested book: ${processedData.title}`);

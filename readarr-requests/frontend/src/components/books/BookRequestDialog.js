@@ -1,5 +1,5 @@
 // src/components/books/BookRequestDialog.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
@@ -10,11 +10,12 @@ import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
+import Chip from '@mui/material/Chip';
+import Divider from '@mui/material/Divider';
 import BookmarkAddIcon from '@mui/icons-material/BookmarkAdd';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import SearchIcon from '@mui/icons-material/Search';
-import Divider from '@mui/material/Divider';
-import Chip from '@mui/material/Chip';
+import LinearProgress from '@mui/material/LinearProgress';
 import api from '../../utils/api';
 
 const BookRequestDialog = ({ open, onClose, book }) => {
@@ -25,14 +26,18 @@ const BookRequestDialog = ({ open, onClose, book }) => {
   const [loadingAuthor, setLoadingAuthor] = useState(false);
   const [readarrStatus, setReadarrStatus] = useState(null);
   const [checkingReadarr, setCheckingReadarr] = useState(false);
+  const [useDirectAdd, setUseDirectAdd] = useState(false);
+  const [directAddStatus, setDirectAddStatus] = useState(null);
 
   // Reset state when dialog opens
-  React.useEffect(() => {
+  useEffect(() => {
     if (open && book) {
       setRequested(false);
       setError(null);
       setAuthorInfo(null);
       setReadarrStatus(null);
+      setUseDirectAdd(false);
+      setDirectAddStatus(null);
       
       // Get author information
       if (book.author && book.source === 'google') {
@@ -86,31 +91,47 @@ const BookRequestDialog = ({ open, onClose, book }) => {
     }
   };
 
+  // Standard request flow (via requests collection)
   const handleRequestBook = async () => {
     setRequesting(true);
     setError(null);
 
     try {
-      if (book.source) {
-        // Use the enhanced metadata-based book adding
-        await api.post('/search/add', {
-          bookId: book.id.replace(/^(gb|ol)-/, ''), // Remove source prefix if present
-          source: book.source
-        });
-      } else {
-        // Fallback to traditional request method
-        await api.post('/requests', {
-          bookId: book.id,
-          title: book.title,
-          author: book.author,
-          cover: book.cover,
-          isbn: book.isbn
-        });
-      }
+      await api.post('/requests', {
+        bookId: book.id,
+        title: book.title,
+        author: book.author,
+        cover: book.cover,
+        isbn: book.isbn,
+        source: book.source
+      });
 
       setRequested(true);
+      setRequesting(false);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to request book. Please try again.');
+      setRequesting(false);
+    }
+  };
+
+  // Direct add to Readarr (for admins)
+  const handleDirectAdd = async () => {
+    setRequesting(true);
+    setDirectAddStatus('loading');
+    setError(null);
+
+    try {
+      const response = await api.post('/search/add', {
+        bookId: book.id.replace(/^(gb|ol)-/, ''), // Remove source prefix if present
+        source: book.source
+      });
+
+      setDirectAddStatus('success');
+      setRequested(true);
+      // We could update readarrStatus with the new data here
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to add book to Readarr. Please try again.');
+      setDirectAddStatus('error');
     } finally {
       setRequesting(false);
     }
@@ -124,6 +145,8 @@ const BookRequestDialog = ({ open, onClose, book }) => {
         setError(null);
         setAuthorInfo(null);
         setReadarrStatus(null);
+        setUseDirectAdd(false);
+        setDirectAddStatus(null);
       }, 300);
     }
     onClose();
@@ -242,9 +265,29 @@ const BookRequestDialog = ({ open, onClose, book }) => {
           </Box>
         ) : null}
 
-        <DialogContentText sx={{ mt: 2 }}>
-          Do you want to request this book to be added to the library?
-        </DialogContentText>
+        {/* Direct Add Status */}
+        {directAddStatus === 'loading' && (
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="body2" gutterBottom>Adding to Readarr...</Typography>
+            <LinearProgress />
+          </Box>
+        )}
+
+        {directAddStatus === 'success' && (
+          <Alert 
+            icon={<CheckCircleIcon fontSize="inherit" />} 
+            severity="success" 
+            sx={{ mt: 2 }}
+          >
+            Book successfully added to Readarr!
+          </Alert>
+        )}
+
+        {!directAddStatus && (
+          <DialogContentText sx={{ mt: 2 }}>
+            Do you want to request this book to be added to the library?
+          </DialogContentText>
+        )}
 
         {error && (
           <Alert severity="error" sx={{ mt: 2 }}>
@@ -252,7 +295,7 @@ const BookRequestDialog = ({ open, onClose, book }) => {
           </Alert>
         )}
 
-        {requested && (
+        {requested && !directAddStatus && (
           <Alert 
             icon={<CheckCircleIcon fontSize="inherit" />} 
             severity="success" 
@@ -276,14 +319,29 @@ const BookRequestDialog = ({ open, onClose, book }) => {
               Book Already Available
             </Button>
           ) : (
-            <Button 
-              onClick={handleRequestBook} 
-              disabled={requesting}
-              variant="contained" 
-              startIcon={requesting ? <CircularProgress size={20} /> : <BookmarkAddIcon />}
-            >
-              {requesting ? 'Requesting...' : 'Request Book'}
-            </Button>
+            <>
+              {/* Show direct add option for admins */}
+              {useDirectAdd ? (
+                <Button 
+                  onClick={handleDirectAdd} 
+                  disabled={requesting}
+                  variant="contained" 
+                  color="secondary"
+                  startIcon={requesting ? <CircularProgress size={20} /> : <SearchIcon />}
+                >
+                  {requesting ? 'Adding...' : 'Add to Readarr Directly'}
+                </Button>
+              ) : (
+                <Button 
+                  onClick={handleRequestBook} 
+                  disabled={requesting}
+                  variant="contained" 
+                  startIcon={requesting ? <CircularProgress size={20} /> : <BookmarkAddIcon />}
+                >
+                  {requesting ? 'Requesting...' : 'Request Book'}
+                </Button>
+              )}
+            </>
           )
         )}
       </DialogActions>
