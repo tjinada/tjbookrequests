@@ -97,7 +97,7 @@ module.exports = {
 
       const qualityProfileId = qualityProfiles.data[0].id;
       const metadataProfileId = metadataProfiles.data[0].id;
-      const rootFolderPath = rootFolders.data[0].path;
+      const rootFolderPath = rootFolders.data[1].path;
 
       log(`Using profiles - Quality: ${qualityProfileId}, Metadata: ${metadataProfileId}, Root: ${rootFolderPath}`);
 
