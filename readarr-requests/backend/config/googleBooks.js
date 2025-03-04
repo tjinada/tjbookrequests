@@ -381,7 +381,7 @@ module.exports = {
       return [];
     }
   }
-},
+};
 
 
 
