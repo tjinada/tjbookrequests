@@ -328,6 +328,63 @@ module.exports = {
     }
   },
 
+  getNytBestsellers: async (limit = 100) => {
+    try {
+      // Check cache first
+      const now = Date.now();
+      if (cache.nyt && now - cache.nytTimestamp < CACHE_EXPIRY) {
+        console.log('Using cached Google Books NYT bestsellers');
+        return cache.nyt;
+      }
+
+      // Search for bestsellers - there's no direct NYT integration, so use keyword
+      const response = await googleBooksAPI.get('/volumes', {
+        params: {
+          q: 'bestseller',
+          orderBy: 'newest',
+          printType: 'books',
+          maxResults: 40
+        }
+      });
+
+      if (!response.data || !response.data.items) {
+        return [];
+      }
+
+      // Process books and filter out any without covers
+      const books = response.data.items
+        .map(processGoogleBook)
+        .filter(book => book && book.cover);
+
+      // Filter for recent books (last 5 years)
+      const currentYear = new Date().getFullYear();
+      const recentBooks = books.filter(book => 
+        book.year && book.year >= currentYear - 5
+      );
+
+      // Use recent books if we have enough, otherwise use all
+      const finalBooks = recentBooks.length >= limit ? recentBooks : books;
+
+      // Sort by year (descending), then by rating
+      finalBooks.sort((a, b) => {
+        if (b.year !== a.year) return b.year - a.year;
+        return (b.rating || 0) - (a.rating || 0);
+      });
+
+      // Cache the results
+      cache.nyt = finalBooks.slice(0, limit);
+      cache.nytTimestamp = now;
+
+      return cache.nyt;
+    } catch (error) {
+      console.error('Error fetching NYT bestsellers from Google Books:', error);
+      return [];
+    }
+  }
+},
+
+
+
   /**
    * Search for books by a specific author
    * @param {string} author - Author name
