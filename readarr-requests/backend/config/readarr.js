@@ -1,4 +1,4 @@
-// config/readarr.js - Simplified version
+// config/readarr.js - Simplified version with lastname, firstname search
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
@@ -60,8 +60,21 @@ function preprocessBookData(bookData) {
   return result;
 }
 
+// Helper function to convert author name to "lastname, firstname" format
+function getLastnameFirstFormat(authorName) {
+  if (!authorName) return '';
+  
+  const parts = authorName.trim().split(' ');
+  if (parts.length < 2) return authorName; // Can't split if it's just one word
+  
+  const lastName = parts.pop(); // Get the last part as the last name
+  const firstName = parts.join(' '); // Join the rest as the first name(s)
+  
+  return `${lastName}, ${firstName}`;
+}
+
 module.exports = {
-  // Simplified addBook function with straightforward author/book lookup
+  // Simplified addBook function with "lastname, firstname" search option
   addBook: async (bookData) => {
     try {
       log(`\n========== Starting to add book ==========`);
@@ -107,26 +120,54 @@ module.exports = {
 
       // Step 3: If author doesn't exist, search for and add them
       if (!authorId) {
-        log(`Author not found. Searching for author: ${processedData.author}`);
+        // Generate both normal and lastname first formats for searching
+        const standardAuthorName = processedData.author;
+        const lastnameFirstAuthor = getLastnameFirstFormat(standardAuthorName);
         
-        // Search for author in Readarr database
-        const authorLookupResponse = await readarrAPI.get(`/api/v1/author/lookup?term=${encodeURIComponent(processedData.author)}`);
+        log(`Author not found. Will try both name formats:
+        - Standard format: ${standardAuthorName}
+        - Lastname first: ${lastnameFirstAuthor}`);
         
-        if (!authorLookupResponse.data?.length) {
+        // Try to search with lastname, firstname format first
+        let authorLookupResponse;
+        let authorSearchResults = [];
+        
+        try {
+          // First search with lastname, firstname format
+          authorLookupResponse = await readarrAPI.get(`/api/v1/author/lookup?term=${encodeURIComponent(lastnameFirstAuthor)}`);
+          authorSearchResults = authorLookupResponse.data || [];
+          log(`Search with "${lastnameFirstAuthor}" found ${authorSearchResults.length} results`);
+          
+          // If no results with lastname first, try standard format
+          if (authorSearchResults.length === 0) {
+            log(`No results with lastname first format. Trying standard name format.`);
+            authorLookupResponse = await readarrAPI.get(`/api/v1/author/lookup?term=${encodeURIComponent(standardAuthorName)}`);
+            authorSearchResults = authorLookupResponse.data || [];
+            log(`Search with "${standardAuthorName}" found ${authorSearchResults.length} results`);
+          }
+        } catch (error) {
+          // If any error occurs, try the standard format
+          log(`Error with lastname first search: ${error.message}. Trying standard format.`);
+          authorLookupResponse = await readarrAPI.get(`/api/v1/author/lookup?term=${encodeURIComponent(standardAuthorName)}`);
+          authorSearchResults = authorLookupResponse.data || [];
+        }
+        
+        if (!authorSearchResults.length) {
           throw new Error(`Author "${processedData.author}" not found in Readarr database`);
         }
         
         // Find exact author match or best match
         let authorToAdd = null;
         
-        // First try exact match
-        authorToAdd = authorLookupResponse.data.find(a => 
-          normalizeText(a.authorName) === normalizeText(processedData.author));
+        // Try exact match with both name formats
+        authorToAdd = authorSearchResults.find(a => 
+          normalizeText(a.authorName) === normalizeText(standardAuthorName) ||
+          normalizeText(a.authorName) === normalizeText(lastnameFirstAuthor));
         
-        // If no exact match, use the first result (which is usually best match by Readarr's sorting)
+        // If no exact match, use the first result
         if (!authorToAdd) {
           log(`No exact author name match found. Using first search result.`);
-          authorToAdd = authorLookupResponse.data[0];
+          authorToAdd = authorSearchResults[0];
         }
         
         log(`Adding author: ${authorToAdd.authorName}`);
@@ -161,20 +202,24 @@ module.exports = {
       log(`Getting books for author ID: ${authorId}`);
       let targetBook = null;
       
-      // Get all books for this author
-      const authorBooksResponse = await readarrAPI.get(`/api/v1/book?authorId=${authorId}&includeAllAuthorBooks=true`);
-      const booksList = authorBooksResponse.data || [];
-      log(`Found ${booksList.length} books for author`);
-      
-      // Check if book already exists for this author
-      if (booksList.length > 0) {
-        // Look for exact match first
-        targetBook = booksList.find(book => 
-          normalizeText(book.title) === normalizeText(processedData.title));
+      try {
+        // Get all books for this author
+        const authorBooksResponse = await readarrAPI.get(`/api/v1/book?authorId=${authorId}&includeAllAuthorBooks=true`);
+        const booksList = authorBooksResponse.data || [];
+        log(`Found ${booksList.length} books for author`);
         
-        if (targetBook) {
-          log(`Found exact title match in author's library: "${targetBook.title}" with ID: ${targetBook.id}`);
+        // Check if book already exists for this author
+        if (booksList.length > 0) {
+          // Look for exact match first
+          targetBook = booksList.find(book => 
+            normalizeText(book.title) === normalizeText(processedData.title));
+          
+          if (targetBook) {
+            log(`Found exact title match in author's library: "${targetBook.title}" with ID: ${targetBook.id}`);
+          }
         }
+      } catch (error) {
+        log(`Error getting author's books: ${error.message}. Will proceed to search for the book.`);
       }
 
       // Step 5: If book doesn't exist, search for and add it
