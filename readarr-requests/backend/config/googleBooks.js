@@ -1,8 +1,25 @@
-// config/googleBooks.js
+// config/googleBooks.js - Enhanced version with better search results
 const axios = require('axios');
 const dotenv = require('dotenv');
+const fs = require('fs');
+const path = require('path');
 
 dotenv.config();
+
+// Set up logging
+const logDir = path.join(__dirname, '../logs');
+if (!fs.existsSync(logDir)) {
+  fs.mkdirSync(logDir, { recursive: true });
+}
+
+const logFile = path.join(__dirname, '../logs/google-books.log');
+
+const log = (message) => {
+  const timestamp = new Date().toISOString();
+  const logMessage = `${timestamp} - ${message}\n`;
+  fs.appendFileSync(logFile, logMessage);
+  console.log(message);
+};
 
 const googleBooksAPI = axios.create({
   baseURL: 'https://www.googleapis.com/books/v1',
@@ -19,41 +36,198 @@ const cache = {
   nyt: null,
   recentTimestamp: 0,
   popularTimestamp: 0,
-  nytTimestamp: 0
+  nytTimestamp: 0,
+  searches: {}, // Search query cache
+  searchTimestamps: {},
+  bookDetails: {}, // Book details cache
+  bookDetailsTimestamps: {}
 };
 
 // Cache expiration time (4 hours)
 const CACHE_EXPIRY = 4 * 60 * 60 * 1000;
+// Search cache expiration (1 hour)
+const SEARCH_CACHE_EXPIRY = 1 * 60 * 60 * 1000;
 
 // Process Google Books data to match our format
 const processGoogleBook = (book) => {
   if (!book.volumeInfo) return null;
 
   const info = book.volumeInfo;
+  
+  // Extract primary ISBN
+  let isbn = null;
+  if (info.industryIdentifiers && info.industryIdentifiers.length > 0) {
+    // Prefer ISBN_13, fallback to ISBN_10
+    const isbn13 = info.industryIdentifiers.find(id => id.type === 'ISBN_13');
+    const isbn10 = info.industryIdentifiers.find(id => id.type === 'ISBN_10');
+    isbn = isbn13 ? isbn13.identifier : (isbn10 ? isbn10.identifier : null);
+  }
+  
+  // Extract best available image
+  let coverImage = null;
+  if (info.imageLinks) {
+    // Try to get the best available image in this order
+    coverImage = info.imageLinks.extraLarge || 
+                info.imageLinks.large || 
+                info.imageLinks.medium || 
+                info.imageLinks.small || 
+                info.imageLinks.thumbnail;
+  }
+  
   return {
     id: `gb-${book.id}`,
-    title: info.title,
+    title: info.title || 'Unknown Title',
     author: info.authors ? info.authors.join(', ') : 'Unknown Author',
     overview: info.description || '',
-    cover: info.imageLinks ? info.imageLinks.thumbnail : null,
+    cover: coverImage,
     releaseDate: info.publishedDate,
     year: info.publishedDate ? parseInt(info.publishedDate.substring(0, 4)) : null,
     rating: info.averageRating || 0,
     ratings_count: info.ratingsCount || 0,
-    source: 'google'
+    source: 'google',
+    genres: info.categories || [],
+    isbn: isbn,
+    pageCount: info.pageCount || 0,
+    publisher: info.publisher || '',
+    language: info.language || 'en',
+    googleId: book.id,
+    // Add detailed author information for better matching
+    authorInfo: info.authors ? info.authors.map(author => ({
+      name: author,
+      // In a real implementation, you might want to query for more author details
+    })) : [{name: 'Unknown Author'}]
   };
 };
 
 module.exports = {
   /**
+   * Enhanced search function with better result processing
+   * @param {string} query - Search query
+   * @param {number} maxResults - Maximum results to return (default: 40)
+   * @returns {array} - Array of formatted book objects
+   */
+  searchBooks: async (query, maxResults = 40) => {
+    try {
+      log(`Searching Google Books for: "${query}"`);
+      
+      // Check cache first
+      const cacheKey = `${query}-${maxResults}`;
+      const now = Date.now();
+      if (cache.searches[cacheKey] && now - cache.searchTimestamps[cacheKey] < SEARCH_CACHE_EXPIRY) {
+        log(`Using cached search results for: "${query}"`);
+        return cache.searches[cacheKey];
+      }
+      
+      // Perform API search
+      const response = await googleBooksAPI.get('/volumes', {
+        params: {
+          q: query,
+          maxResults: maxResults,
+          orderBy: 'relevance',
+          printType: 'books'
+        }
+      });
+
+      if (!response.data || !response.data.items) {
+        log(`No results found for search: "${query}"`);
+        return [];
+      }
+
+      // Process books and filter out any with incomplete data
+      const books = response.data.items
+        .map(processGoogleBook)
+        .filter(book => book !== null);
+
+      log(`Found ${books.length} books for search: "${query}"`);
+      
+      // Cache the results
+      cache.searches[cacheKey] = books;
+      cache.searchTimestamps[cacheKey] = now;
+
+      return books;
+    } catch (error) {
+      log(`Error searching Google Books: ${error.message}`);
+      return [];
+    }
+  },
+  
+  /**
+   * Get detailed information about a specific book
+   * @param {string} bookId - Google Books ID
+   * @returns {object} - Formatted book object with detailed information
+   */
+  getBookDetails: async (bookId) => {
+    try {
+      log(`Getting book details for ID: ${bookId}`);
+      
+      // Strip 'gb-' prefix if present
+      const googleId = bookId.startsWith('gb-') ? bookId.substring(3) : bookId;
+      
+      // Check cache first
+      const now = Date.now();
+      if (cache.bookDetails[googleId] && now - cache.bookDetailsTimestamps[googleId] < CACHE_EXPIRY) {
+        log(`Using cached book details for ID: ${googleId}`);
+        return cache.bookDetails[googleId];
+      }
+      
+      // Fetch book details
+      const response = await googleBooksAPI.get(`/volumes/${googleId}`);
+      
+      if (!response.data || !response.data.volumeInfo) {
+        throw new Error(`Book not found: ${googleId}`);
+      }
+      
+      // Process the book data
+      const bookDetails = processGoogleBook(response.data);
+      
+      if (!bookDetails) {
+        throw new Error(`Failed to process book details: ${googleId}`);
+      }
+      
+      // Add extra information from the detailed response
+      if (response.data.volumeInfo) {
+        const info = response.data.volumeInfo;
+        
+        // Add additional fields
+        bookDetails.subtitle = info.subtitle || '';
+        bookDetails.previewLink = info.previewLink || '';
+        bookDetails.infoLink = info.infoLink || '';
+        bookDetails.canonicalVolumeLink = info.canonicalVolumeLink || '';
+        
+        // Add all available image links
+        if (info.imageLinks) {
+          bookDetails.imageLinks = info.imageLinks;
+        }
+        
+        // Add all industry identifiers
+        if (info.industryIdentifiers) {
+          bookDetails.identifiers = info.industryIdentifiers.reduce((acc, id) => {
+            acc[id.type] = id.identifier;
+            return acc;
+          }, {});
+        }
+      }
+      
+      // Cache the results
+      cache.bookDetails[googleId] = bookDetails;
+      cache.bookDetailsTimestamps[googleId] = now;
+      
+      return bookDetails;
+    } catch (error) {
+      log(`Error getting book details: ${error.message}`);
+      throw error;
+    }
+  },
+
+  /**
    * Get recent books from Google Books API
    */
-  getRecentBooks: async (limit = 100) => {
+  getRecentBooks: async (limit = 40) => {
     try {
       // Check cache first
       const now = Date.now();
       if (cache.recent && now - cache.recentTimestamp < CACHE_EXPIRY) {
-        console.log('Using cached Google Books recent books');
+        log('Using cached Google Books recent books');
         return cache.recent;
       }
 
@@ -67,7 +241,7 @@ module.exports = {
           q: `subject:fiction+publishedDate:${lastFiveYears}`,
           orderBy: 'relevance',
           printType: 'books',
-          maxResults: 40
+          maxResults: limit
         }
       });
 
@@ -103,7 +277,7 @@ module.exports = {
 
       return cache.recent;
     } catch (error) {
-      console.error('Error fetching recent books from Google Books:', error);
+      log(`Error fetching recent books from Google Books: ${error.message}`);
       return [];
     }
   },
@@ -111,12 +285,12 @@ module.exports = {
   /**
    * Get popular books from Google Books
    */
-  getPopularBooks: async (limit = 100) => {
+  getPopularBooks: async (limit = 40) => {
     try {
       // Check cache first
       const now = Date.now();
       if (cache.popular && now - cache.popularTimestamp < CACHE_EXPIRY) {
-        console.log('Using cached Google Books popular books');
+        log('Using cached Google Books popular books');
         return cache.popular;
       }
 
@@ -126,7 +300,7 @@ module.exports = {
           q: 'subject:fiction',
           orderBy: 'relevance',
           printType: 'books',
-          maxResults: 40,
+          maxResults: limit,
           langRestrict: 'en'
         }
       });
@@ -149,81 +323,190 @@ module.exports = {
 
       return cache.popular;
     } catch (error) {
-      console.error('Error fetching popular books from Google Books:', error);
+      log(`Error fetching popular books from Google Books: ${error.message}`);
       return [];
     }
   },
 
   /**
-   * Get NYT bestsellers or similar from Google Books
+   * Search for books by a specific author
+   * @param {string} author - Author name
+   * @param {number} maxResults - Maximum results to return
+   * @returns {array} - Array of formatted book objects by the author
    */
-  getNytBestsellers: async (limit = 100) => {
+  searchBooksByAuthor: async (author, maxResults = 20) => {
     try {
-      // Check cache first
-      const now = Date.now();
-      if (cache.nyt && now - cache.nytTimestamp < CACHE_EXPIRY) {
-        console.log('Using cached Google Books NYT bestsellers');
-        return cache.nyt;
-      }
-
-      // Search for bestsellers - there's no direct NYT integration, so use keyword
+      log(`Searching for books by author: "${author}"`);
+      
+      // Use the inauthor: prefix for author search
+      const query = `inauthor:"${author}"`;
+      
+      // Perform search
       const response = await googleBooksAPI.get('/volumes', {
         params: {
-          q: 'bestseller',
-          orderBy: 'newest',
-          printType: 'books',
-          maxResults: 40
+          q: query,
+          maxResults: maxResults,
+          orderBy: 'relevance',
+          printType: 'books'
         }
       });
 
       if (!response.data || !response.data.items) {
+        log(`No books found for author: "${author}"`);
         return [];
       }
 
-      // Process books and filter out any without covers
+      // Process and filter books
       const books = response.data.items
         .map(processGoogleBook)
-        .filter(book => book && book.cover);
+        .filter(book => book !== null && book.author.toLowerCase().includes(author.toLowerCase()));
 
-      // Filter for recent books (last 5 years)
-      const currentYear = new Date().getFullYear();
-      const recentBooks = books.filter(book => 
-        book.year && book.year >= currentYear - 5
-      );
-
-      // Use recent books if we have enough, otherwise use all
-      const finalBooks = recentBooks.length >= limit ? recentBooks : books;
-
-      // Sort by year (descending), then by rating
-      finalBooks.sort((a, b) => {
-        if (b.year !== a.year) return b.year - a.year;
-        return (b.rating || 0) - (a.rating || 0);
+      log(`Found ${books.length} books by author: "${author}"`);
+      return books;
+    } catch (error) {
+      log(`Error searching books by author: ${error.message}`);
+      return [];
+    }
+  },
+  
+  /**
+   * Search for an author to get detailed information
+   * @param {string} authorName - Author name to search
+   * @returns {object} - Author information
+   */
+  searchAuthor: async (authorName) => {
+    try {
+      log(`Searching for author information: "${authorName}"`);
+      
+      // Use the inauthor: prefix for author search
+      const query = `inauthor:"${authorName}"`;
+      
+      // Perform search
+      const response = await googleBooksAPI.get('/volumes', {
+        params: {
+          q: query,
+          maxResults: 10,
+          orderBy: 'relevance',
+          printType: 'books'
+        }
       });
 
-      // Cache the results
-      cache.nyt = finalBooks.slice(0, limit);
-      cache.nytTimestamp = now;
+      if (!response.data || !response.data.items || response.data.items.length === 0) {
+        log(`No information found for author: "${authorName}"`);
+        return null;
+      }
 
-      return cache.nyt;
+      // Extract author information from the books
+      const books = response.data.items
+        .map(processGoogleBook)
+        .filter(book => book !== null);
+      
+      // Find books that exactly match the author name
+      const exactMatchBooks = books.filter(book => {
+        const bookAuthors = book.author.split(', ');
+        return bookAuthors.some(author => author.toLowerCase() === authorName.toLowerCase());
+      });
+      
+      // If no exact matches, use the closest matches
+      const relevantBooks = exactMatchBooks.length > 0 ? exactMatchBooks : books;
+      
+      // Extract unique author names
+      const authorNames = new Set();
+      relevantBooks.forEach(book => {
+        book.author.split(', ').forEach(author => {
+          authorNames.add(author);
+        });
+      });
+      
+      // Find the most likely author match
+      let mostLikelyAuthor = null;
+      let highestScore = -1;
+      
+      authorNames.forEach(author => {
+        // Calculate a score based on exact match and frequency
+        let score = 0;
+        
+        // Exact match gets a big boost
+        if (author.toLowerCase() === authorName.toLowerCase()) {
+          score += 100;
+        }
+        
+        // Count frequency in the books
+        const frequency = relevantBooks.filter(book => 
+          book.author.toLowerCase().includes(author.toLowerCase())).length;
+        
+        score += frequency * 10;
+        
+        if (score > highestScore) {
+          highestScore = score;
+          mostLikelyAuthor = author;
+        }
+      });
+      
+      if (!mostLikelyAuthor) {
+        return null;
+      }
+      
+      // Compile author information
+      const authorInfo = {
+        name: mostLikelyAuthor,
+        books: relevantBooks.filter(book => 
+          book.author.toLowerCase().includes(mostLikelyAuthor.toLowerCase())),
+        // Calculate average rating across books
+        averageRating: relevantBooks.reduce((sum, book) => sum + (book.rating || 0), 0) / relevantBooks.length,
+        bookCount: relevantBooks.length,
+        // Use the genre from the most popular book as the author's primary genre
+        primaryGenres: extractTopGenres(relevantBooks)
+      };
+      
+      return authorInfo;
     } catch (error) {
-      console.error('Error fetching NYT bestsellers from Google Books:', error);
-      return [];
+      log(`Error searching for author information: ${error.message}`);
+      return null;
     }
   }
 };
 
+// Helper function to extract the top genres from a list of books
+function extractTopGenres(books) {
+  const genreCount = {};
+  
+  // Count genre occurrences
+  books.forEach(book => {
+    if (book.genres && book.genres.length > 0) {
+      book.genres.forEach(genre => {
+        genreCount[genre] = (genreCount[genre] || 0) + 1;
+      });
+    }
+  });
+  
+  // Sort genres by frequency
+  const sortedGenres = Object.entries(genreCount)
+    .sort((a, b) => b[1] - a[1])
+    .map(entry => entry[0]);
+  
+  // Return top genres (maximum 5)
+  return sortedGenres.slice(0, 5);
+}
+
 // Export a function to purge the cache
 module.exports.purgeCache = function() {
-  console.log('Purging Google Books cache...');
+  log('Purging Google Books cache...');
+  
   // Reset all cache objects
   cache.recent = null;
   cache.popular = null;
   cache.nyt = null;
+  cache.searches = {};
+  cache.bookDetails = {};
+  
   // Reset all timestamps
   cache.recentTimestamp = 0;
   cache.popularTimestamp = 0;
   cache.nytTimestamp = 0;
+  cache.searchTimestamps = {};
+  cache.bookDetailsTimestamps = {};
 
-  console.log('Google Books cache has been purged');
+  log('Google Books cache has been purged');
   return true;
 };
