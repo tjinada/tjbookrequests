@@ -124,32 +124,43 @@ const Search = () => {
       </Typography>
 
       <Paper sx={{ p: 2, mb: 4 }}>
-        <form onSubmit={handleSearch}>
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} sm={6} md={8}>
-              <SearchBar
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onSubmit={handleSearch}
-                onClear={handleClearSearch}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6} md={4}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Metadata Source</InputLabel>
-                <Select
-                  value={metadataSource}
-                  label="Metadata Source"
-                  onChange={handleSourceChange}
-                >
-                  <MenuItem value="all">All Sources</MenuItem>
-                  <MenuItem value="google">Google Books</MenuItem>
-                  <MenuItem value="openLibrary">Open Library</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
+      <form onSubmit={handleSearch}>
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12} sm={6} md={7}>
+            <SearchBar
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onSubmit={handleSearch}
+              onClear={handleClearSearch}
+            />
           </Grid>
-        </form>
+          <Grid item xs={12} sm={3} md={3}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Metadata Source</InputLabel>
+              <Select
+                value={metadataSource}
+                label="Metadata Source"
+                onChange={handleSourceChange}
+              >
+                <MenuItem value="all">All Sources</MenuItem>
+                <MenuItem value="google">Google Books</MenuItem>
+                <MenuItem value="openLibrary">Open Library</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} sm={3} md={2}>
+            <Button
+              fullWidth
+              variant="contained"
+              type="submit"
+              startIcon={<SearchIcon />}
+              disabled={!searchQuery.trim()}
+            >
+              Search
+            </Button>
+          </Grid>
+        </Grid>
+      </form>
       </Paper>
 
       {error && (
