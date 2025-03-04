@@ -203,6 +203,139 @@ exports.addBookFromMetadata = async (req, res) => {
   }
 };
 
+exports.searchBooksByAuthor = async (req, res) => {
+    try {
+      const { author, source = 'google', limit = 20 } = req.query;
+      
+      if (!author) {
+        return res.status(400).json({ message: 'Author name is required' });
+      }
+  
+      log(`Searching for books by author: "${author}", source: ${source}`);
+      
+      let books = [];
+      
+      if (source === 'all' || source === 'google') {
+        try {
+          const googleBooks = await googleBooksAPI.searchBooksByAuthor(author, parseInt(limit));
+          books = [...books, ...googleBooks.map(book => ({...book, source: 'google'}))];
+          log(`Found ${googleBooks.length} books by author from Google Books`);
+        } catch (err) {
+          log(`Error searching Google Books for author: ${err.message}`);
+        }
+      }
+      
+      if (source === 'all' || source === 'openLibrary') {
+        try {
+          // OpenLibrary doesn't have a direct author search, so we'll search by the author name
+          const olBooks = await openLibraryAPI.searchBooks(`author:${author}`);
+          books = [...books, ...olBooks.map(book => ({...book, source: 'openLibrary'}))];
+          log(`Found ${olBooks.length} books by author from Open Library`);
+        } catch (err) {
+          log(`Error searching Open Library for author: ${err.message}`);
+        }
+      }
+  
+      // Check Readarr availability for all books
+      if (books.length > 0) {
+        try {
+          await addReadarrAvailabilityInfo(books);
+        } catch (err) {
+          log(`Error adding Readarr availability info: ${err.message}`);
+        }
+      }
+      
+      log(`Returning total of ${books.length} books by author: "${author}"`);
+      
+      // Remove duplicates
+      const seen = new Set();
+      const deduplicated = books.filter(book => {
+        // Create a key using title and author
+        const key = `${book.title}|${book.author}`.toLowerCase();
+        
+        // Skip if we've seen this book before
+        if (seen.has(key)) return false;
+        
+        // Mark this book as seen and keep it
+        seen.add(key);
+        return true;
+      });
+      
+      res.json({
+        author,
+        count: deduplicated.length,
+        books: deduplicated
+      });
+    } catch (err) {
+      log(`Error searching books by author: ${err.message}`);
+      console.error('Error searching books by author:', err);
+      res.status(500).json({ message: 'Server error', error: err.message });
+    }
+  };
+  
+  /**
+   * Get detailed author information
+   */
+  exports.getAuthorInfo = async (req, res) => {
+    try {
+      const { name, source = 'google' } = req.query;
+      
+      if (!name) {
+        return res.status(400).json({ message: 'Author name is required' });
+      }
+      
+      log(`Getting author information for: "${name}", source: ${source}`);
+      
+      let authorInfo = null;
+      
+      if (source === 'google') {
+        try {
+          authorInfo = await googleBooksAPI.searchAuthor(name);
+        } catch (err) {
+          log(`Error getting author info from Google: ${err.message}`);
+        }
+      } else if (source === 'all') {
+        // Try Google Books first
+        try {
+          authorInfo = await googleBooksAPI.searchAuthor(name);
+        } catch (err) {
+          log(`Error getting author info from Google: ${err.message}`);
+        }
+        
+        // If Google Books fails, we could add fallback to other sources here
+      } else {
+        return res.status(400).json({ message: 'Invalid source specified. Use "google" or "all".' });
+      }
+      
+      if (!authorInfo) {
+        return res.status(404).json({ message: `Author "${name}" not found` });
+      }
+      
+      // Check if the author exists in Readarr
+      try {
+        const readarrCheck = await readarrAPI.testAuthorMatch(name);
+        if (readarrCheck.success && readarrCheck.bestMatch) {
+          authorInfo.readarrInfo = {
+            inReadarr: true,
+            id: readarrCheck.bestMatch.id,
+            name: readarrCheck.bestMatch.authorName
+          };
+        } else {
+          authorInfo.readarrInfo = { inReadarr: false };
+        }
+      } catch (err) {
+        log(`Error checking Readarr for author: ${err.message}`);
+        authorInfo.readarrInfo = { error: true };
+      }
+      
+      res.json(authorInfo);
+    } catch (err) {
+      log(`Error getting author information: ${err.message}`);
+      console.error('Error getting author information:', err);
+      res.status(500).json({ message: 'Server error', error: err.message });
+    }
+  };
+
 /**
  * Direct search on Readarr with exact author/title
  */
