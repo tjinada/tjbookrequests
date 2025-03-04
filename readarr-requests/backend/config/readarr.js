@@ -120,7 +120,14 @@ function stringSimilarity(str1, str2) {
   return maxLength ? (maxLength - distance) / maxLength : 1;
 }
 
-// Helper function for robust author matching
+// Extract core title without series information in parentheses
+function extractCoreTitle(title) {
+  if (!title) return '';
+  // First try to remove anything after colon or parentheses
+  return title.split(/[:(]/)[0].trim();
+}
+
+// Improved author matching function
 function findBestAuthorMatch(authorResults, searchAuthorName) {
   if (!authorResults || authorResults.length === 0) {
     return null;
@@ -149,8 +156,8 @@ function findBestAuthorMatch(authorResults, searchAuthorName) {
     
     // Exact name match is a huge boost
     if (normalizedSearchName === normalizedAuthorName) {
-      score += 200;
-      matchReasons.push('Exact name match: +200');
+      score += 300;  // Increased from 200
+      matchReasons.push('Exact name match: +300');
     }
     
     // Check for all name parts matching (more strict than partial matches)
@@ -158,30 +165,25 @@ function findBestAuthorMatch(authorResults, searchAuthorName) {
         searchNameParts.every(part => authorNameParts.includes(part));
         
     if (allPartsMatch && searchNameParts.length > 1) {
-      score += 100;
-      matchReasons.push('All name parts match: +100');
+      score += 150;  // Increased from 100
+      matchReasons.push('All name parts match: +150');
     }
     
     // Last name match is very important
     if (searchNameParts.length > 0 && authorNameParts.length > 0 &&
         searchNameParts[searchNameParts.length-1] === authorNameParts[authorNameParts.length-1]) {
+      score += 120;  // Increased from 80
+      matchReasons.push('Last name match: +120');
+    }
+    
+    // First name match is also important
+    if (searchNameParts.length > 0 && authorNameParts.length > 0 &&
+        searchNameParts[0] === authorNameParts[0]) {
       score += 80;
-      matchReasons.push('Last name match: +80');
+      matchReasons.push('First name match: +80');
     }
     
-    // Match on initials if present
-    const hasInitials = normalizedSearchName.split(' ').some(part => part.length === 1);
-    const matchesInitials = hasInitials && 
-      normalizedSearchName.split(' ').every((part, i) => 
-        part.length > 1 || part[0] === normalizedAuthorName.split(' ')[i]?.[0]);
-    
-    if (matchesInitials) {
-      score += 50;
-      matchReasons.push('Initials match: +50');
-    }
-    
-    // Multi-part name (like "James S.A. Corey") should all match
-    // Count how many parts match exactly
+    // Multi-part name matching - count how many parts match exactly
     const matchingPartCount = searchNameParts.filter(part => 
       authorNameParts.includes(part)).length;
     
@@ -189,7 +191,7 @@ function findBestAuthorMatch(authorResults, searchAuthorName) {
     const partMatchRatio = totalParts > 0 ? matchingPartCount / totalParts : 0;
     
     if (partMatchRatio > 0) {
-      const partMatchScore = Math.round(partMatchRatio * 100);
+      const partMatchScore = Math.round(partMatchRatio * 120);  // Increased from 100
       score += partMatchScore;
       matchReasons.push(`Name part match ratio (${matchingPartCount}/${totalParts}): +${partMatchScore}`);
     }
@@ -242,14 +244,20 @@ function findBestAuthorMatch(authorResults, searchAuthorName) {
     if (matchingPartCount === 1 && searchNameParts.length > 1 && 
         searchNameParts[0] === authorNameParts[0] && 
         searchNameParts[searchNameParts.length-1] !== authorNameParts[authorNameParts.length-1]) {
-      score -= 70;
-      matchReasons.push('First name only match: -70');
+      score -= 150;  // Increased from 70
+      matchReasons.push('First name only match: -150');
     }
     
     // If name similarity is very low, it's likely not a good match
     if (similarity < 0.3) {
-      score -= 200;
-      matchReasons.push('Very low name similarity: -200');
+      score -= 250;  // Increased from 200
+      matchReasons.push('Very low name similarity: -250');
+    }
+    
+    // If the author looks like a completely different name, heavily penalize
+    if (similarity < 0.5 && !allPartsMatch && matchingPartCount === 0) {
+      score -= 500;
+      matchReasons.push('No matching name parts and low similarity: -500');
     }
     
     return { author, score, reasons: matchReasons, similarity };
@@ -268,15 +276,15 @@ function findBestAuthorMatch(authorResults, searchAuthorName) {
   
   // The match must exceed a minimum threshold
   const bestMatch = scoredAuthors[0];
-  if (bestMatch && bestMatch.score < 50) {
-    log(`Best author match "${bestMatch.author.authorName}" with score ${bestMatch.score} is below minimum threshold`);
+  if (!bestMatch || bestMatch.score < 70) {  // Increased from 50
+    log(`Best author match "${bestMatch?.author.authorName}" with score ${bestMatch?.score} is below minimum threshold`);
     return null;
   }
   
   // Ensure the top match is significantly better than the second best
   if (scoredAuthors.length > 1) {
     const difference = bestMatch.score - scoredAuthors[1].score;
-    if (difference < 20) {
+    if (difference < 40) {  // Increased from 20
       log(`Warning: Top match "${bestMatch.author.authorName}" (${bestMatch.score}) is close to second best "${scoredAuthors[1].author.authorName}" (${scoredAuthors[1].score})`);
     }
   }
@@ -285,6 +293,192 @@ function findBestAuthorMatch(authorResults, searchAuthorName) {
   
   // Return the best match if it's above threshold
   return bestMatch?.author;
+}
+
+// Improved book matching function
+function findBestBookMatch(books, searchTitle, searchAuthor) {
+  if (!books || books.length === 0) return null;
+
+  log(`\n==== Book Matching for "${searchTitle}" by "${searchAuthor}" ====`);
+  
+  // Normalize search data
+  const normSearchTitle = searchTitle ? searchTitle.toLowerCase() : '';
+  const normSearchAuthor = searchAuthor ? searchAuthor.toLowerCase() : '';
+  
+  // Extract core title without series information in parentheses
+  const coreSearchTitle = extractCoreTitle(normSearchTitle);
+  
+  // Create a scoring system for books
+  const scoredBooks = books.map(book => {
+    const normBookTitle = book.title ? book.title.toLowerCase() : '';
+    const coreBookTitle = extractCoreTitle(normBookTitle);
+    const bookAuthor = book.authorName || book.author || '';
+    const normBookAuthor = bookAuthor.toLowerCase();
+    
+    // Calculate full title similarity
+    const fullTitleSim = calculateTitleSimilarity(normSearchTitle, normBookTitle);
+    // Calculate core title similarity
+    const coreTitleSim = calculateTitleSimilarity(coreSearchTitle, coreBookTitle);
+    
+    // Use the best similarity score
+    const titleSim = Math.max(fullTitleSim, coreTitleSim);
+    const titleSimScore = Math.round(titleSim * 150);
+    
+    // Start with the title similarity score
+    let score = titleSimScore;
+    let matchReasons = [];
+    matchReasons.push(`Title similarity (${(titleSim * 100).toFixed(1)}%): ${titleSimScore}`);
+    
+    // Exact title match is a huge boost
+    if (normSearchTitle === normBookTitle) {
+      score += 200;  // Increased from 100
+      matchReasons.push('Exact title match: +200');
+    } 
+    // Exact core title match is also a significant boost
+    else if (coreSearchTitle === coreBookTitle && coreSearchTitle.length > 3) {
+      score += 150;
+      matchReasons.push('Exact core title match: +150');
+    }
+    
+    // Severe penalty for very low title similarity
+    if (titleSim < 0.25) {
+      score -= 350;  // Increased from 300
+      matchReasons.push('Very low title similarity: -350');
+    }
+    
+    // Detect biographies or critical works about the original
+    const biographyWords = [
+      'biography', 'life of', 'lives of', 'living', 'study of', 
+      'studies', 'criticism', 'critical', 'guide to', 'companion'
+    ];
+    
+    // Check if this is a biography of the search author
+    const isBiographyOfSearchAuthor = biographyWords.some(word => 
+      normBookTitle.includes(word)) && normBookTitle.includes(normSearchAuthor);
+      
+    if (isBiographyOfSearchAuthor) {
+      score -= 300;
+      matchReasons.push('Biography of search author: -300');
+    }
+    
+    // Check for title containing biography phrases
+    const hasBiographyPhrase = biographyWords.some(word => normBookTitle.includes(word));
+    if (hasBiographyPhrase) {
+      score -= 150;
+      matchReasons.push('Contains biography phrase: -150');
+    }
+    
+    // If the author name appears in the title, it might be a biography
+    if (normSearchAuthor && normBookTitle.includes(normSearchAuthor)) {
+      score -= 100;
+      matchReasons.push('Author name in title: -100');
+    }
+    
+    // Check for the classic "X by Y" biography format
+    if (normBookTitle.includes(' by ') && !normBookTitle.startsWith('by ')) {
+      const titleParts = normBookTitle.split(' by ');
+      // If what comes before "by" matches search author, this is likely a biography
+      if (titleParts[0].includes(normSearchAuthor)) {
+        score -= 200;
+        matchReasons.push('Title has "Author by Biographer" format: -200');
+      }
+    }
+    
+    // Author matching gives a boost
+    if (normSearchAuthor && normBookAuthor) {
+      const authorSim = stringSimilarity(normSearchAuthor, normBookAuthor);
+      const authorSimScore = Math.round(authorSim * 120);  // Increased from 100
+      score += authorSimScore;
+      matchReasons.push(`Author similarity (${(authorSim * 100).toFixed(1)}%): +${authorSimScore}`);
+      
+      // Exact author match is a significant boost
+      if (normSearchAuthor === normBookAuthor) {
+        score += 150;  // Increased from 75
+        matchReasons.push('Exact author match: +150');
+      }
+    }
+    
+    // Publication date bonus for originals vs modern works
+    if (book.releaseDate) {
+      try {
+        const year = new Date(book.releaseDate).getFullYear();
+        if (year < 1940) {
+          // Classic works get a big boost
+          score += 50;
+          matchReasons.push(`Classic work (${year}): +50`);
+        } else if (year < 1980) {
+          // Older works get a moderate boost
+          score += 25;
+          matchReasons.push(`Older work (${year}): +25`);
+        } else if (year > 2010) {
+          // Very recent works might be about the original
+          score -= 15;
+          matchReasons.push(`Recent work (${year}): -15`);
+        }
+      } catch (e) {
+        // Ignore date parsing errors
+      }
+    }
+    
+    // Original works tend to have shorter, more iconic titles
+    if (coreBookTitle.split(' ').length <= 3 && coreSearchTitle.split(' ').length <= 3 && 
+        titleSim >= 0.5) {
+      score += 40;  // Increased from 20
+      matchReasons.push('Matching short, iconic title: +40');
+    }
+    
+    // Heavily penalize series books when looking for classics
+    if (book.seriesTitle && normSearchTitle.split(' ').length <= 3) {
+      score -= 40;
+      matchReasons.push('Series book vs. classic title: -40');
+    }
+    
+    // Add a small bonus for popularity/ratings
+    if (book.ratings && book.ratings.value) {
+      const ratingBonus = Math.min(20, Math.round(book.ratings.value * 4));
+      score += ratingBonus;
+      matchReasons.push(`Rating bonus (${book.ratings.value}): +${ratingBonus}`);
+    }
+    
+    return { book, score, reasons: matchReasons, titleSimilarity: titleSim };
+  });
+  
+  // Sort by score (highest first)
+  scoredBooks.sort((a, b) => b.score - a.score);
+  
+  // Log scores for debugging
+  scoredBooks.forEach(({ book, score, reasons, titleSimilarity }, index) => {
+    if (index < 5) { // Only log top 5 for brevity
+      log(`[${index + 1}] "${book.title}" by ${book.authorName || book.author || 'Unknown'} (Score: ${score}, Title Sim: ${(titleSimilarity * 100).toFixed(1)}%)`);
+      reasons.forEach(reason => log(`    - ${reason}`));
+    }
+  });
+  
+  // The match must exceed a minimum threshold
+  const bestMatch = scoredBooks[0];
+  if (!bestMatch || bestMatch.score < 70) {  // Increased from 50
+    log(`Best book match "${bestMatch?.book.title}" with score ${bestMatch?.score} is below minimum threshold`);
+    return null;
+  }
+  
+  // Title similarity must be reasonable
+  if (bestMatch.titleSimilarity < 0.3) {  // Decreased from 0.35 to allow more flexibility
+    log(`Best book match "${bestMatch.book.title}" has too low title similarity (${(bestMatch.titleSimilarity * 100).toFixed(1)}%)`);
+    return null;
+  }
+  
+  // Ensure the top match is significantly better than the second best
+  if (scoredBooks.length > 1) {
+    const difference = bestMatch.score - scoredBooks[1].score;
+    if (difference < 40) {  // Increased from 30
+      log(`Warning: Top match "${bestMatch.book.title}" (${bestMatch.score}) is close to second best "${scoredBooks[1].book.title}" (${scoredBooks[1].score})`);
+    }
+  }
+  
+  log(`Selected book match: ${bestMatch ? bestMatch.book.title : 'None'} with score ${bestMatch ? bestMatch.score : 0}`);
+  
+  // Return the best match if it passes thresholds
+  return bestMatch?.book;
 }
 
 // Calculate title similarity between two books
@@ -331,177 +525,6 @@ function calculateTitleSimilarity(title1, title2) {
   return Math.max(similarity, containmentScore, wordMatchRatio);
 }
 
-// Helper function for robust book matching
-function findBestBookMatch(books, searchTitle, searchAuthor) {
-  if (!books || books.length === 0) return null;
-
-  log(`\n==== Book Matching for "${searchTitle}" by "${searchAuthor}" ====`);
-  
-  // Normalize search data
-  const normSearchTitle = searchTitle.toLowerCase();
-  const normSearchAuthor = searchAuthor ? searchAuthor.toLowerCase() : '';
-  
-  // Create a scoring system for books
-  const scoredBooks = books.map(book => {
-    const normBookTitle = book.title.toLowerCase();
-    const bookAuthor = book.authorName || book.author || '';
-    const normBookAuthor = bookAuthor.toLowerCase();
-    
-    // Calculate title similarity
-    const titleSim = calculateTitleSimilarity(normSearchTitle, normBookTitle);
-    const titleSimScore = Math.round(titleSim * 150); // Title similarity is critical
-    
-    // Start with the title similarity score
-    let score = titleSimScore;
-    let matchReasons = [];
-    matchReasons.push(`Title similarity (${(titleSim * 100).toFixed(1)}%): ${titleSimScore}`);
-    
-    // Exact title match is a huge boost
-    if (normSearchTitle === normBookTitle) {
-      score += 100;
-      matchReasons.push('Exact title match: +100');
-    }
-    
-    // Severe penalty for very low title similarity
-    if (titleSim < 0.3) {
-      score -= 300;
-      matchReasons.push('Very low title similarity: -300');
-    }
-    
-    // Detect biographies or critical works about the original
-    const biographyWords = [
-      'biography', 'life of', 'lives of', 'living', 'study of', 
-      'studies', 'criticism', 'critical', 'guide to', 'companion'
-    ];
-    
-    // Check if this is a biography of the search author
-    const isBiographyOfSearchAuthor = biographyWords.some(word => 
-      normBookTitle.includes(word)) && normBookTitle.includes(normSearchAuthor);
-      
-    if (isBiographyOfSearchAuthor) {
-      score -= 300;
-      matchReasons.push('Biography of search author: -300');
-    }
-    
-    // Check for title containing biography phrases
-    const hasBiographyPhrase = biographyWords.some(word => normBookTitle.includes(word));
-    if (hasBiographyPhrase) {
-      score -= 150;
-      matchReasons.push('Contains biography phrase: -150');
-    }
-    
-    // If the author name appears in the title, it might be a biography
-    if (normSearchAuthor && normBookTitle.includes(normSearchAuthor)) {
-      score -= 100;
-      matchReasons.push('Author name in title: -100');
-    }
-    
-    // Check for the classic "X by Y" biography format
-    if (normBookTitle.includes(' by ') && !normBookTitle.startsWith('by ')) {
-      const titleParts = normBookTitle.split(' by ');
-      // If what comes before "by" matches search author, this is likely a biography
-      if (titleParts[0].includes(normSearchAuthor)) {
-        score -= 200;
-        matchReasons.push('Title has "Author by Biographer" format: -200');
-      }
-    }
-    
-    // Author matching gives a boost
-    if (normSearchAuthor && normBookAuthor) {
-      const authorSim = stringSimilarity(normSearchAuthor, normBookAuthor);
-      const authorSimScore = Math.round(authorSim * 100);
-      score += authorSimScore;
-      matchReasons.push(`Author similarity (${(authorSim * 100).toFixed(1)}%): +${authorSimScore}`);
-      
-      // Exact author match is a significant boost
-      if (normSearchAuthor === normBookAuthor) {
-        score += 75;
-        matchReasons.push('Exact author match: +75');
-      }
-    }
-    
-    // Publication date bonus for originals vs modern works
-    if (book.releaseDate) {
-      try {
-        const year = new Date(book.releaseDate).getFullYear();
-        if (year < 1940) {
-          // Classic works get a big boost
-          score += 50;
-          matchReasons.push(`Classic work (${year}): +50`);
-        } else if (year < 1980) {
-          // Older works get a moderate boost
-          score += 25;
-          matchReasons.push(`Older work (${year}): +25`);
-        } else if (year > 2010) {
-          // Very recent works might be about the original
-          score -= 15;
-          matchReasons.push(`Recent work (${year}): -15`);
-        }
-      } catch (e) {
-        // Ignore date parsing errors
-      }
-    }
-    
-    // Original works tend to have shorter, more iconic titles
-    if (normBookTitle.split(' ').length <= 4 && normSearchTitle.split(' ').length <= 4) {
-      score += 20;
-      matchReasons.push('Short, iconic title: +20');
-    }
-    
-    // Heavily penalize series books when looking for classics
-    if (book.seriesTitle && normSearchTitle.split(' ').length <= 3) {
-      score -= 40;
-      matchReasons.push('Series book vs. classic title: -40');
-    }
-    
-    // Add a small bonus for popularity/ratings
-    if (book.ratings && book.ratings.value) {
-      const ratingBonus = Math.min(20, Math.round(book.ratings.value * 4));
-      score += ratingBonus;
-      matchReasons.push(`Rating bonus (${book.ratings.value}): +${ratingBonus}`);
-    }
-    
-    return { book, score, reasons: matchReasons, titleSimilarity: titleSim };
-  });
-  
-  // Sort by score (highest first)
-  scoredBooks.sort((a, b) => b.score - a.score);
-  
-  // Log scores for debugging
-  scoredBooks.forEach(({ book, score, reasons, titleSimilarity }, index) => {
-    if (index < 5) { // Only log top 5 for brevity
-      log(`[${index + 1}] "${book.title}" by ${book.authorName || book.author || 'Unknown'} (Score: ${score}, Title Sim: ${(titleSimilarity * 100).toFixed(1)}%)`);
-      reasons.forEach(reason => log(`    - ${reason}`));
-    }
-  });
-  
-  // The match must exceed a minimum threshold
-  const bestMatch = scoredBooks[0];
-  if (bestMatch && bestMatch.score < 50) {
-    log(`Best book match "${bestMatch.book.title}" with score ${bestMatch.score} is below minimum threshold`);
-    return null;
-  }
-  
-  // Title similarity must be reasonable
-  if (bestMatch && bestMatch.titleSimilarity < 0.35) {
-    log(`Best book match "${bestMatch.book.title}" has too low title similarity (${(bestMatch.titleSimilarity * 100).toFixed(1)}%)`);
-    return null;
-  }
-  
-  // Ensure the top match is significantly better than the second best
-  if (scoredBooks.length > 1) {
-    const difference = bestMatch.score - scoredBooks[1].score;
-    if (difference < 30) {
-      log(`Warning: Top match "${bestMatch.book.title}" (${bestMatch.score}) is close to second best "${scoredBooks[1].book.title}" (${scoredBooks[1].score})`);
-    }
-  }
-  
-  log(`Selected book match: ${bestMatch ? bestMatch.book.title : 'None'} with score ${bestMatch ? bestMatch.score : 0}`);
-  
-  // Return the best match if it passes thresholds
-  return bestMatch?.book;
-}
-
 module.exports = {
   // Updated addBook function with improved author and book matching
   addBook: async (bookData) => {
@@ -530,7 +553,133 @@ module.exports = {
 
       log(`Using profiles - Quality: ${qualityProfileId}, Metadata: ${metadataProfileId}, Root: ${rootFolderPath}`);
 
-      // Step 2: Check if the author exists using robust author matching
+      // STEP 2: FIRST SEARCH FOR EXACT TITLE+AUTHOR MATCH TO BYPASS THE AUTHOR MATCHING
+      log(`Searching for exact book match: "${processedData.title}" by ${processedData.author}`);
+      
+      const exactBookSearchTerm = `"${processedData.title}" ${processedData.author}`;
+      let exactBookResponse;
+      try {
+        exactBookResponse = await readarrAPI.get(`/api/v1/book/lookup?term=${encodeURIComponent(exactBookSearchTerm)}`);
+      } catch (error) {
+        log(`Exact book search failed: ${error.message}`);
+        // Continue with normal flow if exact search fails
+      }
+      
+      // If we found exact matches, choose the best one
+      if (exactBookResponse && exactBookResponse.data?.length > 0) {
+        log(`Found ${exactBookResponse.data.length} results from exact search`);
+        
+        // Use improved book matching to find the best match
+        const exactBookMatch = findBestBookMatch(exactBookResponse.data, processedData.title, processedData.author);
+        
+        if (exactBookMatch && exactBookMatch.foreignBookId) {
+          log(`Found exact book match: "${exactBookMatch.title}" by ${exactBookMatch.authorName || 'Unknown author'}`);
+          
+          // Now we need to get or create the author
+          let authorId;
+          
+          // Check if author already exists in library
+          log(`Checking if author exists: ${exactBookMatch.authorName}`);
+          const existingAuthorsResponse = await readarrAPI.get('/api/v1/author');
+          
+          if (existingAuthorsResponse.data?.length) {
+            // Look for exact author match first
+            const exactAuthorMatch = existingAuthorsResponse.data.find(a => 
+              normalizeText(a.authorName) === normalizeText(exactBookMatch.authorName));
+              
+            if (exactAuthorMatch) {
+              authorId = exactAuthorMatch.id;
+              log(`Found existing author with exact name match: ${exactAuthorMatch.authorName} (ID: ${authorId})`);
+            } else {
+              // Use the improved author matching function
+              const bestAuthorMatch = findBestAuthorMatch(existingAuthorsResponse.data, exactBookMatch.authorName);
+              
+              if (bestAuthorMatch) {
+                authorId = bestAuthorMatch.id;
+                log(`Found existing author: ${bestAuthorMatch.authorName} with ID: ${authorId}`);
+              }
+            }
+          }
+          
+          // If author doesn't exist, create the author
+          if (!authorId) {
+            log(`Creating new author: ${exactBookMatch.authorName}`);
+            
+            // Create author payload
+            const authorPayload = {
+              authorName: exactBookMatch.authorName,
+              foreignAuthorId: exactBookMatch.authorId || exactBookMatch.foreignAuthorId,
+              titleSlug: exactBookMatch.authorTitleSlug || exactBookMatch.titleSlug,
+              qualityProfileId: qualityProfileId,
+              metadataProfileId: metadataProfileId,
+              rootFolderPath: rootFolderPath,
+              monitored: true,
+              monitorNewItems: "none",
+              addOptions: {
+                monitor: "none",
+                searchForMissingBooks: false
+              }
+            };
+            
+            log(`Creating new author with payload: ${JSON.stringify(authorPayload)}`);
+            
+            const authorResponse = await readarrAPI.post('/api/v1/author', authorPayload);
+            authorId = authorResponse.data.id;
+            log(`Created new author with ID: ${authorId}`);
+            
+            // Wait for Readarr to process the new author
+            await new Promise(resolve => setTimeout(resolve, 3000));
+          }
+          
+          // Now add the book to the author
+          log(`Adding book "${exactBookMatch.title}" to author ID: ${authorId}`);
+          
+          const bookPayload = {
+            authorId: authorId,
+            foreignBookId: exactBookMatch.foreignBookId,
+            title: exactBookMatch.title,
+            qualityProfileId: qualityProfileId,
+            metadataProfileId: metadataProfileId,
+            rootFolderPath: rootFolderPath,
+            monitored: true,
+            addOptions: {
+              searchForNewBook: false // We'll trigger search separately
+            }
+          };
+          
+          log(`Adding book with payload: ${JSON.stringify(bookPayload)}`);
+          
+          try {
+            const addResponse = await readarrAPI.post('/api/v1/book', bookPayload);
+            const targetBook = addResponse.data;
+            log(`Book added to library with ID: ${targetBook.id}`);
+            
+            // Trigger a search for the book
+            log(`Triggering search for book ID: ${targetBook.id}`);
+            const searchPayload = {
+              name: "BookSearch",
+              bookIds: [targetBook.id]
+            };
+            
+            const searchResponse = await readarrAPI.post('/api/v1/command', searchPayload);
+            log(`Search command successful: Command ID: ${searchResponse.data.id}, Status: ${searchResponse.data.status}`);
+            
+            // Return the book with search information
+            return {
+              ...targetBook,
+              searchCommandId: searchResponse.data.id,
+              searchStatus: searchResponse.data.status
+            };
+          } catch (addError) {
+            log(`Error adding book: ${addError.message}, will continue with regular flow`);
+            // Continue with normal flow if adding fails
+          }
+        }
+      }
+
+      // FALL BACK TO REGULAR APPROACH IF EXACT MATCH FAILS
+      
+      // Step 3: Check if the author exists using robust author matching
       let authorId;
       let isExistingAuthor = false;
 
@@ -538,61 +687,144 @@ module.exports = {
       const existingAuthorsResponse = await readarrAPI.get('/api/v1/author');
 
       if (existingAuthorsResponse.data?.length) {
-        // Use the improved author matching function
-        const existingAuthor = findBestAuthorMatch(existingAuthorsResponse.data, processedData.author);
-
-        if (existingAuthor) {
-          authorId = existingAuthor.id;
+        // Look for exact author match first
+        const exactAuthorMatch = existingAuthorsResponse.data.find(a => 
+          normalizeText(a.authorName) === normalizeText(processedData.author));
+          
+        if (exactAuthorMatch) {
+          authorId = exactAuthorMatch.id;
           isExistingAuthor = true;
-          log(`Found existing author: ${existingAuthor.authorName} with ID: ${authorId}`);
+          log(`Found existing author with exact name match: ${exactAuthorMatch.authorName} (ID: ${authorId})`);
         } else {
-          log(`No matching author found among ${existingAuthorsResponse.data.length} existing authors`);
+          // Use the improved author matching function
+          const bestAuthorMatch = findBestAuthorMatch(existingAuthorsResponse.data, processedData.author);
+          
+          if (bestAuthorMatch) {
+            authorId = bestAuthorMatch.id;
+            isExistingAuthor = true;
+            log(`Found existing author: ${bestAuthorMatch.authorName} with ID: ${authorId}`);
+          } else {
+            log(`No matching author found among ${existingAuthorsResponse.data.length} existing authors`);
+          }
         }
       }
 
       // If author doesn't exist, create a new one using robust matching
       if (!authorId) {
         log(`Author not found in existing authors, looking up in Readarr's database`);
-        const authorLookupResponse = await readarrAPI.get(`/api/v1/author/lookup?term=${encodeURIComponent(processedData.author)}`);
+        
+        // Use a more specific search term for the author
+        const authorSearchTerm = `"${processedData.author}"`;
+        const authorLookupResponse = await readarrAPI.get(`/api/v1/author/lookup?term=${encodeURIComponent(authorSearchTerm)}`);
 
         if (!authorLookupResponse.data?.length) {
-          throw new Error(`Author not found in Readarr lookup: ${processedData.author}`);
-        }
-
-        // Use the improved author matching 
-        const bestAuthorMatch = findBestAuthorMatch(authorLookupResponse.data, processedData.author);
-        
-        if (!bestAuthorMatch) {
-          throw new Error(`No suitable author match found for: ${processedData.author}`);
-        }
-
-        // Create author payload with the best match
-        const authorPayload = {
-          authorName: bestAuthorMatch.authorName,
-          foreignAuthorId: bestAuthorMatch.foreignAuthorId,
-          titleSlug: bestAuthorMatch.titleSlug,
-          qualityProfileId: qualityProfileId,
-          metadataProfileId: metadataProfileId,
-          rootFolderPath: rootFolderPath,
-          monitored: true,
-          monitorNewItems: "none",
-          addOptions: {
-            monitor: "none",
-            searchForMissingBooks: false
+          // Try without quotes if specific search fails
+          const fallbackAuthorResponse = await readarrAPI.get(`/api/v1/author/lookup?term=${encodeURIComponent(processedData.author)}`);
+          
+          if (!fallbackAuthorResponse.data?.length) {
+            throw new Error(`Author not found in Readarr lookup: ${processedData.author}`);
           }
-        };
+          
+          // Use the improved author matching 
+          const bestAuthorMatch = findBestAuthorMatch(fallbackAuthorResponse.data, processedData.author);
+          
+          if (!bestAuthorMatch) {
+            throw new Error(`No suitable author match found for: ${processedData.author}`);
+          }
+          
+          // Create author payload with the best match
+          const authorPayload = {
+            authorName: bestAuthorMatch.authorName,
+            foreignAuthorId: bestAuthorMatch.foreignAuthorId,
+            titleSlug: bestAuthorMatch.titleSlug,
+            qualityProfileId: qualityProfileId,
+            metadataProfileId: metadataProfileId,
+            rootFolderPath: rootFolderPath,
+            monitored: true,
+            monitorNewItems: "none",
+            addOptions: {
+              monitor: "none",
+              searchForMissingBooks: false
+            }
+          };
 
-        log(`Creating new author with payload: ${JSON.stringify(authorPayload)}`);
+          log(`Creating new author with payload: ${JSON.stringify(authorPayload)}`);
 
-        const authorResponse = await readarrAPI.post('/api/v1/author', authorPayload);
-        authorId = authorResponse.data.id;
-        log(`Created new author with ID: ${authorId}`);
+          const authorResponse = await readarrAPI.post('/api/v1/author', authorPayload);
+          authorId = authorResponse.data.id;
+          log(`Created new author with ID: ${authorId}`);
 
-        // Wait for Readarr to process the new author
-        await new Promise(resolve => setTimeout(resolve, 3000));
+          // Wait for Readarr to process the new author
+          await new Promise(resolve => setTimeout(resolve, 3000));
+        } else {
+          // Use the first exact match if available
+          const exactAuthorMatch = authorLookupResponse.data.find(a =>
+            normalizeText(a.authorName) === normalizeText(processedData.author));
+            
+          if (exactAuthorMatch) {
+            log(`Found exact author match: ${exactAuthorMatch.authorName}`);
+            
+            // Create author payload with exact match
+            const authorPayload = {
+              authorName: exactAuthorMatch.authorName,
+              foreignAuthorId: exactAuthorMatch.foreignAuthorId,
+              titleSlug: exactAuthorMatch.titleSlug,
+              qualityProfileId: qualityProfileId,
+              metadataProfileId: metadataProfileId,
+              rootFolderPath: rootFolderPath,
+              monitored: true,
+              monitorNewItems: "none",
+              addOptions: {
+                monitor: "none",
+                searchForMissingBooks: false
+              }
+            };
+    
+            log(`Creating new author with payload: ${JSON.stringify(authorPayload)}`);
+    
+            const authorResponse = await readarrAPI.post('/api/v1/author', authorPayload);
+            authorId = authorResponse.data.id;
+            log(`Created new author with ID: ${authorId}`);
+    
+            // Wait for Readarr to process the new author
+            await new Promise(resolve => setTimeout(resolve, 3000));
+          } else {
+            // Use the improved author matching 
+            const bestAuthorMatch = findBestAuthorMatch(authorLookupResponse.data, processedData.author);
+            
+            if (!bestAuthorMatch) {
+              throw new Error(`No suitable author match found for: ${processedData.author}`);
+            }
+            
+            // Create author payload with the best match
+            const authorPayload = {
+              authorName: bestAuthorMatch.authorName,
+              foreignAuthorId: bestAuthorMatch.foreignAuthorId,
+              titleSlug: bestAuthorMatch.titleSlug,
+              qualityProfileId: qualityProfileId,
+              metadataProfileId: metadataProfileId,
+              rootFolderPath: rootFolderPath,
+              monitored: true,
+              monitorNewItems: "none",
+              addOptions: {
+                monitor: "none",
+                searchForMissingBooks: false
+              }
+            };
+    
+            log(`Creating new author with payload: ${JSON.stringify(authorPayload)}`);
+    
+            const authorResponse = await readarrAPI.post('/api/v1/author', authorPayload);
+            authorId = authorResponse.data.id;
+            log(`Created new author with ID: ${authorId}`);
+    
+            // Wait for Readarr to process the new author
+            await new Promise(resolve => setTimeout(resolve, 3000));
+          }
+        }
       }
 
-      // Step 3: Get all books for this author
+      // Step 4: Get all books for this author
       log(`Getting books for author ID: ${authorId}`);
       let booksList = [];
 
@@ -618,17 +850,26 @@ module.exports = {
         }
       }
 
-      // Step 4: Find the requested book among the author's books using robust matching
+      // Step 5: Find the requested book among the author's books using robust matching
       let targetBook = null;
 
       if (booksList.length > 0) {
-        // Use improved book matching
-        targetBook = findBestBookMatch(booksList, processedData.title, processedData.author);
-
-        if (targetBook) {
-          log(`Found matching book in author's library: "${targetBook.title}" with ID: ${targetBook.id}`);
+        // First check for exact title match
+        const exactTitleMatch = booksList.find(book => 
+          normalizeText(book.title) === normalizeText(processedData.title));
+          
+        if (exactTitleMatch) {
+          targetBook = exactTitleMatch;
+          log(`Found exact title match in author's library: "${targetBook.title}" with ID: ${targetBook.id}`);
         } else {
-          log(`Requested book not found in author's current library, need to look it up`);
+          // Use improved book matching
+          targetBook = findBestBookMatch(booksList, processedData.title, processedData.author);
+
+          if (targetBook) {
+            log(`Found matching book in author's library: "${targetBook.title}" with ID: ${targetBook.id}`);
+          } else {
+            log(`Requested book not found in author's current library, need to look it up`);
+          }
         }
       }
 
@@ -636,63 +877,141 @@ module.exports = {
       if (!targetBook) {
         log(`Looking up book in Readarr's database: ${processedData.title}`);
 
-        // Search by title and author
-        const searchTerm = `${processedData.title} ${processedData.author}`;
-        const bookLookupResponse = await readarrAPI.get(`/api/v1/book/lookup?term=${encodeURIComponent(searchTerm)}`);
+        // Search by title and author - use quotes for exact matching
+        const searchTerm = `"${processedData.title}" ${processedData.author}`;
+        let bookLookupResponse;
+        
+        try {
+          bookLookupResponse = await readarrAPI.get(`/api/v1/book/lookup?term=${encodeURIComponent(searchTerm)}`);
+        } catch (error) {
+          log(`Exact title search failed: ${error.message}, trying without quotes`);
+          // Try without quotes if exact search fails
+          bookLookupResponse = await readarrAPI.get(`/api/v1/book/lookup?term=${encodeURIComponent(processedData.title + ' ' + processedData.author)}`);
+        }
 
         if (!bookLookupResponse.data?.length) {
           throw new Error(`Book not found in Readarr lookup: ${processedData.title}`);
         }
 
-        // Use improved book matching
-        const bestBookMatch = findBestBookMatch(bookLookupResponse.data, processedData.title, processedData.author);
-        
-        if (!bestBookMatch) {
-          throw new Error(`No suitable book match found for: ${processedData.title}`);
-        }
-
-        log(`Selected best book match: "${bestBookMatch.title}" by ${bestBookMatch.authorName || 'Unknown'}`);
-
-        // Add the book to the author's library
-        const bookPayload = {
-          authorId: authorId,
-          foreignBookId: bestBookMatch.foreignBookId,
-          title: bestBookMatch.title,
-          qualityProfileId: qualityProfileId,
-          metadataProfileId: metadataProfileId,
-          rootFolderPath: rootFolderPath,
-          monitored: true,
-          addOptions: {
-            searchForNewBook: false // We'll trigger search separately
-          }
-        };
-
-        log(`Adding book with payload: ${JSON.stringify(bookPayload)}`);
-
-        try {
-          const addResponse = await readarrAPI.post('/api/v1/book', bookPayload);
-          targetBook = addResponse.data;
-          log(`Book added to library with ID: ${targetBook.id}`);
-
-          // Give Readarr a moment to process
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        } catch (addError) {
-          log(`Error adding book: ${addError.message}`);
-
-          // If adding fails, try to get the book again - it might have been added automatically
-          log(`Checking if book was added despite error...`);
-          const checkBooksResponse = await readarrAPI.get(`/api/v1/book?authorId=${authorId}&includeAllAuthorBooks=true`);
-
-          if (checkBooksResponse.data?.length) {
-            targetBook = findBestBookMatch(checkBooksResponse.data, processedData.title, processedData.author);
-
-            if (targetBook) {
-              log(`Found book in library after all: "${targetBook.title}" with ID: ${targetBook.id}`);
-            } else {
-              throw new Error(`Failed to add book and couldn't find it in library: ${processedData.title}`);
+        // First check for exact title and author match
+        const exactMatch = bookLookupResponse.data.find(book => 
+          normalizeText(book.title) === normalizeText(processedData.title) && 
+          book.authorName && normalizeText(book.authorName) === normalizeText(processedData.author));
+          
+        if (exactMatch) {
+          log(`Found exact title and author match: "${exactMatch.title}" by ${exactMatch.authorName}`);
+          
+          // Add the book to the author's library
+          const bookPayload = {
+            authorId: authorId,
+            foreignBookId: exactMatch.foreignBookId,
+            title: exactMatch.title,
+            qualityProfileId: qualityProfileId,
+            metadataProfileId: metadataProfileId,
+            rootFolderPath: rootFolderPath,
+            monitored: true,
+            addOptions: {
+              searchForNewBook: false // We'll trigger search separately
             }
-          } else {
-            throw new Error(`Failed to add book and no books found in library: ${processedData.title}`);
+          };
+
+          log(`Adding book with payload: ${JSON.stringify(bookPayload)}`);
+
+          try {
+            const addResponse = await readarrAPI.post('/api/v1/book', bookPayload);
+            targetBook = addResponse.data;
+            log(`Book added to library with ID: ${targetBook.id}`);
+
+            // Give Readarr a moment to process
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          } catch (addError) {
+            log(`Error adding book: ${addError.message}`);
+            
+            // If adding fails, try to get the book again - it might have been added automatically
+            log(`Checking if book was added despite error...`);
+            const checkBooksResponse = await readarrAPI.get(`/api/v1/book?authorId=${authorId}&includeAllAuthorBooks=true`);
+
+            if (checkBooksResponse.data?.length) {
+              const exactBookMatch = checkBooksResponse.data.find(book => 
+                normalizeText(book.title) === normalizeText(processedData.title));
+                
+              if (exactBookMatch) {
+                targetBook = exactBookMatch;
+                log(`Found book in library after all: "${targetBook.title}" with ID: ${targetBook.id}`);
+              } else {
+                // Try with fuzzy matching
+                targetBook = findBestBookMatch(checkBooksResponse.data, processedData.title, processedData.author);
+                
+                if (targetBook) {
+                  log(`Found book in library with fuzzy matching: "${targetBook.title}" with ID: ${targetBook.id}`);
+                } else {
+                  throw new Error(`Failed to add book and couldn't find it in library: ${processedData.title}`);
+                }
+              }
+            } else {
+              throw new Error(`Failed to add book and no books found in library: ${processedData.title}`);
+            }
+          }
+        } else {
+          // Use improved book matching
+          const bestBookMatch = findBestBookMatch(bookLookupResponse.data, processedData.title, processedData.author);
+          
+          if (!bestBookMatch) {
+            throw new Error(`No suitable book match found for: ${processedData.title}`);
+          }
+
+          log(`Selected best book match: "${bestBookMatch.title}" by ${bestBookMatch.authorName || 'Unknown'}`);
+
+          // Add the book to the author's library
+          const bookPayload = {
+            authorId: authorId,
+            foreignBookId: bestBookMatch.foreignBookId,
+            title: bestBookMatch.title,
+            qualityProfileId: qualityProfileId,
+            metadataProfileId: metadataProfileId,
+            rootFolderPath: rootFolderPath,
+            monitored: true,
+            addOptions: {
+              searchForNewBook: false // We'll trigger search separately
+            }
+          };
+
+          log(`Adding book with payload: ${JSON.stringify(bookPayload)}`);
+
+          try {
+            const addResponse = await readarrAPI.post('/api/v1/book', bookPayload);
+            targetBook = addResponse.data;
+            log(`Book added to library with ID: ${targetBook.id}`);
+
+            // Give Readarr a moment to process
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          } catch (addError) {
+            log(`Error adding book: ${addError.message}`);
+            
+            // If adding fails, try to get the book again - it might have been added automatically
+            log(`Checking if book was added despite error...`);
+            const checkBooksResponse = await readarrAPI.get(`/api/v1/book?authorId=${authorId}&includeAllAuthorBooks=true`);
+
+            if (checkBooksResponse.data?.length) {
+              const exactBookMatch = checkBooksResponse.data.find(book => 
+                normalizeText(book.title) === normalizeText(processedData.title));
+                
+              if (exactBookMatch) {
+                targetBook = exactBookMatch;
+                log(`Found book in library after all: "${targetBook.title}" with ID: ${targetBook.id}`);
+              } else {
+                // Try with fuzzy matching
+                targetBook = findBestBookMatch(checkBooksResponse.data, processedData.title, processedData.author);
+                
+                if (targetBook) {
+                  log(`Found book in library with fuzzy matching: "${targetBook.title}" with ID: ${targetBook.id}`);
+                } else {
+                  throw new Error(`Failed to add book and couldn't find it in library: ${processedData.title}`);
+                }
+              }
+            } else {
+              throw new Error(`Failed to add book and no books found in library: ${processedData.title}`);
+            }
           }
         }
       }
@@ -702,7 +1021,7 @@ module.exports = {
         throw new Error(`Could not find or add the requested book: ${processedData.title}`);
       }
 
-      // Step 5: Trigger a search for the book
+      // Step 6: Trigger a search for the book
       log(`Triggering search for book ID: ${targetBook.id}`);
 
       const searchPayload = {
@@ -935,5 +1254,44 @@ module.exports = {
       log(`Error testing book match: ${error.message}`);
       return { success: false, message: error.message };
     }
+  },
+  
+  // Diagnostic helper for troubleshooting
+  diagnosticTest: async (title, author) => {
+    log(`\n-------- DIAGNOSTIC TEST: "${title}" by "${author}" --------`);
+    
+    const processedData = preprocessBookData({ title, author });
+    log(`Processed: "${processedData.title}" by "${processedData.author}"`);
+    
+    // Test exact search
+    log("\nSimulating exact search...");
+    const exactSearchTerm = `"${processedData.title}" ${processedData.author}`;
+    log(`Search term: ${exactSearchTerm}`);
+    
+    // Test existing author check
+    log("\nSimulating author check...");
+    const authorSearchTerm = `"${processedData.author}"`;
+    log(`Author search term: ${authorSearchTerm}`);
+    
+    // Test book search 
+    log("\nSimulating book search...");
+    const bookSearchTerm = `"${processedData.title}" ${processedData.author}`;
+    log(`Book search term: ${bookSearchTerm}`);
+    
+    // Extract core title
+    const coreTitle = extractCoreTitle(processedData.title.toLowerCase());
+    log(`Core title: "${coreTitle}"`);
+    
+    log("\n-------- END DIAGNOSTIC TEST --------\n");
+    
+    return {
+      processedData,
+      searchTerms: {
+        exact: exactSearchTerm,
+        author: authorSearchTerm,
+        book: bookSearchTerm
+      },
+      coreTitle
+    };
   }
 };
