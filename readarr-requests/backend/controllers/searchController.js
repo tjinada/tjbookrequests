@@ -25,18 +25,23 @@ const log = (message) => {
  */
 exports.searchBooks = async (req, res) => {
     try {
-      const { query, source = 'all', limit = 20 } = req.query;
+      // Default to 'google' instead of 'all'
+      const { query, source = 'google', limit = 20 } = req.query;
+      
+      // Only allow admin to change source
+      const userRole = req.user?.role;
+      const effectiveSource = userRole === 'admin' ? source : 'google';
       
       if (!query) {
         return res.status(400).json({ message: 'Search query is required' });
       }
   
-      log(`Searching for books with query: "${query}", source: ${source}, limit: ${limit}`);
+      log(`Searching for books with query: "${query}", source: ${effectiveSource}, limit: ${limit}`);
       
       let results = { google: [], openLibrary: [], combined: [] };
       
       // Perform searches based on selected source
-      if (source === 'all' || source === 'google') {
+      if (effectiveSource === 'all' || effectiveSource === 'google') {
         try {
           results.google = await googleBooksAPI.searchBooks(query, parseInt(limit));
           log(`Found ${results.google.length} results from Google Books`);
@@ -53,7 +58,7 @@ exports.searchBooks = async (req, res) => {
         }
       }
       
-      if (source === 'all' || source === 'openLibrary') {
+      if (effectiveSource === 'all' || effectiveSource === 'openLibrary') {
         try {
           results.openLibrary = await openLibraryAPI.searchBooks(query);
           log(`Found ${results.openLibrary.length} results from Open Library`);
@@ -69,7 +74,7 @@ exports.searchBooks = async (req, res) => {
       }
       
       // Combine and deduplicate results if needed
-      if (source === 'all') {
+      if (effectiveSource === 'all') {
         results.combined = combineAndDeduplicate(results.google, results.openLibrary);
         
         // Sort combined results by a calculated popularity score
@@ -91,10 +96,10 @@ exports.searchBooks = async (req, res) => {
       
       const responseData = {
         query,
-        source,
-        results: source === 'all' ? 
+        source: effectiveSource,
+        results: effectiveSource === 'all' ? 
           { google: results.google, openLibrary: results.openLibrary, combined: results.combined } : 
-          results[source] || []
+          results[effectiveSource] || []
       };
       
       res.json(responseData);
