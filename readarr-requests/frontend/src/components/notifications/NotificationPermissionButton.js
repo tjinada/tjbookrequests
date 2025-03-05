@@ -41,7 +41,7 @@ const NotificationPermissionButton = ({ variant = "contained", color = "primary"
   // Function to get the VAPID public key from the server
   const getVapidPublicKey = async () => {
     try {
-      const response = await api.get('/api/notifications/vapid-public-key');
+      const response = await api.get('/notifications/vapid-public-key');
       return response.data.vapidPublicKey;
     } catch (error) {
       console.error('Error getting VAPID key:', error);
@@ -53,7 +53,7 @@ const NotificationPermissionButton = ({ variant = "contained", color = "primary"
   const saveSubscription = async (subscription) => {
     try {
       console.log('Saving subscription to server:', subscription);
-      const response = await api.post('/api/notifications/subscribe', { subscription });
+      const response = await api.post('/notifications/subscribe', { subscription });
       console.log('Subscription saved successfully:', response.data);
       return true;
     } catch (error) {
@@ -137,7 +137,7 @@ const NotificationPermissionButton = ({ variant = "contained", color = "primary"
               
               // Send a test notification using your test endpoint
               try {
-                await api.post('/api/notifications/test');
+                await api.post('/notifications/test');
                 console.log('Test notification sent');
               } catch (testError) {
                 console.error('Error sending test notification:', testError);
