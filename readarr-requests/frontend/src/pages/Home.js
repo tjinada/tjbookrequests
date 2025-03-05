@@ -19,14 +19,13 @@ import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import StarIcon from '@mui/icons-material/Star';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
-import NewReleasesIcon from '@mui/icons-material/NewReleases';
 import LocalLibraryIcon from '@mui/icons-material/LocalLibrary';
+import RecommendIcon from '@mui/icons-material/Recommend';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import BookCard from '../components/books/BookCard';
 import AppContext from '../context/AppContext';
 import CachePurger from '../components/admin/CachePurger';
 import AuthContext from '../context/AuthContext';
-import PullToRefresh from 'react-pull-to-refresh';
 import SwipeableBookCard from '../components/books/SwipeableBookCard';
 import SwipeTutorial from '../components/common/SwipeTutorial';
 import BookRequestDialog from '../components/books/BookRequestDialog';
@@ -70,12 +69,15 @@ const Home = () => {
     popularBooks,
     nytBooks,
     awardBooks,
-    recentBooks,
+    recommendedBooks,
     genres, 
     genreBooks, 
     currentGenre,
+    loading: contextLoading,
+    error: contextError,
     fetchHomeData, 
     fetchGenres,
+    fetchRecommendedBooks,
     selectGenre,
     yearFilter,
     setYearFilter,
@@ -90,17 +92,12 @@ const Home = () => {
     setRequestDialogOpen(true);
   };
 
-  // Load data when component mounts
+  // Set initial loading based on context loading
   useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      await fetchHomeData();
-      await fetchGenres();
+    if (!contextLoading.home && !contextLoading.genres) {
       setLoading(false);
-    };
-
-    loadData();
-  }, [fetchHomeData, fetchGenres]);
+    }
+  }, [contextLoading]);
 
   // Set initial genre when genres are loaded
   useEffect(() => {
@@ -116,6 +113,11 @@ const Home = () => {
   // Handler for main tab changes
   const handleMainTabChange = (event, newValue) => {
     setMainTab(newValue);
+    
+    // If switching to the recommended tab, refresh recommendations
+    if (newValue === 4 && recommendedBooks.length === 0) {
+      fetchRecommendedBooks();
+    }
   };
 
   // Handler for genre tab changes
@@ -136,7 +138,13 @@ const Home = () => {
   // Handler for refresh
   const handleRefresh = () => {
     setLoading(true);
-    fetchHomeData().then(() => setLoading(false));
+    fetchHomeData().then(() => {
+      // If on the recommended tab, also refresh recommendations
+      if (mainTab === 4) {
+        fetchRecommendedBooks();
+      }
+      setLoading(false);
+    });
   };
 
   // Render book grid with optional loading and empty states
@@ -263,197 +271,219 @@ const Home = () => {
     );
   }
 
-  
-
   return (
-      <Box>
-        <Box
-          sx={{ 
-            // Ensure the container doesn't interfere with scrolling
-            overflowY: 'visible',
-            touchAction: 'pan-y',
-            // Add bottom padding to ensure content isn't hidden behind bottom nav
-            pb: { xs: 8, sm: 4 }
+    <Box>
+      <Box
+        sx={{ 
+          // Ensure the container doesn't interfere with scrolling
+          overflowY: 'visible',
+          touchAction: 'pan-y',
+          // Add bottom padding to ensure content isn't hidden behind bottom nav
+          pb: { xs: 8, sm: 4 }
+        }}
+      >
+        <Typography variant="h4" component="h1" gutterBottom>
+          Discover Books
+        </Typography>
+        <Button 
+          variant="contained" 
+          component={Link} 
+          to="/search" 
+          startIcon={<SearchIcon />}
+        >
+          Search Books
+        </Button>
+      </Box>
+
+      {/* Filters */}
+      {renderFilters()}
+
+      {/* Error alerts */}
+      {contextError.home && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {contextError.home}
+        </Alert>
+      )}
+
+      {/* Main Tabs */}
+      <Box 
+        sx={{ 
+          borderBottom: 1, 
+          borderColor: 'divider', 
+          mb: 3,
+          position: 'relative',
+          zIndex: 10, // Ensure it's above content but doesn't break scrolling
+          bgcolor: 'background.paper'
+        }}
+      >
+        <Tabs 
+          value={mainTab} 
+          onChange={handleMainTabChange} 
+          aria-label="discovery tabs"
+          variant="scrollable"
+          scrollButtons="auto"
+          sx={{
+            // Improve touch scrolling on the tabs
+            '& .MuiTabs-scroller': {
+              touchAction: 'pan-x',
+              overflowX: 'auto'
+            }
           }}
         >
-          <Typography variant="h4" component="h1" gutterBottom>
-            Discover Books
-          </Typography>
-          <Button 
-            variant="contained" 
-            component={Link} 
-            to="/search" 
-            startIcon={<SearchIcon />}
-          >
-            Search Books
-          </Button>
-        </Box>
+          <Tab 
+            icon={<TrendingUpIcon />} 
+            iconPosition="start"
+            label="Trending" 
+            id="tab-0" 
+            aria-controls="tabpanel-0" 
+          />
+          <Tab 
+            icon={<StarIcon />} 
+            iconPosition="start"
+            label="Popular" 
+            id="tab-1" 
+            aria-controls="tabpanel-1" 
+          />
+          <Tab 
+            icon={<AutoAwesomeIcon />} 
+            iconPosition="start"
+            label="NYT Bestsellers" 
+            id="tab-2" 
+            aria-controls="tabpanel-2" 
+          />
+          <Tab 
+            icon={<EmojiEventsIcon />} 
+            iconPosition="start"
+            label="Award Winners" 
+            id="tab-3" 
+            aria-controls="tabpanel-3" 
+          />
+          <Tab 
+            icon={<RecommendIcon />} 
+            iconPosition="start"
+            label="Recommended" 
+            id="tab-4" 
+            aria-controls="tabpanel-4" 
+          />
+          <Tab 
+            icon={<LocalLibraryIcon />} 
+            iconPosition="start"
+            label="Genres" 
+            id="tab-5" 
+            aria-controls="tabpanel-5" 
+          />
+        </Tabs>
+      </Box>
 
-        {/* Filters */}
-        {renderFilters()}
+      {/* Tab Panels */}
+      <TabPanel value={mainTab} index={0}>
+        {renderBookGrid(trendingBooks, "No trending books match your filters.")}
+      </TabPanel>
 
-        {/* Main Tabs */}
-        <Box 
-          sx={{ 
-            borderBottom: 1, 
-            borderColor: 'divider', 
-            mb: 3,
-            position: 'relative',
-            zIndex: 10, // Ensure it's above content but doesn't break scrolling
-            bgcolor: 'background.paper'
-          }}
-        >
-          <Tabs 
-            value={mainTab} 
-            onChange={handleMainTabChange} 
-            aria-label="discovery tabs"
-            variant="scrollable"
-            scrollButtons="auto"
-            sx={{
-              // Improve touch scrolling on the tabs
-              '& .MuiTabs-scroller': {
-                touchAction: 'pan-x',
-                overflowX: 'auto'
-              }
-            }}
-          >
-            <Tab 
-              icon={<TrendingUpIcon />} 
-              iconPosition="start"
-              label="Trending" 
-              id="tab-0" 
-              aria-controls="tabpanel-0" 
-            />
-            <Tab 
-              icon={<StarIcon />} 
-              iconPosition="start"
-              label="Popular" 
-              id="tab-1" 
-              aria-controls="tabpanel-1" 
-            />
-            <Tab 
-              icon={<AutoAwesomeIcon />} 
-              iconPosition="start"
-              label="NYT Bestsellers" 
-              id="tab-2" 
-              aria-controls="tabpanel-2" 
-            />
-            <Tab 
-              icon={<EmojiEventsIcon />} 
-              iconPosition="start"
-              label="Award Winners" 
-              id="tab-3" 
-              aria-controls="tabpanel-3" 
-            />
-            <Tab 
-              icon={<NewReleasesIcon />} 
-              iconPosition="start"
-              label="Recent Books" 
-              id="tab-4" 
-              aria-controls="tabpanel-4" 
-            />
-            <Tab 
-              icon={<LocalLibraryIcon />} 
-              iconPosition="start"
-              label="Genres" 
-              id="tab-5" 
-              aria-controls="tabpanel-5" 
-            />
-          </Tabs>
-        </Box>
+      <TabPanel value={mainTab} index={1}>
+        {renderBookGrid(popularBooks, "No popular books match your filters.")}
+      </TabPanel>
 
-        {/* Tab Panels */}
-        <TabPanel value={mainTab} index={0}>
-          {renderBookGrid(trendingBooks, "No trending books match your filters.")}
-        </TabPanel>
+      <TabPanel value={mainTab} index={2}>
+        {renderBookGrid(nytBooks, "No NYT bestsellers match your filters.")}
+      </TabPanel>
 
-        <TabPanel value={mainTab} index={1}>
-          {renderBookGrid(popularBooks, "No popular books match your filters.")}
-        </TabPanel>
+      <TabPanel value={mainTab} index={3}>
+        {renderBookGrid(awardBooks, "No award-winning books match your filters.")}
+      </TabPanel>
 
-        <TabPanel value={mainTab} index={2}>
-          {renderBookGrid(nytBooks, "No NYT bestsellers match your filters.")}
-        </TabPanel>
-
-        <TabPanel value={mainTab} index={3}>
-          {renderBookGrid(awardBooks, "No award-winning books match your filters.")}
-        </TabPanel>
-
-        <TabPanel value={mainTab} index={4}>
-          {renderBookGrid(recentBooks, "No recent books match your filters.")}
-        </TabPanel>
-
-        <TabPanel value={mainTab} index={5}>
-          {/* Genre Sub-tabs */}
-          {genres.length > 0 ? (
-            <>
-              <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-                <Tabs 
-                  value={genreTab} 
-                  onChange={handleGenreTabChange} 
-                  aria-label="genre tabs"
-                  variant="scrollable"
-                  scrollButtons="auto"
-                  sx={{ 
-                    maxWidth: '100%',
-                    '& .MuiTabs-flexContainer': {
-                      flexWrap: { xs: 'wrap', md: 'nowrap' }
-                    }
-                  }}
-                >
-                  {genres.map((genre, index) => (
-                    <Tab 
-                      key={genre.id}
-                      label={genre.name} 
-                      id={`genre-tab-${index}`}
-                      aria-controls={`genre-tabpanel-${index}`}
-                      sx={{ minWidth: { xs: 120, md: 'auto' } }}
-                    />
-                  ))}
-                </Tabs>
-              </Box>
-
-              {/* Genre Tab Contents */}
-              {genres.map((genre, index) => (
-                <div 
-                  key={genre.id}
-                  role="tabpanel" 
-                  hidden={genreTab !== index}
-                  id={`genre-tabpanel-${index}`} 
-                  aria-labelledby={`genre-tab-${index}`}
-                >
-                  {genreTab === index && (
-                    <>
-                      {!genreBooks[genre.id] ? (
-                        <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
-                          <CircularProgress />
-                        </Box>
-                      ) : (
-                        renderBookGrid(
-                          genreBooks[genre.id], 
-                          `No ${genre.name} books match your filters.`
-                        )
-                      )}
-                    </>
-                  )}
-                </div>
-              ))}
-            </>
-          ) : (
-            <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
-              <CircularProgress />
-            </Box>
-          )}
-        </TabPanel>
-        {selectedBook && (
-          <BookRequestDialog
-            open={requestDialogOpen}
-            onClose={() => setRequestDialogOpen(false)}
-            book={selectedBook}
+      {/* New Recommended tab */}
+      <TabPanel value={mainTab} index={4}>
+        {contextLoading.recommended ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+            <CircularProgress />
+          </Box>
+        ) : recommendedBooks && recommendedBooks.length > 0 ? (
+          renderBookGrid(recommendedBooks, "No recommended books match your filters.")
+        ) : (
+          <EmptyState 
+            icon={RecommendIcon}
+            title="No Recommendations Yet"
+            description="As you request books, we'll learn your preferences and recommend similar books you might enjoy. Try requesting a few books first!"
+            actionText="Find Books to Request"
+            onAction={() => setMainTab(1)} // Switch to Popular tab
           />
         )}
-        <SwipeTutorial />
-      </Box>
+      </TabPanel>
+
+      <TabPanel value={mainTab} index={5}>
+        {/* Genre Sub-tabs */}
+        {genres.length > 0 ? (
+          <>
+            <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+              <Tabs 
+                value={genreTab} 
+                onChange={handleGenreTabChange} 
+                aria-label="genre tabs"
+                variant="scrollable"
+                scrollButtons="auto"
+                sx={{ 
+                  maxWidth: '100%',
+                  '& .MuiTabs-flexContainer': {
+                    flexWrap: { xs: 'wrap', md: 'nowrap' }
+                  }
+                }}
+              >
+                {genres.map((genre, index) => (
+                  <Tab 
+                    key={genre.id}
+                    label={genre.name} 
+                    id={`genre-tab-${index}`}
+                    aria-controls={`genre-tabpanel-${index}`}
+                    sx={{ minWidth: { xs: 120, md: 'auto' } }}
+                  />
+                ))}
+              </Tabs>
+            </Box>
+
+            {/* Genre Tab Contents */}
+            {genres.map((genre, index) => (
+              <div 
+                key={genre.id}
+                role="tabpanel" 
+                hidden={genreTab !== index}
+                id={`genre-tabpanel-${index}`} 
+                aria-labelledby={`genre-tab-${index}`}
+              >
+                {genreTab === index && (
+                  <>
+                    {!genreBooks[genre.id] ? (
+                      <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
+                        <CircularProgress />
+                      </Box>
+                    ) : (
+                      renderBookGrid(
+                        genreBooks[genre.id], 
+                        `No ${genre.name} books match your filters.`
+                      )
+                    )}
+                  </>
+                )}
+              </div>
+            ))}
+          </>
+        ) : (
+          <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
+            <CircularProgress />
+          </Box>
+        )}
+      </TabPanel>
+      
+      {selectedBook && (
+        <BookRequestDialog
+          open={requestDialogOpen}
+          onClose={() => setRequestDialogOpen(false)}
+          book={selectedBook}
+        />
+      )}
+      
+      <SwipeTutorial />
+    </Box>
   );
 };
 

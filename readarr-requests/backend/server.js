@@ -7,6 +7,8 @@ const webhookRoutes = require('./routes/webhooks');
 const calibreManagerRoutes = require('./routes/calibreManager');
 const searchRoutes = require('./routes/search');
 const notificationRoutes = require('./routes/notifications');
+const googleBooksRoutes = require('./routes/googleBooks');
+const recommendationRoutes = require('./routes/recommendations');
 const path = require('path');
 
 // Load environment variables
@@ -38,6 +40,8 @@ app.use('/api/webhooks', webhookRoutes);
 app.use('/api/calibre-manager', calibreManagerRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/google-books', googleBooksRoutes);
+app.use('/api/recommendations', recommendationRoutes);
 
 // Serve static files from the public directory
 app.use(express.static(path.join(__dirname, 'public')));
