@@ -3,6 +3,9 @@ const User = require('../models/User');
 const webpush = require('web-push');
 const fs = require('fs');
 const path = require('path');
+const dotenv = require('dotenv');
+
+dotenv.config(); // This will load the .env file
 
 // Set up logging
 const logDir = path.join(__dirname, '../logs');
