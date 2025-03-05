@@ -2,6 +2,9 @@
 const Request = require('../models/Request');
 const readarrAPI = require('../config/readarr');
 const calibreAPI = require('../config/calibreAPI');
+const googleBooksAPI = require('../config/googleBooks');
+const openLibraryAPI = require('../config/openLibrary');
+const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 
@@ -20,9 +23,17 @@ const log = (message) => {
   console.log(message);
 };
 
+// Create direct Readarr API client for internal use
+const readarrDirectAPI = axios.create({
+  baseURL: process.env.READARR_API_URL,
+  headers: {
+    'X-Api-Key': process.env.READARR_API_KEY
+  }
+});
+
 exports.createRequest = async (req, res) => {
   try {
-    const { bookId, title, author, cover, isbn } = req.body;
+    const { bookId, title, author, cover, isbn, source } = req.body;
 
     // Check if request already exists
     const existingRequest = await Request.findOne({ 
@@ -41,7 +52,8 @@ exports.createRequest = async (req, res) => {
       title,
       author,
       cover,
-      isbn // Add ISBN to help Readarr find the book more accurately
+      isbn,
+      source
     });
 
     await newRequest.save();
@@ -74,19 +86,86 @@ exports.updateRequestStatus = async (req, res) => {
     // If approving the request, add book to Readarr
     if (status === 'approved' && request.status !== 'approved') {
       try {
-        const readarrResult = await readarrAPI.addBook({
+        log(`Processing request approval for: "${request.title}" by ${request.author}`);
+        
+        // Get more detailed book information based on source if available
+        let enrichedBookData = {
           title: request.title,
           author: request.author,
           isbn: request.isbn
-        });
+        };
+        
+        // If source is specified, get richer metadata
+        if (request.source) {
+          try {
+            log(`Getting enhanced metadata from ${request.source} for book: ${request.bookId}`);
+            let bookDetails;
+            
+            if (request.source === 'google') {
+              // Remove 'gb-' prefix if present
+              const googleId = request.bookId.startsWith('gb-') ? 
+                request.bookId.substring(3) : request.bookId;
+              bookDetails = await googleBooksAPI.getBookDetails(googleId);
+            } else if (request.source === 'openLibrary') {
+              // Remove 'ol-' prefix if present
+              const olId = request.bookId.startsWith('ol-') ? 
+                request.bookId.substring(3) : request.bookId;
+              bookDetails = await openLibraryAPI.getBookDetails(olId);
+            }
+            
+            if (bookDetails) {
+              // Get author information for better matching
+              let authorInfo = null;
+              if (request.source === 'google' && bookDetails.author) {
+                // Extract the primary author (first in the list)
+                const primaryAuthor = bookDetails.author.split(',')[0].trim();
+                try {
+                  authorInfo = await googleBooksAPI.searchAuthor(primaryAuthor);
+                  log(`Found author information for ${primaryAuthor}`);
+                } catch (authorErr) {
+                  log(`Error getting author info: ${authorErr.message}, will continue without it`);
+                }
+              }
+              
+              // Enhance book data with metadata
+              enrichedBookData = {
+                ...enrichedBookData,
+                title: bookDetails.title || request.title,
+                author: bookDetails.author || request.author,
+                isbn: bookDetails.isbn || request.isbn,
+                // Add additional metadata
+                authorMetadata: authorInfo ? {
+                  name: authorInfo.name,
+                  books: authorInfo.books?.length || 0,
+                  genres: authorInfo.primaryGenres || []
+                } : null,
+                bookMetadata: {
+                  title: bookDetails.title || request.title,
+                  source: request.source,
+                  sourceId: request.bookId,
+                  publishYear: bookDetails.year
+                }
+              };
+              
+              log(`Enhanced book data: ${JSON.stringify(enrichedBookData)}`);
+            }
+          } catch (metadataError) {
+            log(`Error getting enhanced metadata: ${metadataError.message}`);
+            // Continue with basic metadata if enhanced fails
+          }
+        }
 
-        // Add information about the readarr result to the request
+        // Use the readarrAPI module's functions to add the book
+        const readarrResult = await readarrAPI.addBook(enrichedBookData);
+        
+        // Update request with readarr info
         request.readarrStatus = 'added';
         request.readarrId = readarrResult.id?.toString() || '';
         request.readarrMessage = 'Successfully added to Readarr';
 
       } catch (error) {
         console.error('Error adding book to Readarr:', error);
+        log(`ERROR in Readarr flow: ${error.message}`);
 
         // Still update the request status, but note the error
         request.readarrStatus = 'error';

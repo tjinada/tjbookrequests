@@ -57,10 +57,14 @@ const BookCard = ({ book, showRating = true }) => {
           height: '100%',
           flexGrow: 1,
           width: '100%',
-          objectFit: 'cover',
+          objectFit: 'cover',         // Changed from contain to cover for better appearance
           objectPosition: 'center top',
-          aspectRatio: '2/3'
+          aspectRatio: '2/3',
+          imageRendering: 'high-quality', // Encourage high-quality rendering
+          // Add a small blur to edges to make image appear sharper
+          boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.05)',
         }}
+        loading="lazy" // Add lazy loading for performance
       />
 
       {/* Rating Badge */}

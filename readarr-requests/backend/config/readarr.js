@@ -1,4 +1,4 @@
-// config/readarr.js - Updated with book file path retrieval
+// config/readarr.js - Simplified version with lastname, firstname search
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
@@ -26,77 +26,65 @@ const log = (message) => {
   console.log(message);
 };
 
-// Helper function to find the best match by title
-function findBestBookMatch(books, searchTitle) {
-  if (!books || books.length === 0) return null;
-
-  // Normalize search title
-  const normalizedSearch = searchTitle.toLowerCase();
-
-  // First look for exact matches or close matches
-  const matchingBooks = books.filter(book => {
-    const bookTitle = book.title.toLowerCase();
-    return bookTitle.includes(normalizedSearch) || normalizedSearch.includes(bookTitle);
-  });
-
-  if (matchingBooks.length > 0) {
-    // Sort by title length (prefer shorter, more specific titles)
-    return matchingBooks.sort((a, b) => a.title.length - b.title.length)[0];
-  }
-
-  // If no matches, return null
-  return null;
-}
-
-// Helper function to normalize author names for better matching
-function normalizeAuthorName(name) {
-  return name.toLowerCase()
+// Clean and normalize text for better comparisons
+function normalizeText(text) {
+  if (!text) return '';
+  
+  return text.toLowerCase()
     .replace(/\./g, '') // Remove periods
     .replace(/\s+/g, ' ') // Normalize spaces
     .trim();
 }
 
-// Helper function to find an author with a better matching algorithm
-function findAuthorMatch(authors, searchName) {
-  const normalizedSearch = normalizeAuthorName(searchName);
+// Helper function to clean and prepare book/author input
+function preprocessBookData(bookData) {
+  const result = { ...bookData };
+  
+  // Fix cases where title contains "by Author"
+  if (result.title && result.title.includes(' by ') && !result.title.startsWith('by ')) {
+    // This format is likely "Book Title by Author Name"
+    const parts = result.title.split(' by ');
+    if (parts.length >= 2) {
+      // Check if the part after "by" matches the author field
+      const potentialAuthor = parts[parts.length - 1].trim();
+      const titlePart = parts.slice(0, -1).join(' by ').trim();
+      
+      // If the author field matches what's after "by", use the title part alone
+      if (potentialAuthor.toLowerCase() === result.author.toLowerCase()) {
+        log(`Title contains redundant author info. Updating title from "${result.title}" to "${titlePart}"`);
+        result.title = titlePart;
+      }
+    }
+  }
+  
+  return result;
+}
 
-  // Try different matching strategies
-
-  // 1. Exact match
-  let match = authors.find(author => 
-    normalizeAuthorName(author.authorName) === normalizedSearch
-  );
-  if (match) return match;
-
-  // 2. One name contains the other
-  match = authors.find(author => {
-    const authorName = normalizeAuthorName(author.authorName);
-    return authorName.includes(normalizedSearch) || normalizedSearch.includes(authorName);
-  });
-  if (match) return match;
-
-  // 3. Check for name variations with initials
-  // This helps with cases like "George R.R. Martin" vs "George Martin"
-  match = authors.find(author => {
-    const authorName = normalizeAuthorName(author.authorName);
-    const parts = normalizedSearch.split(' ');
-    const firstName = parts[0];
-    const lastName = parts[parts.length - 1];
-
-    // Check if first and last name match
-    return authorName.includes(firstName) && authorName.includes(lastName);
-  });
-
-  return match || null;
+// Helper function to convert author name to "lastname, firstname" format
+function getLastnameFirstFormat(authorName) {
+  if (!authorName) return '';
+  
+  const parts = authorName.trim().split(' ');
+  if (parts.length < 2) return authorName; // Can't split if it's just one word
+  
+  const lastName = parts.pop(); // Get the last part as the last name
+  const firstName = parts.join(' '); // Join the rest as the first name(s)
+  
+  return `${lastName}, ${firstName}`;
 }
 
 module.exports = {
-  // Updated addBook function with improved existing author handling
+  // Simplified addBook function with "lastname, firstname" search option
   addBook: async (bookData) => {
     try {
-      log(`Starting to add book: ${bookData.title} by ${bookData.author}`);
-
-      // Step 1: Get profiles
+      log(`\n========== Starting to add book ==========`);
+      log(`Original request: "${bookData.title}" by ${bookData.author}`);
+      
+      // Preprocess the input to handle ambiguous formats
+      const processedData = preprocessBookData(bookData);
+      log(`Processed request: "${processedData.title}" by ${processedData.author}`);
+      
+      // Step 1: Get profiles needed for creating authors/books
       const [qualityProfiles, metadataProfiles, rootFolders] = await Promise.all([
         readarrAPI.get('/api/v1/qualityprofile'),
         readarrAPI.get('/api/v1/metadataprofile'),
@@ -113,38 +101,77 @@ module.exports = {
 
       log(`Using profiles - Quality: ${qualityProfileId}, Metadata: ${metadataProfileId}, Root: ${rootFolderPath}`);
 
-      // Step 2: Check if the author exists using improved author matching
-      let authorId;
-      let isExistingAuthor = false;
-
-      log(`Checking if author exists: ${bookData.author}`);
+      // Step 2: Check if the author already exists
+      let authorId = null;
+      log(`Checking if author exists: ${processedData.author}`);
+      
       const existingAuthorsResponse = await readarrAPI.get('/api/v1/author');
-
+      
+      // Look for exact author match first (case-insensitive)
       if (existingAuthorsResponse.data?.length) {
-        // Use the improved author matching function
-        const existingAuthor = findAuthorMatch(existingAuthorsResponse.data, bookData.author);
-
-        if (existingAuthor) {
-          authorId = existingAuthor.id;
-          isExistingAuthor = true;
-          log(`Found existing author: ${existingAuthor.authorName} with ID: ${authorId}`);
-        } else {
-          log(`No matching author found among ${existingAuthorsResponse.data.length} existing authors`);
+        const exactAuthorMatch = existingAuthorsResponse.data.find(a => 
+          normalizeText(a.authorName) === normalizeText(processedData.author));
+          
+        if (exactAuthorMatch) {
+          authorId = exactAuthorMatch.id;
+          log(`Found existing author: ${exactAuthorMatch.authorName} with ID: ${authorId}`);
         }
       }
 
-      // If author doesn't exist, create a new one
+      // Step 3: If author doesn't exist, search for and add them
       if (!authorId) {
-        log(`Author not found in existing authors, looking up in Readarr's database`);
-        const authorLookupResponse = await readarrAPI.get(`/api/v1/author/lookup?term=${encodeURIComponent(bookData.author)}`);
-
-        if (!authorLookupResponse.data?.length) {
-          throw new Error(`Author not found in Readarr lookup: ${bookData.author}`);
+        // Generate both normal and lastname first formats for searching
+        const standardAuthorName = processedData.author;
+        const lastnameFirstAuthor = getLastnameFirstFormat(standardAuthorName);
+        
+        log(`Author not found. Will try both name formats:
+        - Standard format: ${standardAuthorName}
+        - Lastname first: ${lastnameFirstAuthor}`);
+        
+        // Try to search with lastname, firstname format first
+        let authorLookupResponse;
+        let authorSearchResults = [];
+        
+        try {
+          // First search with lastname, firstname format
+          authorLookupResponse = await readarrAPI.get(`/api/v1/author/lookup?term=${encodeURIComponent(lastnameFirstAuthor)}`);
+          authorSearchResults = authorLookupResponse.data || [];
+          log(`Search with "${lastnameFirstAuthor}" found ${authorSearchResults.length} results`);
+          
+          // If no results with lastname first, try standard format
+          if (authorSearchResults.length === 0) {
+            log(`No results with lastname first format. Trying standard name format.`);
+            authorLookupResponse = await readarrAPI.get(`/api/v1/author/lookup?term=${encodeURIComponent(standardAuthorName)}`);
+            authorSearchResults = authorLookupResponse.data || [];
+            log(`Search with "${standardAuthorName}" found ${authorSearchResults.length} results`);
+          }
+        } catch (error) {
+          // If any error occurs, try the standard format
+          log(`Error with lastname first search: ${error.message}. Trying standard format.`);
+          authorLookupResponse = await readarrAPI.get(`/api/v1/author/lookup?term=${encodeURIComponent(standardAuthorName)}`);
+          authorSearchResults = authorLookupResponse.data || [];
         }
-
-        // Use the first author result (most relevant)
-        const authorToAdd = authorLookupResponse.data[0];
-
+        
+        if (!authorSearchResults.length) {
+          throw new Error(`Author "${processedData.author}" not found in Readarr database`);
+        }
+        
+        // Find exact author match or best match
+        let authorToAdd = null;
+        
+        // Try exact match with both name formats
+        authorToAdd = authorSearchResults.find(a => 
+          normalizeText(a.authorName) === normalizeText(standardAuthorName) ||
+          normalizeText(a.authorName) === normalizeText(lastnameFirstAuthor));
+        
+        // If no exact match, use the first result
+        if (!authorToAdd) {
+          log(`No exact author name match found. Using first search result.`);
+          authorToAdd = authorSearchResults[0];
+        }
+        
+        log(`Adding author: ${authorToAdd.authorName}`);
+        
         // Create author payload
         const authorPayload = {
           authorName: authorToAdd.authorName,
@@ -161,90 +188,79 @@ module.exports = {
           }
         };
 
-        log(`Creating new author with payload: ${JSON.stringify(authorPayload)}`);
-
+        // Add author to Readarr
         const authorResponse = await readarrAPI.post('/api/v1/author', authorPayload);
         authorId = authorResponse.data.id;
         log(`Created new author with ID: ${authorId}`);
 
-        // Wait a moment for Readarr to process the new author
-        await new Promise(resolve => setTimeout(resolve, 3000));
+        // Wait for Readarr to process the new author
+        log('Waiting for Readarr to process the new author...');
+        await new Promise(resolve => setTimeout(resolve, 5000));
       }
 
-      // Step 3: Get all books for this author
+      // Step 4: Now that we have the author, look for the book
       log(`Getting books for author ID: ${authorId}`);
-      let booksList = [];
-
+      let targetBook = null;
+      
       try {
+        // Get all books for this author
         const authorBooksResponse = await readarrAPI.get(`/api/v1/book?authorId=${authorId}&includeAllAuthorBooks=true`);
-        booksList = authorBooksResponse.data || [];
+        const booksList = authorBooksResponse.data || [];
         log(`Found ${booksList.length} books for author`);
-      } catch (error) {
-        log(`Error getting books for author: ${error.message}`);
-
-        // If this is a new author, wait longer and retry
-        if (!isExistingAuthor) {
-          log(`Waiting longer for new author and retrying...`);
-          await new Promise(resolve => setTimeout(resolve, 7000));
-
-          try {
-            const retryResponse = await readarrAPI.get(`/api/v1/book?authorId=${authorId}&includeAllAuthorBooks=true`);
-            booksList = retryResponse.data || [];
-            log(`Retry found ${booksList.length} books for author`);
-          } catch (retryError) {
-            log(`Retry also failed: ${retryError.message}`);
+        
+        // Check if book already exists for this author
+        if (booksList.length > 0) {
+          // Look for exact match first
+          targetBook = booksList.find(book => 
+            normalizeText(book.title) === normalizeText(processedData.title));
+          
+          if (targetBook) {
+            log(`Found exact title match in author's library: "${targetBook.title}" with ID: ${targetBook.id}`);
           }
         }
+      } catch (error) {
+        log(`Error getting author's books: ${error.message}. Will proceed to search for the book.`);
       }
 
-      // Step 4: Find the requested book among the author's books
-      let targetBook = null;
-
-      if (booksList.length > 0) {
-        // Try to find the book in the existing list
-        targetBook = findBestBookMatch(booksList, bookData.title);
-
-        if (targetBook) {
-          log(`Found matching book in author's library: "${targetBook.title}" with ID: ${targetBook.id}`);
-        } else {
-          log(`Requested book not found in author's current library, need to look it up`);
-        }
-      }
-
-      // If book not found in existing library and this is an existing author,
-      // we need to perform a book lookup and potentially add it
-      if (!targetBook && isExistingAuthor) {
-        log(`Looking up book in Readarr's database: ${bookData.title}`);
-
-        // Search by title and author
-        const searchTerm = `${bookData.title} ${bookData.author}`;
+      // Step 5: If book doesn't exist, search for and add it
+      if (!targetBook) {
+        log(`Book not found in author's library. Searching for book: ${processedData.title}`);
+        
+        // Search for the book
+        const searchTerm = `${processedData.title} ${processedData.author}`;
         const bookLookupResponse = await readarrAPI.get(`/api/v1/book/lookup?term=${encodeURIComponent(searchTerm)}`);
-
+        
         if (!bookLookupResponse.data?.length) {
-          throw new Error(`Book not found in Readarr lookup: ${bookData.title}`);
+          throw new Error(`Book "${processedData.title}" not found in Readarr database`);
         }
-
-        // Find the best match from lookup results
-        const lookupBooks = bookLookupResponse.data;
-        log(`Found ${lookupBooks.length} books in lookup results`);
-
-        // Find books that match the title
-        const matchingBooks = lookupBooks.filter(book => {
-          const bookTitle = book.title.toLowerCase();
-          const searchTitle = bookData.title.toLowerCase();
-          return bookTitle.includes(searchTitle) || searchTitle.includes(bookTitle);
-        });
-
-        if (matchingBooks.length === 0) {
-          log(`No matching books found in lookup, using first result`);
-          matchingBooks.push(lookupBooks[0]);
+        
+        // Find best book match
+        let bookToAdd = null;
+        
+        // First try exact match on title and author
+        bookToAdd = bookLookupResponse.data.find(book => 
+          normalizeText(book.title) === normalizeText(processedData.title) && 
+          book.authorName && normalizeText(book.authorName) === normalizeText(processedData.author));
+        
+        // If no exact match, use the first result that matches this author
+        if (!bookToAdd) {
+          // Find books matching our author
+          const authorBooks = bookLookupResponse.data.filter(book =>
+            book.authorId === authorId || 
+            (book.authorName && normalizeText(book.authorName) === normalizeText(processedData.author)));
+          
+          if (authorBooks.length > 0) {
+            bookToAdd = authorBooks[0]; // Use first matching book
+          } else {
+            // If no author match, use first result
+            log(`No book matching both title and author found. Using first search result.`);
+            bookToAdd = bookLookupResponse.data[0];
+          }
         }
-
-        // Select the first matching book
-        const bookToAdd = matchingBooks[0];
-        log(`Selected book to add: "${bookToAdd.title}"`);
-
-        // Add the book to the author's library
+        
+        log(`Adding book: "${bookToAdd.title}" by ${bookToAdd.authorName || processedData.author}`);
+        
+        // Create book payload
         const bookPayload = {
           authorId: authorId,
           foreignBookId: bookToAdd.foreignBookId,
@@ -257,43 +273,14 @@ module.exports = {
             searchForNewBook: false // We'll trigger search separately
           }
         };
-
-        log(`Adding book with payload: ${JSON.stringify(bookPayload)}`);
-
-        try {
-          const addResponse = await readarrAPI.post('/api/v1/book', bookPayload);
-          targetBook = addResponse.data;
-          log(`Book added to library with ID: ${targetBook.id}`);
-
-          // Give Readarr a moment to process
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        } catch (addError) {
-          log(`Error adding book: ${addError.message}`);
-
-          // If adding fails, try to get the book again - it might have been added automatically
-          log(`Checking if book was added despite error...`);
-          const checkBooksResponse = await readarrAPI.get(`/api/v1/book?authorId=${authorId}&includeAllAuthorBooks=true`);
-
-          if (checkBooksResponse.data?.length) {
-            targetBook = findBestBookMatch(checkBooksResponse.data, bookData.title);
-
-            if (targetBook) {
-              log(`Found book in library after all: "${targetBook.title}" with ID: ${targetBook.id}`);
-            } else {
-              throw new Error(`Failed to add book and couldn't find it in library: ${bookData.title}`);
-            }
-          } else {
-            throw new Error(`Failed to add book and no books found in library: ${bookData.title}`);
-          }
-        }
+        
+        // Add book to Readarr
+        const addResponse = await readarrAPI.post('/api/v1/book', bookPayload);
+        targetBook = addResponse.data;
+        log(`Book added to library with ID: ${targetBook.id}`);
       }
 
-      // Make sure we have a target book at this point
-      if (!targetBook) {
-        throw new Error(`Could not find or add the requested book: ${bookData.title}`);
-      }
-
-      // Step 6: Trigger a search for the book
+      // Step 6: Trigger search for the book
       log(`Triggering search for book ID: ${targetBook.id}`);
 
       const searchPayload = {

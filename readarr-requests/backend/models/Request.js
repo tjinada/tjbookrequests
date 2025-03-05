@@ -25,6 +25,11 @@ const RequestSchema = new mongoose.Schema({
   isbn: {
     type: String
   },
+  source: {
+    type: String,
+    enum: ['google', 'openLibrary', null],
+    default: null
+  },
   status: {
     type: String,
     enum: ['pending', 'approved', 'denied', 'available'],

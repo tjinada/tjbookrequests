@@ -1,173 +1,198 @@
 // src/pages/Search.js
-import React, { useState } from 'react';
-import Typography from '@mui/material/Typography';
-import Box from '@mui/material/Box';
-import TextField from '@mui/material/TextField';
-import Button from '@mui/material/Button';
-import Grid from '@mui/material/Grid';
-import CircularProgress from '@mui/material/CircularProgress';
-import Alert from '@mui/material/Alert';
-import SearchIcon from '@mui/icons-material/Search';
-import Pagination from '@mui/material/Pagination';
-import api from '../utils/api';
-import BookCard from '../components/books/BookCard';
+import React, { useState, useEffect, useContext } from 'react';
+import { 
+  Box,
+  Button,
+  Typography, 
+  Grid, 
+  CircularProgress, 
+  Alert,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Paper,
+  Tabs,
+  Tab,
+  Chip
+} from '@mui/material';
+import SearchBar from '../components/books/SearchBar';
 import SwipeableBookCard from '../components/books/SwipeableBookCard';
 import BookRequestDialog from '../components/books/BookRequestDialog';
+import EmptyState from '../components/common/EmptyState';
+import SearchIcon from '@mui/icons-material/Search';
+import BookIcon from '@mui/icons-material/Book';
+import AuthContext from '../context/AuthContext';
+import api from '../utils/api';
 
 const Search = () => {
-  const [query, setQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [requestDialogOpen, setRequestDialogOpen] = useState(false);
-  const [selectedBook, setSelectedBook] = useState(null);
+  const { user } = useContext(AuthContext);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [page, setPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [selectedBook, setSelectedBook] = useState(null);
+  const [requestDialogOpen, setRequestDialogOpen] = useState(false);
+  const [metadataSource, setMetadataSource] = useState('google'); // Default to google
   const [hasSearched, setHasSearched] = useState(false);
-  const booksPerPage = 12;
 
+  const isAdmin = user && user.role === 'admin';
+
+  // Handle search
+  const handleSearch = async (e) => {
+    e.preventDefault();
+    
+    if (!searchQuery.trim()) return;
+    
+    setLoading(true);
+    setError(null);
+    setHasSearched(true);
+    
+    try {
+      const response = await api.get('/search/books', {
+        params: {
+          query: searchQuery,
+          source: metadataSource // Only admins can change this
+        }
+      });
+      
+      // Set the search results
+      if (response.data && response.data.results) {
+        // Handle different result formats based on source
+        if (Array.isArray(response.data.results)) {
+          setSearchResults(response.data.results);
+        } else if (typeof response.data.results === 'object') {
+          // For admin view with 'all' source that returns an object of sources
+          const source = metadataSource === 'all' ? 'combined' : metadataSource;
+          setSearchResults(response.data.results[source] || []);
+        }
+      } else {
+        setSearchResults([]);
+      }
+    } catch (err) {
+      console.error('Error searching books:', err);
+      setError('Failed to search books. Please try again.');
+      setSearchResults([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle book selection for request
   const handleRequestBook = (book) => {
     setSelectedBook(book);
     setRequestDialogOpen(true);
   };
 
-  const handleSearch = async (e) => {
-    e.preventDefault();
-
-    if (!query.trim()) {
-      setError('Please enter a search term');
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const res = await api.get(`/books/search?query=${query}`);
-      setSearchResults(res.data);
-      setLoading(false);
-      setHasSearched(true);
-      setPage(1);
-    } catch (err) {
-      setError('Failed to search books. Please try again.');
-      setLoading(false);
-    }
+  // Handle clear search
+  const handleClearSearch = () => {
+    setSearchQuery('');
+    setSearchResults([]);
+    setHasSearched(false);
   };
 
-  const handlePageChange = (event, value) => {
-    setPage(value);
-    window.scrollTo(0, 0);
+  // Handle metadata source change (for admins only)
+  const handleSourceChange = (e) => {
+    setMetadataSource(e.target.value);
   };
-
-  const paginatedResults = searchResults.slice(
-    (page - 1) * booksPerPage,
-    page * booksPerPage
-  );
-
-  const totalPages = Math.ceil(searchResults.length / booksPerPage);
 
   return (
-    <Box>
-      <Typography variant="h4" component="h1" gutterBottom>
+    <Box sx={{ p: 2 }}>
+      <Typography variant="h4" gutterBottom>
         Search Books
       </Typography>
 
-      <Box 
-        component="form" 
-        onSubmit={handleSearch} 
-        sx={{ 
-          mb: 4,
-          display: 'flex',
-          flexDirection: { xs: 'column', sm: 'row' },
-          gap: 2
-        }}
-      >
-        <TextField
-          fullWidth
-          label="Search books by title, author, or ISBN"
-          variant="outlined"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          sx={{ flexGrow: 1 }}
-        />
-        <Button 
-          type="submit" 
-          variant="contained" 
-          startIcon={<SearchIcon />}
-          disabled={loading}
-          sx={{ 
-            height: { sm: 56 },
-            whiteSpace: 'nowrap'
-          }}
-        >
-          Search
-        </Button>
-      </Box>
+      <Paper sx={{ p: 2, mb: 4 }}>
+        <form onSubmit={handleSearch}>
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} sm={isAdmin ? 6 : 9} md={isAdmin ? 7 : 10}>
+              <SearchBar
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onSubmit={handleSearch}
+                onClear={handleClearSearch}
+              />
+            </Grid>
+            
+            {/* Only show source selector to admins */}
+            {isAdmin && (
+              <Grid item xs={12} sm={3} md={3}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Source</InputLabel>
+                  <Select
+                    value={metadataSource}
+                    label="Source"
+                    onChange={handleSourceChange}
+                  >
+                    <MenuItem value="google">Google Books</MenuItem>
+                    <MenuItem value="openLibrary">Open Library</MenuItem>
+                    <MenuItem value="all">All Sources</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+            )}
+            
+            <Grid item xs={12} sm={3} md={2}>
+              <Button
+                fullWidth
+                variant="contained"
+                type="submit"
+                startIcon={<SearchIcon />}
+                disabled={!searchQuery.trim() || loading}
+              >
+                {loading ? 'Searching...' : 'Search'}
+              </Button>
+            </Grid>
+          </Grid>
+        </form>
+      </Paper>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
           {error}
         </Alert>
       )}
 
       {loading ? (
-        <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
+        <Box sx={{ display: 'flex', justifyContent: 'center', my: 5 }}>
           <CircularProgress />
         </Box>
+      ) : !hasSearched ? (
+        <EmptyState
+          icon={SearchIcon}
+          title="Search for Books"
+          description="Enter a search term to find books you want to request."
+        />
+      ) : searchResults.length === 0 ? (
+        <EmptyState
+          icon={BookIcon}
+          title="No Results Found"
+          description={`No books found matching "${searchQuery}". Try a different search term.`}
+          actionText="Try Different Search"
+          onAction={() => setSearchQuery('')}
+        />
       ) : (
-        <>
-          {searchResults.length > 0 ? (
-            <>
-              <Typography variant="subtitle1" gutterBottom>
-                Found {searchResults.length} results for "{query}"
-              </Typography>
-
-              <Grid container spacing={3}>
-                {paginatedResults.map((book) => (
-                  <Grid item xs={12} sm={6} md={4} lg={3} key={book.id}>
-                    <SwipeableBookCard 
-                      book={book} 
-                      onRequest={handleRequestBook}
-                    />
-                  </Grid>
-                ))}
-              </Grid>
-
-              {totalPages > 1 && (
-                <Box 
-                  sx={{ 
-                    display: 'flex', 
-                    justifyContent: 'center',
-                    mt: 4,
-                    mb: 2
-                  }}
-                >
-                  <Pagination 
-                    count={totalPages} 
-                    page={page} 
-                    onChange={handlePageChange} 
-                    color="primary" 
+        <Box>
+          <Grid container spacing={3}>
+            {searchResults.map((book) => (
+              <Grid item xs={12} sm={6} md={4} lg={3} key={book.id}>
+                <Box sx={{ position: 'relative' }}>
+                  <SwipeableBookCard
+                    book={{...book, source: metadataSource}}
+                    onRequest={() => handleRequestBook({...book, source: metadataSource})}
                   />
                 </Box>
-              )}
-            </>
-          ) : (
-            hasSearched && (
-              <Box sx={{ mt: 4, textAlign: 'center' }}>
-                <Typography variant="h6">
-                  No books found for "{query}". Try a different search.
-                </Typography>
-              </Box>
-            )
-          )}
-          {selectedBook && (
-            <BookRequestDialog
-              open={requestDialogOpen}
-              onClose={() => setRequestDialogOpen(false)}
-              book={selectedBook}
-            />
-          )}
-        </>
+              </Grid>
+            ))}
+          </Grid>
+        </Box>
       )}
+
+      <BookRequestDialog
+        open={requestDialogOpen}
+        onClose={() => setRequestDialogOpen(false)}
+        book={selectedBook}
+      />
     </Box>
   );
 };

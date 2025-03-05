@@ -5,6 +5,7 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const webhookRoutes = require('./routes/webhooks');
 const calibreManagerRoutes = require('./routes/calibreManager');
+const searchRoutes = require('./routes/search');
 
 // Load environment variables
 dotenv.config();
@@ -33,6 +34,9 @@ app.use('/api/requests', requestRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/calibre-manager',calibreManagerRoutes);
+
+// Add the new search routes
+app.use('/api/search',searchRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
