@@ -25,6 +25,37 @@ const UserSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now
+  },
+  // Add push notification subscriptions
+  pushSubscriptions: [{
+    endpoint: String,
+    expirationTime: Number,
+    keys: {
+      p256dh: String,
+      auth: String
+    }
+  }],
+  // User preferences
+  preferences: {
+    notifications: {
+      bookAvailable: {
+        type: Boolean,
+        default: true
+      },
+      newReleases: {
+        type: Boolean,
+        default: false
+      },
+      requestUpdates: {
+        type: Boolean,
+        default: true
+      }
+    },
+    theme: {
+      type: String,
+      enum: ['light', 'dark', 'system'],
+      default: 'system'
+    }
   }
 });
 

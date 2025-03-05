@@ -4,6 +4,7 @@ const readarrAPI = require('../config/readarr');
 const calibreAPI = require('../config/calibreAPI');
 const googleBooksAPI = require('../config/googleBooks');
 const openLibraryAPI = require('../config/openLibrary');
+const notificationService = require('../services/notificationService');
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
@@ -56,7 +57,42 @@ exports.createRequest = async (req, res) => {
       source
     });
 
+    // Save the request
     await newRequest.save();
+    
+    // Send notification to admins about the new request
+    try {
+      // Get user details for the notification
+      const userData = await Request.findById(newRequest._id)
+        .populate('user', 'username email');
+      
+      const adminNotification = {
+        title: 'New Book Request',
+        body: `${userData.user.username} requested "${title}" by ${author}`,
+        icon: '/icon-192x192.png',
+        badge: '/badge-72x72.png',
+        data: {
+          url: '/admin/requests',
+          requestId: newRequest._id.toString(),
+          bookId: bookId,
+          type: 'new-book-request'
+        },
+        actions: [
+          {
+            action: 'view-requests',
+            title: 'View Requests'
+          }
+        ]
+      };
+      
+      await notificationService.sendAdminNotification(adminNotification);
+      log(`Admin notification sent for new book request: "${title}"`);
+    } catch (notifyError) {
+      // Don't fail the request creation if notification fails
+      log(`Failed to send admin notification: ${notifyError.message}`);
+    }
+    
+    // Return the created request
     res.status(201).json(newRequest);
   } catch (err) {
     console.error('Error creating request:', err);
@@ -82,6 +118,9 @@ exports.updateRequestStatus = async (req, res) => {
     if (!request) {
       return res.status(404).json({ message: 'Request not found' });
     }
+
+    // Store previous status for notification purposes
+    const previousStatus = request.status;
 
     // If approving the request, add book to Readarr
     if (status === 'approved' && request.status !== 'approved') {
@@ -176,6 +215,59 @@ exports.updateRequestStatus = async (req, res) => {
     request.status = status;
     await request.save();
 
+    // Send notification to user about status change
+    try {
+      if (previousStatus !== status) {
+        // Get user details
+        const userData = await Request.findById(id)
+          .populate('user', 'username email');
+        
+        // Notification title and message based on new status
+        let notificationTitle = 'Book Request Update';
+        let notificationBody = '';
+        
+        switch (status) {
+          case 'approved':
+            notificationTitle = 'Book Request Approved';
+            notificationBody = `Your request for "${request.title}" has been approved and added to the download queue.`;
+            break;
+          case 'denied':
+            notificationTitle = 'Book Request Denied';
+            notificationBody = `Your request for "${request.title}" has been denied.`;
+            break;
+          case 'available':
+            notificationTitle = 'Book Now Available';
+            notificationBody = `"${request.title}" is now available in the library.`;
+            break;
+          default:
+            notificationBody = `The status of your request for "${request.title}" has been updated to ${status}.`;
+        }
+        
+        const userNotification = {
+          title: notificationTitle,
+          body: notificationBody,
+          icon: '/icon-192x192.png',
+          badge: '/badge-72x72.png',
+          data: {
+            url: '/requests',
+            requestId: id,
+            bookId: request.bookId,
+            type: 'request-status-update'
+          }
+        };
+        
+        await notificationService.sendUserNotification(
+          userData.user._id, 
+          userNotification
+        );
+        
+        log(`User notification sent for status change to ${status} for request: "${request.title}"`);
+      }
+    } catch (notifyError) {
+      // Don't fail if notification fails
+      log(`Failed to send status update notification: ${notifyError.message}`);
+    }
+
     res.json(request);
   } catch (err) {
     console.error('Error updating request status:', err);
@@ -263,6 +355,29 @@ exports.checkRequestsStatus = async (req, res) => {
               request.readarrMessage = 'Book is downloaded and available with metadata';
               await request.save();
               updatedCount++;
+              
+              // Send notification to user that book is available
+              try {
+                const userNotification = {
+                  title: 'Book Now Available',
+                  body: `Your requested book "${request.title}" is now available in the library.`,
+                  icon: '/icon-192x192.png',
+                  badge: '/badge-72x72.png',
+                  data: {
+                    url: '/requests',
+                    requestId: request._id.toString(),
+                    type: 'book-available'
+                  }
+                };
+                
+                await notificationService.sendUserNotification(
+                  request.user._id, 
+                  userNotification
+                );
+                log(`Notification sent to user for book availability: ${request.title}`);
+              } catch (notifyError) {
+                log(`Failed to send book availability notification: ${notifyError.message}`);
+              }
             } catch (metadataError) {
               log(`Error updating metadata: ${metadataError.message}`);
               metadataFailedCount++;
@@ -352,6 +467,101 @@ exports.updateRequestMetadata = async (req, res) => {
     });
   } catch (err) {
     log(`Error updating metadata: ${err.message}`);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+// Reset Readarr status to try again
+exports.resetReadarrStatus = async (req, res) => {
+  try {
+    // Only admin can update request status
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    const { id } = req.params;
+    const { readarrStatus, readarrMessage } = req.body;
+
+    const request = await Request.findById(id);
+    if (!request) {
+      return res.status(404).json({ message: 'Request not found' });
+    }
+
+    // Update Readarr status
+    request.readarrStatus = readarrStatus || 'pending';
+    request.readarrMessage = readarrMessage || 'Status reset by admin';
+    
+    // If there was an error, clear it to try again
+    if (request.readarrStatus === 'pending') {
+      // Optionally, you can reset readarrId if needed, but keeping it might be useful
+      // request.readarrId = '';
+    }
+
+    await request.save();
+    res.json(request);
+  } catch (err) {
+    console.error('Error resetting Readarr status:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+// Mark book as externally downloaded
+exports.markExternallyDownloaded = async (req, res) => {
+  try {
+    // Only admin can update request status
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    const { id } = req.params;
+    const { notes } = req.body;
+
+    const request = await Request.findById(id);
+    if (!request) {
+      return res.status(404).json({ message: 'Request not found' });
+    }
+
+    // Update request status
+    request.status = 'available';
+    request.readarrStatus = 'externally-downloaded';
+    request.readarrMessage = notes || 'Book obtained externally and marked as available by admin';
+
+    await request.save();
+
+    // Send notification to user about book availability
+    try {
+      // Get user details
+      const userData = await Request.findById(id)
+        .populate('user', 'username email');
+      
+      // If you have notification service implemented, you can use it here
+      /*
+      const userNotification = {
+        title: 'Book Now Available',
+        body: `Your requested book "${request.title}" is now available in the library.`,
+        icon: '/icon-192x192.png',
+        badge: '/badge-72x72.png',
+        data: {
+          url: '/requests',
+          requestId: request._id.toString(),
+          type: 'book-available'
+        }
+      };
+      
+      await notificationService.sendUserNotification(
+        userData.user._id, 
+        userNotification
+      );
+      */
+      
+      console.log(`Book marked as available: ${request.title} for user ${userData.user.username}`);
+    } catch (notifyError) {
+      console.error('Failed to send book availability notification:', notifyError);
+    }
+
+    res.json(request);
+  } catch (err) {
+    console.error('Error marking as externally downloaded:', err);
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 };

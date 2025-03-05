@@ -1,6 +1,7 @@
 {
   "short_name": "Readarr Req",
   "name": "Readarr Requests",
+  "gcm_sender_id": "103953800507",
   "icons": [
     {
       "src": "favicon.ico",

@@ -6,6 +6,8 @@ const dotenv = require('dotenv');
 const webhookRoutes = require('./routes/webhooks');
 const calibreManagerRoutes = require('./routes/calibreManager');
 const searchRoutes = require('./routes/search');
+const notificationRoutes = require('./routes/notifications');
+const path = require('path');
 
 // Load environment variables
 dotenv.config();
@@ -33,10 +35,22 @@ app.use('/api/books', bookRoutes);
 app.use('/api/requests', requestRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/webhooks', webhookRoutes);
-app.use('/api/calibre-manager',calibreManagerRoutes);
+app.use('/api/calibre-manager', calibreManagerRoutes);
+app.use('/api/search', searchRoutes);
+app.use('/api/notifications', notificationRoutes);
 
-// Add the new search routes
-app.use('/api/search',searchRoutes);
+// Serve static files from the public directory
+app.use(express.static(path.join(__dirname, 'public')));
+
+// For any unrecognized API route, return 404
+app.use('/api/*', (req, res) => {
+  res.status(404).json({ message: 'API endpoint not found' });
+});
+
+// Serve React app for all other routes (client-side routing)
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 // Error handling middleware
 app.use((err, req, res, next) => {
