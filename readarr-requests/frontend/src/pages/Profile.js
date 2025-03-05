@@ -207,13 +207,16 @@ const Profile = () => {
             <strong>Member Since:</strong> {new Date(user.createdAt || Date.now()).toLocaleDateString()}
           </Typography>
         </Box>
-        <Box sx={{ display: { xs: 'none', md: 'flex' }, ml: 2 }}>
+      </Paper>
+      <Typography variant="h6" gutterBottom>
+          Notifications
+        </Typography>
+      <Box sx={{ display: { xs: 'none', md: 'flex' }, ml: 2 }}>
           <NotificationPermissionButton 
             variant="outlined" 
             size="small"
           />
-        </Box>
-      </Paper>
+      </Box>
     </Box>
   );
 };
