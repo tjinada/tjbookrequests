@@ -31,4 +31,15 @@ router.post('/check-status', auth, requestController.checkRequestsStatus);
 // @access  Private/Admin
 router.post('/:id/metadata', auth, requestController.updateRequestMetadata);
 
+// @route   PUT api/requests/:id/reset-readarr
+// @desc    Reset Readarr status for a request (admin only)
+// @access  Private/Admin
+router.put('/:id/reset-readarr', auth, requestController.resetReadarrStatus);
+
+// @route   PUT api/requests/:id/external-download
+// @desc    Mark book as externally downloaded (admin only)
+// @access  Private/Admin
+router.put('/:id/external-download', auth, requestController.markExternallyDownloaded);
+
+
 module.exports = router;

@@ -470,3 +470,98 @@ exports.updateRequestMetadata = async (req, res) => {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 };
+
+// Reset Readarr status to try again
+exports.resetReadarrStatus = async (req, res) => {
+  try {
+    // Only admin can update request status
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    const { id } = req.params;
+    const { readarrStatus, readarrMessage } = req.body;
+
+    const request = await Request.findById(id);
+    if (!request) {
+      return res.status(404).json({ message: 'Request not found' });
+    }
+
+    // Update Readarr status
+    request.readarrStatus = readarrStatus || 'pending';
+    request.readarrMessage = readarrMessage || 'Status reset by admin';
+    
+    // If there was an error, clear it to try again
+    if (request.readarrStatus === 'pending') {
+      // Optionally, you can reset readarrId if needed, but keeping it might be useful
+      // request.readarrId = '';
+    }
+
+    await request.save();
+    res.json(request);
+  } catch (err) {
+    console.error('Error resetting Readarr status:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+// Mark book as externally downloaded
+exports.markExternallyDownloaded = async (req, res) => {
+  try {
+    // Only admin can update request status
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    const { id } = req.params;
+    const { notes } = req.body;
+
+    const request = await Request.findById(id);
+    if (!request) {
+      return res.status(404).json({ message: 'Request not found' });
+    }
+
+    // Update request status
+    request.status = 'available';
+    request.readarrStatus = 'externally-downloaded';
+    request.readarrMessage = notes || 'Book obtained externally and marked as available by admin';
+
+    await request.save();
+
+    // Send notification to user about book availability
+    try {
+      // Get user details
+      const userData = await Request.findById(id)
+        .populate('user', 'username email');
+      
+      // If you have notification service implemented, you can use it here
+      /*
+      const userNotification = {
+        title: 'Book Now Available',
+        body: `Your requested book "${request.title}" is now available in the library.`,
+        icon: '/icon-192x192.png',
+        badge: '/badge-72x72.png',
+        data: {
+          url: '/requests',
+          requestId: request._id.toString(),
+          type: 'book-available'
+        }
+      };
+      
+      await notificationService.sendUserNotification(
+        userData.user._id, 
+        userNotification
+      );
+      */
+      
+      console.log(`Book marked as available: ${request.title} for user ${userData.user.username}`);
+    } catch (notifyError) {
+      console.error('Failed to send book availability notification:', notifyError);
+    }
+
+    res.json(request);
+  } catch (err) {
+    console.error('Error marking as externally downloaded:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};

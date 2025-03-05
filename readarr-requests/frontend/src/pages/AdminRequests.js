@@ -24,6 +24,7 @@ import FilterListIcon from '@mui/icons-material/FilterList';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import LibraryAddCheckIcon from '@mui/icons-material/LibraryAddCheck';
+import DownloadDoneIcon from '@mui/icons-material/DownloadDone';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import InfoIcon from '@mui/icons-material/Info';
 import RefreshIcon from '@mui/icons-material/Refresh';
@@ -31,6 +32,10 @@ import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import Select from '@mui/material/Select';
+import TextField from '@mui/material/TextField';
 import AuthContext from '../context/AuthContext';
 import api from '../utils/api';
 import StatusChecker from '../components/admin/StatusChecker';
@@ -46,7 +51,8 @@ const readarrStatusColors = {
   pending: 'default',
   added: 'info',
   downloaded: 'success',
-  error: 'error'
+  error: 'error',
+  'externally-downloaded': 'success'
 };
 
 // Component to show Readarr status details
@@ -117,6 +123,57 @@ const ReadarrStatusDetails = ({ request }) => {
   );
 };
 
+// Dialog for marking a book as externally downloaded
+const ExternalDownloadDialog = ({ open, onClose, onConfirm, request }) => {
+  const [notes, setNotes] = useState('');
+
+  const handleConfirm = () => {
+    onConfirm(notes);
+    setNotes('');
+  };
+
+  const handleCancel = () => {
+    onClose();
+    setNotes('');
+  };
+
+  return (
+    <Dialog open={open} onClose={handleCancel} maxWidth="sm" fullWidth>
+      <DialogTitle>Mark as Externally Downloaded</DialogTitle>
+      <DialogContent>
+        <Typography variant="body1" gutterBottom>
+          This will mark "{request?.title}" as available without requiring Readarr to download it.
+        </Typography>
+        <Typography variant="body2" gutterBottom color="text.secondary" sx={{ mb: 2 }}>
+          Use this when you've obtained the book through external means or when Readarr failed to find it.
+        </Typography>
+        <TextField
+          fullWidth
+          label="Notes (Optional)"
+          multiline
+          rows={3}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Add optional notes about how this book was obtained"
+          variant="outlined"
+          sx={{ mt: 1 }}
+        />
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={handleCancel}>Cancel</Button>
+        <Button 
+          onClick={handleConfirm} 
+          variant="contained" 
+          color="primary"
+          startIcon={<DownloadDoneIcon />}
+        >
+          Mark Available
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
 const AdminRequests = () => {
   const { user } = useContext(AuthContext);
   const [requests, setRequests] = useState([]);
@@ -129,6 +186,8 @@ const AdminRequests = () => {
   const [updateLoading, setUpdateLoading] = useState({});
   const [refreshing, setRefreshing] = useState(false);
   const [isAdmin, setIsAdmin] = useState(true); // Default to true, will check in useEffect
+  const [externalDownloadDialogOpen, setExternalDownloadDialogOpen] = useState(false);
+  const [selectedRequest, setSelectedRequest] = useState(null);
 
   // Load requests
   const fetchRequests = async () => {
@@ -197,6 +256,62 @@ const AdminRequests = () => {
     } catch (err) {
       setError('Failed to update request status');
       setUpdateLoading(prev => ({ ...prev, [requestId]: false }));
+    }
+  };
+
+  // Handle the retry action for a failed Readarr integration
+  const handleRetry = async (requestId) => {
+    setUpdateLoading(prev => ({ ...prev, [requestId]: true }));
+
+    try {
+      // First, reset the readarr status to pending
+      const resetRes = await api.put(`/requests/${requestId}/reset-readarr`, {
+        readarrStatus: 'pending',
+        readarrMessage: 'Retrying Readarr integration'
+      });
+
+      // Then re-approve the request to trigger the Readarr flow
+      const approveRes = await api.put(`/requests/${requestId}`, { status: 'approved' });
+
+      // Update the request in the UI
+      setRequests(requests.map(req => 
+        req._id === requestId ? approveRes.data : req
+      ));
+      
+      setUpdateLoading(prev => ({ ...prev, [requestId]: false }));
+    } catch (err) {
+      setError(`Failed to retry: ${err.response?.data?.message || err.message}`);
+      setUpdateLoading(prev => ({ ...prev, [requestId]: false }));
+    }
+  };
+
+  // Handle external download option
+  const handleExternalDownloadClick = (request) => {
+    setSelectedRequest(request);
+    setExternalDownloadDialogOpen(true);
+  };
+
+  const handleExternalDownloadConfirm = async (notes) => {
+    if (!selectedRequest) return;
+    
+    setUpdateLoading(prev => ({ ...prev, [selectedRequest._id]: true }));
+    
+    try {
+      // Update the request with externally downloaded status
+      const response = await api.put(`/requests/${selectedRequest._id}/external-download`, {
+        notes: notes || 'Marked as externally downloaded by admin'
+      });
+      
+      // Update the requests array with the updated request
+      setRequests(requests.map(req => 
+        req._id === selectedRequest._id ? response.data : req
+      ));
+      
+      setExternalDownloadDialogOpen(false);
+      setUpdateLoading(prev => ({ ...prev, [selectedRequest._id]: false }));
+    } catch (err) {
+      setError('Failed to mark as externally downloaded');
+      setUpdateLoading(prev => ({ ...prev, [selectedRequest._id]: false }));
     }
   };
 
@@ -350,7 +465,9 @@ const AdminRequests = () => {
                           size="small" 
                           sx={{ mr: 1 }}
                         />
-                        {(request.readarrStatus === 'added' || request.readarrStatus === 'error') && (
+                        {(request.readarrStatus === 'added' || 
+                          request.readarrStatus === 'error' || 
+                          request.readarrStatus === 'externally-downloaded') && (
                           <ReadarrStatusDetails request={request} />
                         )}
                       </Box>
@@ -379,29 +496,48 @@ const AdminRequests = () => {
                           </Button>
                         </Box>
                       )}
-                      {request.status === 'approved' && request.readarrStatus !== 'error' && (
-                        <Button
-                          startIcon={<LibraryAddCheckIcon />}
-                          color="success"
-                          size="small"
-                          onClick={() => handleUpdateStatus(request._id, 'available')}
-                          disabled={updateLoading[request._id]}
-                        >
-                          Mark Available
-                        </Button>
-                      )}
-                      {request.readarrStatus === 'error' && (
-                        <Tooltip title="Retry approval process">
-                          <Button
-                            startIcon={<RefreshIcon />}
-                            color="warning"
-                            size="small"
-                            onClick={() => handleUpdateStatus(request._id, 'approved')}
-                            disabled={updateLoading[request._id]}
-                          >
-                            Retry
-                          </Button>
-                        </Tooltip>
+                      {(request.status === 'approved' || request.readarrStatus === 'error') && (
+                        <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                          {request.readarrStatus === 'error' && (
+                            <Tooltip title="Retry Readarr integration">
+                              <Button
+                                startIcon={<RefreshIcon />}
+                                color="warning"
+                                size="small"
+                                onClick={() => handleRetry(request._id)}
+                                disabled={updateLoading[request._id]}
+                                sx={{ mr: 1 }}
+                              >
+                                Retry
+                              </Button>
+                            </Tooltip>
+                          )}
+                          
+                          <Tooltip title="Mark as externally downloaded">
+                            <Button
+                              startIcon={<DownloadDoneIcon />}
+                              color="info"
+                              size="small"
+                              onClick={() => handleExternalDownloadClick(request)}
+                              disabled={updateLoading[request._id]}
+                              sx={{ mr: 1 }}
+                            >
+                              External
+                            </Button>
+                          </Tooltip>
+                          
+                          {request.readarrStatus !== 'error' && (
+                            <Button
+                              startIcon={<LibraryAddCheckIcon />}
+                              color="success"
+                              size="small"
+                              onClick={() => handleUpdateStatus(request._id, 'available')}
+                              disabled={updateLoading[request._id]}
+                            >
+                              Available
+                            </Button>
+                          )}
+                        </Box>
                       )}
                     </TableCell>
                   </TableRow>
@@ -454,6 +590,7 @@ const AdminRequests = () => {
               <Chip size="small" label="pending" color="default" />
               <Chip size="small" label="added" color="info" />
               <Chip size="small" label="downloaded" color="success" />
+              <Chip size="small" label="externally-downloaded" color="success" />
               <Chip size="small" label="error" color="error" />
             </Box>
           </Box>
@@ -470,11 +607,22 @@ const AdminRequests = () => {
               3. If the author doesn't exist, it adds the author and the book, then triggers a search
             </Typography>
             <Typography variant="body2">
-              4. The status checker periodically checks if books have been downloaded
+              4. If Readarr encounters an error, you can retry or mark as externally downloaded
+            </Typography>
+            <Typography variant="body2">
+              5. The status checker periodically checks if books have been downloaded
             </Typography>
           </Box>
         </Box>
       </Paper>
+      
+      {/* External Download Dialog */}
+      <ExternalDownloadDialog
+        open={externalDownloadDialogOpen}
+        onClose={() => setExternalDownloadDialogOpen(false)}
+        onConfirm={handleExternalDownloadConfirm}
+        request={selectedRequest}
+      />
     </Box>
   );
 };
