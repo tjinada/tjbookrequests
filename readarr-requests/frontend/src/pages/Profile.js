@@ -208,15 +208,17 @@ const Profile = () => {
           </Typography>
         </Box>
       </Paper>
-      <Typography variant="h6" gutterBottom>
+      <Paper elevation={3} sx={{ p: 4, mt: 4, maxWidth: 600, mx: 'auto' }}>
+        <Typography variant="h6" gutterBottom>
           Notifications
         </Typography>
-      <Box sx={{ display: { xs: 'none', md: 'flex' }, ml: 2 }}>
+        <Box sx={{ mt: 2 }}>
           <NotificationPermissionButton 
             variant="outlined" 
             size="small"
           />
-      </Box>
+        </Box>
+      </Paper>
     </Box>
   );
 };
