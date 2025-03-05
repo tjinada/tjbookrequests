@@ -1,6 +1,7 @@
 // controllers/webhookController.js
 const Request = require('../models/Request');
 const calibreAPI = require('../config/calibreAPI');
+const notificationService = require('../services/notificationService');
 const fs = require('fs');
 const path = require('path');
 
@@ -122,12 +123,29 @@ exports.processReadarrWebhook = async (req, res) => {
         
         log(`Request updated to status: ${request.status}`);
         
+        // Send notification about book availability
+        try {
+          await notificationService.sendBookAvailableNotification(
+            {
+              id: bookId,
+              title: bookTitle,
+              author: authorName
+            },
+            request
+          );
+          log(`Notification sent for book availability: ${bookTitle}`);
+        } catch (notificationError) {
+          log(`Error sending notification: ${notificationError.message}`);
+          // Don't fail the webhook if notification fails
+        }
+        
         return res.status(200).json({ 
           message: 'Webhook processed successfully',
           bookId,
           requestId: request._id,
           user: request.user.username,
-          metadataUpdated: true
+          metadataUpdated: true,
+          notificationSent: true
         });
       } catch (metadataError) {
         log(`Error updating metadata: ${metadataError.message}`);
@@ -138,11 +156,28 @@ exports.processReadarrWebhook = async (req, res) => {
         request.readarrMessage = `Book downloaded but metadata update failed: ${metadataError.message}`;
         await request.save();
         
+        // Still send notification despite metadata error
+        try {
+          await notificationService.sendBookAvailableNotification(
+            {
+              id: bookId,
+              title: bookTitle,
+              author: authorName
+            },
+            request
+          );
+          log(`Notification sent for book availability despite metadata error: ${bookTitle}`);
+        } catch (notificationError) {
+          log(`Error sending notification: ${notificationError.message}`);
+          // Don't fail the webhook if notification fails
+        }
+        
         return res.status(200).json({
           message: 'Book processed but metadata update failed',
           bookId,
           requestId: request._id,
-          error: metadataError.message
+          error: metadataError.message,
+          notificationSent: true
         });
       }
     }
