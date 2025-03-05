@@ -9,6 +9,7 @@ import Alert from '@mui/material/Alert';
 import Grid from '@mui/material/Grid';
 import AuthContext from '../context/AuthContext';
 import api from '../utils/api';
+import NotificationPermissionButton from '../components/notifications/NotificationPermissionButton';
 
 const Profile = () => {
   const { user, setUser } = useContext(AuthContext);
@@ -205,6 +206,12 @@ const Profile = () => {
           <Typography variant="body1">
             <strong>Member Since:</strong> {new Date(user.createdAt || Date.now()).toLocaleDateString()}
           </Typography>
+        </Box>
+        <Box sx={{ display: { xs: 'none', md: 'flex' }, ml: 2 }}>
+          <NotificationPermissionButton 
+            variant="outlined" 
+            size="small"
+          />
         </Box>
       </Paper>
     </Box>
