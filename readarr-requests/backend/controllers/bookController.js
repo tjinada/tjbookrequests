@@ -118,7 +118,21 @@ exports.getBookDetails = async (req, res) => {
       });
     }
 
-    const bookDetails = await openLibraryAPI.getBookDetails(id);
+    // Determine source based on ID format
+    let bookDetails;
+    
+    if (id.startsWith('OL') && (id.endsWith('M') || id.endsWith('W'))) {
+      // OpenLibrary ID format
+      bookDetails = await openLibraryAPI.getBookDetails(id);
+    } else if (id.startsWith('gb-') || !id.startsWith('OL')) {
+      // Google Books ID format (either with 'gb-' prefix or not matching OpenLibrary pattern)
+      const googleId = id.startsWith('gb-') ? id.substring(3) : id;
+      bookDetails = await googleBooksAPI.getBookDetails(googleId);
+    } else {
+      // Unknown ID format
+      return res.status(400).json({ message: 'Unrecognized book ID format' });
+    }
+
     res.json(bookDetails);
   } catch (err) {
     console.error('Error getting book details:', err);
