@@ -656,7 +656,55 @@ class RecommendationService {
     return finalBooks;
   }
 
- Genre match
+  /**
+   * Process personalized results
+   * @param {Array} books - Books to process
+   * @param {Object} preferences - User preferences
+   * @param {number} limit - Number of books to return
+   * @returns {Array} - Processed books
+   */
+  async processPersonalizedResults(books, preferences, limit) {
+    if (!books || !Array.isArray(books)) return [];
+    
+    const { authors, genres, recencyWeight, ratingWeight, relevanceWeight } = preferences;
+    const currentYear = new Date().getFullYear();
+    
+    // Score books for ranking
+    const scoredBooks = books.map(book => {
+      // Start with base score
+      let score = 0;
+      
+      // Recency score (0-10)
+      const year = typeof book.year === 'string' ? parseInt(book.year) : book.year;
+      let recencyScore = 0;
+      
+      if (year) {
+        if (year === currentYear) {
+          recencyScore = 10;
+        } else if (year >= currentYear - 5) {
+          recencyScore = 8 - (currentYear - year);
+        } else if (year >= currentYear - 10) {
+          recencyScore = 3;
+        } else {
+          recencyScore = 1;
+        }
+      }
+      
+      // Rating score (0-10)
+      let ratingScore = 0;
+      if (book.rating) {
+        ratingScore = book.rating * 2; // Convert 0-5 to 0-10
+      }
+      
+      // Relevance score (0-10)
+      let relevanceScore = 0;
+      
+      // Author match
+      if (authors.some(author => book.author.toLowerCase().includes(author.toLowerCase()))) {
+        relevanceScore += 5;
+      }
+      
+      // Genre match
       if (book.genres && genres.some(genre => book.genres.includes(genre))) {
         relevanceScore += 5;
       }
@@ -672,8 +720,32 @@ class RecommendationService {
     // Sort by score (descending)
     const sortedBooks = scoredBooks.sort((a, b) => b.score - a.score);
     
-    // Take only as many books as requested
-    return sortedBooks.slice(0, limit);
+    // Take top books (plus some extras for cover enhancement)
+    const topBooks = sortedBooks.slice(0, limit * 1.5);
+    
+    // Enhance book covers
+    log(`Enhancing covers for ${topBooks.length} personalized recommendation books`);
+    const enhancedBooks = await coverService.enhanceBookCovers(topBooks);
+    
+    // Re-score books after cover enhancement
+    const rescoredBooks = enhancedBooks.map(book => {
+      // Start with the existing score
+      let score = book.score || 0;
+      
+      // Boost books that now have covers
+      if (book.cover) {
+        score += 2;
+      }
+      
+      return { ...book, score };
+    });
+    
+    // Re-sort by score and limit to requested number
+    const finalBooks = rescoredBooks
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit);
+    
+    return finalBooks;
   }
 
   /**
