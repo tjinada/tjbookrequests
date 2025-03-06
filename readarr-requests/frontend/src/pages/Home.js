@@ -1,8 +1,7 @@
-// src/pages/Home.js
+// Updated Home.js with Horizontal Carousels
 import React, { useState, useEffect, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Typography from '@mui/material/Typography';
-import Grid from '@mui/material/Grid';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
@@ -13,19 +12,22 @@ import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
+import Chip from '@mui/material/Chip';
 import Rating from '@mui/material/Rating';
+import Collapse from '@mui/material/Collapse';
 import SearchIcon from '@mui/icons-material/Search';
 import StarIcon from '@mui/icons-material/Star';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
-import NewReleasesIcon from '@mui/icons-material/NewReleases';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import FavoriteIcon from '@mui/icons-material/Favorite';
-import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import TuneIcon from '@mui/icons-material/Tune';
 import AppContext from '../context/AppContext';
 import AuthContext from '../context/AuthContext';
 import CachePurger from '../components/admin/CachePurger';
-import SwipeableBookCard from '../components/books/SwipeableBookCard';
+import BookCarousel from '../components/books/BookCarousel';
 import SwipeTutorial from '../components/common/SwipeTutorial';
 import BookRequestDialog from '../components/books/BookRequestDialog';
 import EmptyState from '../components/common/EmptyState';
@@ -43,7 +45,7 @@ function TabPanel(props) {
       {...other}
     >
       {value === index && (
-        <Box sx={{ py: 2 }}>
+        <Box sx={{ pt: 1, pb: 2 }}>
           {children}
         </Box>
       )}
@@ -59,6 +61,7 @@ const Home = () => {
   const isAdmin = user && user.role === 'admin';
   const [requestDialogOpen, setRequestDialogOpen] = useState(false);
   const [selectedBook, setSelectedBook] = useState(null);
+  const [showFilters, setShowFilters] = useState(false);
   const navigate = useNavigate();
 
   // Get data and functions from context
@@ -122,119 +125,123 @@ const Home = () => {
     ]).finally(() => setLoading(false));
   };
 
-  // Render book grid with optional loading and empty states
-  const renderBookGrid = (books, emptyMessage) => {
-    const filteredBooks = filterBooks(books);
-  
-    if (!books) {
-      return (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-          <CircularProgress />
-        </Box>
-      );
-    }
-  
-    if (filteredBooks.length === 0) {
-      return (
-        <EmptyState 
-          title="No books found"
-          description={emptyMessage || "No books match your filters."}
-          actionText="Reset Filters"
-          onAction={() => {
-            setYearFilter('all');
-            setRatingFilter(0);
-          }}
-        />
-      );
-    }
-  
-    return (
-      <Grid container spacing={2}>
-        {filteredBooks.map((book) => (
-          <Grid item xs={6} key={book.id} sx={{ height: '100%' }}>
-            <SwipeableBookCard 
-              book={book} 
-              onRequest={handleRequestBook}
-            />
-          </Grid>
-        ))}
-      </Grid>
-    );
-  };
-
   // Render filter controls for books
   const renderFilters = () => (
-    <Box sx={{ mb: 2, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-      <FormControl sx={{ minWidth: 130, flexGrow: 1 }} size="small">
-        <InputLabel id="year-filter-label">Publication Era</InputLabel>
-        <Select
-          labelId="year-filter-label"
-          id="year-filter"
-          value={yearFilter}
-          label="Publication Era"
-          onChange={handleYearFilterChange}
-          size="small"
-        >
-          <MenuItem value="all">All Years</MenuItem>
-          <MenuItem value="recent">Last 5 Years</MenuItem>
-          <MenuItem value="decade">Last 10 Years</MenuItem>
-          <MenuItem value="century">21st Century</MenuItem>
-          <MenuItem value="classic">Classics (Pre-1960)</MenuItem>
-        </Select>
-      </FormControl>
-
-      <FormControl sx={{ minWidth: 130, flexGrow: 1 }} size="small">
-        <InputLabel id="rating-filter-label">Minimum Rating</InputLabel>
-        <Select
-          labelId="rating-filter-label"
-          id="rating-filter"
-          value={ratingFilter}
-          label="Minimum Rating"
-          onChange={handleRatingFilterChange}
-          size="small"
-        >
-          <MenuItem value={0}>Any Rating</MenuItem>
-          <MenuItem value={3}>
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <Rating value={3} readOnly size="small" /> <Box sx={{ ml: 1 }}>& Up</Box>
-            </Box>
-          </MenuItem>
-          <MenuItem value={3.5}>
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <Rating value={3.5} readOnly size="small" precision={0.5} /> <Box sx={{ ml: 1 }}>& Up</Box>
-            </Box>
-          </MenuItem>
-          <MenuItem value={4}>
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <Rating value={4} readOnly size="small" /> <Box sx={{ ml: 1 }}>& Up</Box>
-            </Box>
-          </MenuItem>
-          <MenuItem value={4.5}>
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <Rating value={4.5} readOnly size="small" precision={0.5} /> <Box sx={{ ml: 1 }}>& Up</Box>
-            </Box>
-          </MenuItem>
-        </Select>
-      </FormControl>
-
-      {/* Add the cache purger for admins */}
-      {isAdmin && (
-        <CachePurger 
-          onSuccess={() => {
-            handleRefresh();
-          }} 
-        />
-      )}
-
-      <Button 
-        size="small" 
-        variant="outlined" 
-        startIcon={<RefreshIcon />}
-        onClick={handleRefresh}
-        sx={{ height: 40 }}
+    <Box sx={{ mb: 2 }}>
+      <Button
+        size="small"
+        variant="outlined"
+        onClick={() => setShowFilters(!showFilters)}
+        startIcon={<TuneIcon />}
+        endIcon={showFilters ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+        sx={{ mb: 1 }}
       >
-        Refresh
+        {showFilters ? 'Hide Filters' : 'Filters'}
       </Button>
+      
+      <Collapse in={showFilters}>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
+          <FormControl sx={{ minWidth: 130, flexGrow: 1 }} size="small">
+            <InputLabel id="year-filter-label">Publication Era</InputLabel>
+            <Select
+              labelId="year-filter-label"
+              id="year-filter"
+              value={yearFilter}
+              label="Publication Era"
+              onChange={handleYearFilterChange}
+              size="small"
+            >
+              <MenuItem value="all">All Years</MenuItem>
+              <MenuItem value="recent">Last 5 Years</MenuItem>
+              <MenuItem value="decade">Last 10 Years</MenuItem>
+              <MenuItem value="century">21st Century</MenuItem>
+              <MenuItem value="classic">Classics (Pre-1960)</MenuItem>
+            </Select>
+          </FormControl>
+
+          <FormControl sx={{ minWidth: 130, flexGrow: 1 }} size="small">
+            <InputLabel id="rating-filter-label">Minimum Rating</InputLabel>
+            <Select
+              labelId="rating-filter-label"
+              id="rating-filter"
+              value={ratingFilter}
+              label="Minimum Rating"
+              onChange={handleRatingFilterChange}
+              size="small"
+            >
+              <MenuItem value={0}>Any Rating</MenuItem>
+              <MenuItem value={3}>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Rating value={3} readOnly size="small" /> <Box sx={{ ml: 1 }}>& Up</Box>
+                </Box>
+              </MenuItem>
+              <MenuItem value={3.5}>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Rating value={3.5} readOnly size="small" precision={0.5} /> <Box sx={{ ml: 1 }}>& Up</Box>
+                </Box>
+              </MenuItem>
+              <MenuItem value={4}>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Rating value={4} readOnly size="small" /> <Box sx={{ ml: 1 }}>& Up</Box>
+                </Box>
+              </MenuItem>
+              <MenuItem value={4.5}>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Rating value={4.5} readOnly size="small" precision={0.5} /> <Box sx={{ ml: 1 }}>& Up</Box>
+                </Box>
+              </MenuItem>
+            </Select>
+          </FormControl>
+
+          <Button 
+            size="small" 
+            variant="outlined" 
+            startIcon={<RefreshIcon />}
+            onClick={handleRefresh}
+            sx={{ height: 40 }}
+          >
+            Refresh
+          </Button>
+          
+          {isAdmin && (
+            <CachePurger 
+              onSuccess={() => {
+                handleRefresh();
+              }} 
+            />
+          )}
+        </Box>
+        
+        {/* Active filter indicators */}
+        {(yearFilter !== 'all' || ratingFilter > 0) && (
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 1 }}>
+            {yearFilter !== 'all' && (
+              <Chip 
+                label={
+                  yearFilter === 'recent' ? 'Last 5 Years' :
+                  yearFilter === 'decade' ? 'Last 10 Years' :
+                  yearFilter === 'century' ? '21st Century' : 'Classics'
+                }
+                size="small"
+                onDelete={() => setYearFilter('all')}
+                color="primary"
+                variant="outlined"
+              />
+            )}
+            
+            {ratingFilter > 0 && (
+              <Chip 
+                icon={<StarIcon fontSize="small" />}
+                label={`${ratingFilter}+ Rating`}
+                size="small"
+                onDelete={() => setRatingFilter(0)}
+                color="primary"
+                variant="outlined"
+              />
+            )}
+          </Box>
+        )}
+      </Collapse>
     </Box>
   );
 
@@ -362,29 +369,8 @@ const Home = () => {
       {/* For You Panel */}
       {showForYouTab && (
         <TabPanel value={mainTab} index={tabIndices.forYou}>
-          <Box sx={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center', 
-            mb: 2,
-            mt: -1
-          }}>
-            <Typography variant="subtitle1" fontWeight="medium">
-              Personalized For You
-            </Typography>
-            <Box sx={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              color: 'primary.main',
-              typography: 'caption' 
-            }}>
-              Swipe for more <KeyboardArrowRightIcon fontSize="small" />
-            </Box>
-          </Box>
           {contextLoading.personalized ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-              <CircularProgress />
-            </Box>
+            <CircularProgress />
           ) : contextError.personalized ? (
             <Alert 
               severity="error" 
@@ -397,71 +383,87 @@ const Home = () => {
               {contextError.personalized}
             </Alert>
           ) : (
-            renderBookGrid(personalizedBooks, "No personalized books match your filters.")
+            <Box>
+              <BookCarousel
+                title="Recommended For You"
+                books={filterBooks(personalizedBooks)}
+                onRequestBook={handleRequestBook}
+                emptyMessage="No personalized books match your filters."
+              />
+              
+              <BookCarousel
+                title="Popular Now"
+                books={filterBooks(popularBooks)}
+                onRequestBook={handleRequestBook}
+                emptyMessage="No popular books match your filters."
+              />
+            </Box>
           )}
         </TabPanel>
       )}
 
       <TabPanel value={mainTab} index={tabIndices.popular}>
-        <Box sx={{ 
-          display: 'flex', 
-          justifyContent: 'flex-end', 
-          mb: 1,
-          mt: -1
-        }}>
-          <Box sx={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            color: 'primary.main',
-            typography: 'caption' 
-          }}>
-            Swipe for more <KeyboardArrowRightIcon fontSize="small" />
-          </Box>
-        </Box>
-        {renderBookGrid(popularBooks, "No popular books match your filters.")}
+        <BookCarousel
+          title="Popular Fiction"
+          books={filterBooks(popularBooks.filter(book => 
+            book.genres && book.genres.some(g => g.toLowerCase().includes('fiction'))))}
+          onRequestBook={handleRequestBook}
+          emptyMessage="No fiction books match your filters."
+        />
+        
+        <BookCarousel
+          title="Popular Non-Fiction"
+          books={filterBooks(popularBooks.filter(book => 
+            book.genres && book.genres.some(g => g.toLowerCase().includes('non-fiction'))))}
+          onRequestBook={handleRequestBook}
+          emptyMessage="No non-fiction books match your filters."
+        />
+        
+        <BookCarousel
+          title="All Popular Books"
+          books={filterBooks(popularBooks)}
+          onRequestBook={handleRequestBook}
+          emptyMessage="No popular books match your filters."
+        />
       </TabPanel>
 
       <TabPanel value={mainTab} index={tabIndices.nyt}>
-        <Box sx={{ 
-          display: 'flex', 
-          justifyContent: 'flex-end', 
-          mb: 1,
-          mt: -1
-        }}>
-          <Box sx={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            color: 'primary.main',
-            typography: 'caption' 
-          }}>
-            Swipe for more <KeyboardArrowRightIcon fontSize="small" />
-          </Box>
-        </Box>
-        {renderBookGrid(nytBooks, "No bestsellers match your filters.")}
+        <BookCarousel
+          title="New York Times Bestsellers"
+          books={filterBooks(nytBooks)}
+          onRequestBook={handleRequestBook}
+          emptyMessage="No bestsellers match your filters."
+        />
+        
+        <BookCarousel
+          title="Recent Releases"
+          books={filterBooks(recentBooks)}
+          onRequestBook={handleRequestBook}
+          emptyMessage="No recent releases match your filters."
+        />
       </TabPanel>
 
       <TabPanel value={mainTab} index={tabIndices.awards}>
-        <Box sx={{ 
-          display: 'flex', 
-          justifyContent: 'flex-end', 
-          mb: 1,
-          mt: -1
-        }}>
-          <Box sx={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            color: 'primary.main',
-            typography: 'caption' 
-          }}>
-            Swipe for more <KeyboardArrowRightIcon fontSize="small" />
-          </Box>
-        </Box>
-        {renderBookGrid(awardBooks, "No award-winning books match your filters.")}
+        <BookCarousel
+          title="Award Winners"
+          books={filterBooks(awardBooks)}
+          onRequestBook={handleRequestBook}
+          emptyMessage="No award-winning books match your filters."
+        />
+        
+        <BookCarousel
+          title="Literary Fiction"
+          books={filterBooks(awardBooks.filter(book => 
+            book.genres && book.genres.some(g => 
+              g.toLowerCase().includes('literary') || g.toLowerCase().includes('classic'))))}
+          onRequestBook={handleRequestBook}
+          emptyMessage="No literary fiction books match your filters."
+        />
       </TabPanel>
       
       {/* Not authenticated - For You CTA */}
       {!isAuthenticated && mainTab === 0 && (
-        <Box sx={{ mt: 4, p: 3, textAlign: 'center', bgcolor: 'background.paper', borderRadius: 2, boxShadow: 1 }}>
+        <Box sx={{ mt: 2, p: 3, textAlign: 'center', bgcolor: 'background.paper', borderRadius: 2, boxShadow: 1 }}>
           <Typography variant="h6" gutterBottom>
             Get Personalized Recommendations
           </Typography>
@@ -474,7 +476,7 @@ const Home = () => {
             onClick={() => navigate('/login')}
             startIcon={<FavoriteIcon />}
           >
-            Sign In For Recommendations
+            Sign In
           </Button>
         </Box>
       )}

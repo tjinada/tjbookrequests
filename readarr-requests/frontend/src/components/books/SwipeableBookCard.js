@@ -1,5 +1,5 @@
-// src/components/books/SwipeableBookCard.js
-import React, { useState } from 'react';
+// Updated SwipeableBookCard.js with carousel compatibility
+import React, { useState, useRef } from 'react';
 import { useSwipeable } from 'react-swipeable';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
@@ -7,17 +7,18 @@ import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import BookmarkAddIcon from '@mui/icons-material/BookmarkAdd';
 import InfoIcon from '@mui/icons-material/Info';
-import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
-import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
 import { useTheme } from '@mui/material/styles';
 import BookCard from './BookCard';
 
-const SwipeableBookCard = ({ book, onRequest }) => {
+const SwipeableBookCard = ({ book, onRequest, carouselMode = false }) => {
   const theme = useTheme();
   const navigate = useNavigate();
   const [swipeDirection, setSwipeDirection] = useState(null);
   const [swipePercentage, setSwipePercentage] = useState(0);
-
+  const cardRef = useRef(null);
+  const [isSwiping, setIsSwiping] = useState(false);
+  const touchStartXRef = useRef(0);
+  
   // Function to optimize image URL for better quality
   const getOptimizedImageUrl = (url) => {
     if (!url) return null;
@@ -59,8 +60,23 @@ const SwipeableBookCard = ({ book, onRequest }) => {
     cover: getOptimizedImageUrl(book.cover)
   };
 
+  // Track if touch is intended for card swipe vs carousel scroll
+  const handleTouchStart = (event) => {
+    touchStartXRef.current = event.touches[0].clientX;
+    
+    // Only set swiping mode if we're not in a carousel
+    // Or if we explicitly intend to swipe the card (touch started on the card)
+    const parentElement = event.currentTarget.closest('[data-touchcarousel="true"]');
+    if (!parentElement) {
+      setIsSwiping(true);
+    }
+  };
+
   const handlers = useSwipeable({
     onSwiping: (eventData) => {
+      // Skip if we're in carousel mode and not explicitly swiping this card
+      if (carouselMode && !isSwiping) return;
+      
       // Only handle horizontal swipes
       if (Math.abs(eventData.deltaY) > Math.abs(eventData.deltaX)) {
         return;
@@ -74,6 +90,12 @@ const SwipeableBookCard = ({ book, onRequest }) => {
       setSwipePercentage(percentage);
     },
     onSwipedLeft: (eventData) => {
+      // Skip if we're in carousel mode and not explicitly swiping this card
+      if (carouselMode && !isSwiping) {
+        setIsSwiping(false);
+        return;
+      }
+      
       // Only trigger if this was primarily a horizontal swipe
       if (Math.abs(eventData.deltaY) < Math.abs(eventData.deltaX)) {
         // Only trigger if swiped far enough - reduced threshold for easier activation
@@ -84,8 +106,15 @@ const SwipeableBookCard = ({ book, onRequest }) => {
       // Reset state
       setSwipeDirection(null);
       setSwipePercentage(0);
+      setIsSwiping(false);
     },
     onSwipedRight: (eventData) => {
+      // Skip if we're in carousel mode and not explicitly swiping this card
+      if (carouselMode && !isSwiping) {
+        setIsSwiping(false);
+        return;
+      }
+      
       // Only trigger if this was primarily a horizontal swipe
       if (Math.abs(eventData.deltaY) < Math.abs(eventData.deltaX)) {
         // Only trigger if swiped far enough - reduced threshold for easier activation
@@ -96,30 +125,85 @@ const SwipeableBookCard = ({ book, onRequest }) => {
       // Reset state
       setSwipeDirection(null);
       setSwipePercentage(0);
+      setIsSwiping(false);
     },
     onSwiped: () => {
       // Reset state on any swipe end
       setSwipeDirection(null);
       setSwipePercentage(0);
+      setIsSwiping(false);
     },
     preventScrollOnSwipe: false,
     trackTouch: true,
     delta: 10, // More sensitive detection
   });
 
+  // For touch events on card body
+  const cardHandlers = {
+    onTouchStart: (e) => {
+      e.stopPropagation();
+      handleTouchStart(e);
+    }
+  };
+
   return (
     <Box 
       {...handlers} 
+      ref={cardRef}
       sx={{ 
         position: 'relative', 
-        touchAction: 'pan-y',
+        touchAction: carouselMode ? 'pan-x' : 'pan-y',
         height: '100%',
         borderRadius: 2,
         overflow: 'hidden',
         // Add subtle shadow to card
         boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
       }}
+      {...cardHandlers}
+      data-cardswipe="true"
     >
+      {/* Action buttons for easier interaction (alternative to swipe) */}
+      <Box
+        sx={{
+          position: 'absolute',
+          bottom: 8,
+          right: 8,
+          zIndex: 10,
+          display: 'flex',
+          gap: 0.5
+        }}
+      >
+        <IconButton
+          size="small"
+          color="primary"
+          onClick={() => navigate(`/book/${book.id}`)}
+          sx={{
+            bgcolor: 'rgba(255,255,255,0.8)',
+            '&:hover': { bgcolor: 'rgba(255,255,255,0.9)' },
+            boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+            width: 32,
+            height: 32
+          }}
+        >
+          <InfoIcon fontSize="small" />
+        </IconButton>
+        
+        <IconButton
+          size="small"
+          color="primary"
+          onClick={() => onRequest && onRequest(optimizedBook)}
+          sx={{
+            bgcolor: 'rgba(255,255,255,0.8)',
+            '&:hover': { bgcolor: 'rgba(255,255,255,0.9)' },
+            boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+            width: 32,
+            height: 32
+          }}
+        >
+          <BookmarkAddIcon fontSize="small" />
+        </IconButton>
+      </Box>
+
       {/* Left swipe indicator (request) */}
       {swipeDirection === 'left' && (
         <Box
@@ -233,7 +317,7 @@ const SwipeableBookCard = ({ book, onRequest }) => {
           transition: swipeDirection ? 'none' : 'transform 0.3s ease',
           height: '100%',
           position: 'relative',
-          zIndex: 2
+          zIndex: 0
         }}
       >
         <BookCard book={optimizedBook} />
