@@ -30,41 +30,32 @@ const BookCard = ({ book, showRating = true }) => {
         flexDirection: 'column',
         position: 'relative',
         overflow: 'hidden',
-        borderRadius: 3,
-        boxShadow: theme.palette.mode === 'dark' 
-          ? '0 8px 40px rgba(0,0,0,0.4)'
-          : '0 8px 40px rgba(0,0,0,0.1)',
+        borderRadius: 2,
+        boxShadow: 'none', // Remove default shadow as parent will handle it
         transition: 'all 0.3s ease',
         transform: 'translateZ(0)', // Hardware acceleration
         '&:hover': {
-          transform: 'translateY(-8px)',
+          transform: 'translateY(-4px)',
           boxShadow: theme.palette.mode === 'dark' 
-            ? '0 20px 60px rgba(0,0,0,0.5)'
-            : '0 20px 60px rgba(0,0,0,0.15)',
-          '& .bookCardOverlay': {
-            opacity: 1,
-            transform: 'translateY(0)'
-          }
+            ? '0 10px 30px rgba(0,0,0,0.4)'
+            : '0 10px 30px rgba(0,0,0,0.12)',
         }
       }}
     >
-      {/* Full Cover Image */}
+      {/* Full Cover Image - Made larger with better aspect ratio */}
       <CardMedia
         component="img"
         image={book.cover || noImage}
         alt={book.title}
         sx={{
-          height: '100%',
-          flexGrow: 1,
+          height: 220, // Fixed height for consistency
           width: '100%',
-          objectFit: 'cover',         // Changed from contain to cover for better appearance
+          objectFit: 'cover',         
           objectPosition: 'center top',
-          aspectRatio: '2/3',
-          imageRendering: 'high-quality', // Encourage high-quality rendering
-          // Add a small blur to edges to make image appear sharper
+          imageRendering: 'high-quality',
           boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.05)',
         }}
-        loading="lazy" // Add lazy loading for performance
+        loading="lazy"
       />
 
       {/* Rating Badge */}
@@ -72,23 +63,24 @@ const BookCard = ({ book, showRating = true }) => {
         <Box
           sx={{
             position: 'absolute',
-            top: 12,
-            right: 12,
+            top: 8,
+            right: 8,
             display: 'flex',
             alignItems: 'center',
             bgcolor: 'rgba(0,0,0,0.7)',
             color: 'white',
             borderRadius: 10,
-            pl: 1,
-            pr: 1.5,
-            py: 0.5,
-            gap: 0.5,
+            pl: 0.8,
+            pr: 1.2,
+            py: 0.3,
+            gap: 0.3,
             backdropFilter: 'blur(10px)',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+            boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+            fontSize: '0.75rem'
           }}
         >
-          <StarIcon fontSize="small" sx={{ color: 'gold' }} />
-          <Typography variant="body2" fontWeight="bold">
+          <StarIcon fontSize="inherit" sx={{ color: 'gold', fontSize: '0.9rem' }} />
+          <Typography variant="caption" fontWeight="bold">
             {book.rating.toFixed(1)}
           </Typography>
         </Box>
@@ -99,28 +91,29 @@ const BookCard = ({ book, showRating = true }) => {
         <Box
           sx={{
             position: 'absolute',
-            top: 12,
-            left: 12,
+            top: 8,
+            left: 8,
             display: 'flex',
             alignItems: 'center',
             bgcolor: 'rgba(0,0,0,0.7)',
             color: 'white',
             borderRadius: 10,
-            px: 1.5,
-            py: 0.5,
-            gap: 0.5,
+            px: 1.2,
+            py: 0.3,
+            gap: 0.3,
             backdropFilter: 'blur(10px)',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+            boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+            fontSize: '0.75rem'
           }}
         >
-          <CalendarTodayOutlinedIcon fontSize="small" />
-          <Typography variant="body2" fontWeight="bold">
+          <CalendarTodayOutlinedIcon fontSize="inherit" />
+          <Typography variant="caption" fontWeight="bold">
             {year}
           </Typography>
         </Box>
       )}
 
-      {/* Book Info Overlay (appears on hover) */}
+      {/* Book Info Overlay - Enhanced gradient and positioning */}
       <Box
         className="bookCardOverlay"
         sx={{
@@ -128,28 +121,31 @@ const BookCard = ({ book, showRating = true }) => {
           bottom: 0,
           left: 0,
           right: 0,
-          background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.7) 60%, rgba(0,0,0,0) 100%)',
+          background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.8) 40%, rgba(0,0,0,0.4) 80%, rgba(0,0,0,0) 100%)',
           color: 'white',
-          p: 2,
-          opacity: isMobile ? 1 : 0.9, // Always visible on mobile
-          transform: isMobile ? 'translateY(0)' : 'translateY(10px)',
-          transition: 'all 0.3s ease',
-          minHeight: '30%',
+          p: 1.5,
+          opacity: 1, // Always visible for better readability
+          minHeight: '35%',
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'flex-end',
-          backdropFilter: 'blur(3px)'
+          backdropFilter: 'blur(2px)'
         }}
       >
         <Typography 
-          variant="h6" 
+          variant="subtitle1" 
           component="h2"
           sx={{ 
             fontWeight: 'bold',
             lineHeight: 1.2,
-            mb: 1,
-            textShadow: '0 2px 4px rgba(0,0,0,0.5)',
-            fontSize: isMobile ? '1rem' : '1.1rem'
+            mb: 0.5,
+            textShadow: '0 1px 3px rgba(0,0,0,0.8)',
+            fontSize: '0.95rem',
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
           }}
         >
           {book.title}
@@ -158,10 +154,14 @@ const BookCard = ({ book, showRating = true }) => {
         <Typography 
           variant="body2" 
           sx={{ 
-            mb: 1,
             opacity: 0.9,
             fontWeight: 500,
-            fontSize: '0.9rem'
+            fontSize: '0.8rem',
+            display: '-webkit-box',
+            WebkitLineClamp: 1,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
           }}
         >
           {book.author}
@@ -169,19 +169,21 @@ const BookCard = ({ book, showRating = true }) => {
 
         {/* Genres (if available) */}
         {book.genres && book.genres.length > 0 && (
-          <Box sx={{ display: 'flex', gap: 0.8, flexWrap: 'wrap', mt: 'auto' }}>
+          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 'auto', pt: 0.5 }}>
             {book.genres.slice(0, 2).map((genre) => (
               <Chip
                 key={genre}
                 label={genre}
                 size="small"
                 sx={{
-                  height: 22,
-                  fontSize: '0.7rem',
-                  bgcolor: 'rgba(255,255,255,0.2)',
+                  height: 18,
+                  fontSize: '0.65rem',
+                  bgcolor: 'rgba(255,255,255,0.15)',
                   color: 'white',
                   fontWeight: 500,
-                  backdropFilter: 'blur(5px)'
+                  '& .MuiChip-label': {
+                    px: 0.8
+                  }
                 }}
               />
             ))}

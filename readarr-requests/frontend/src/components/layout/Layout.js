@@ -16,8 +16,7 @@ const drawerWidth = 240;
 const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })(
   ({ theme, open, isMobile }) => ({
     flexGrow: 1,
-    padding: theme.spacing(3),
-    paddingBottom: isMobile ? theme.spacing(10) : theme.spacing(3), // Space for bottom nav
+    padding: 0, // Remove default padding, let components control their own padding
     transition: theme.transitions.create('margin', {
       easing: theme.transitions.easing.sharp,
       duration: theme.transitions.duration.leavingScreen,
@@ -30,14 +29,14 @@ const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })(
       }),
       marginLeft: 0,
     }),
-    overflowY: 'auto', // Allow scrolling within main content
+    overflowY: 'auto',
     overflowX: 'hidden',
-    WebkitOverflowScrolling: 'touch', // Smooth scrolling on iOS
-    touchAction: 'pan-y', // Enable vertical scrolling
+    WebkitOverflowScrolling: 'touch',
+    touchAction: 'pan-y',
     height: '100%',
     '@supports (padding: max(0px))': {
       paddingBottom: isMobile ? 
-        `max(${theme.spacing(10)}, env(safe-area-inset-bottom))` : 
+        `max(${theme.spacing(8)}, env(safe-area-inset-bottom))` : 
         theme.spacing(3)
     }
   }),
@@ -56,8 +55,8 @@ const Layout = () => {
     <Box sx={{ 
       display: 'flex', 
       flexDirection: 'column',
-      height: '100vh', // Full viewport height
-      overflow: 'hidden' // Prevent double scrollbars
+      height: '100vh',
+      overflow: 'hidden'
     }}>
       <CssBaseline />
 
@@ -66,7 +65,7 @@ const Layout = () => {
       <Box sx={{ 
         display: 'flex', 
         flexGrow: 1,
-        overflow: 'hidden' // Contain scrolling inside Main
+        overflow: 'hidden'
       }}>
         {!isMobile && (
           <Sidebar 
@@ -80,6 +79,10 @@ const Layout = () => {
           isMobile={isMobile}
           sx={{ 
             pt: { xs: 7, sm: 8 }, // Account for different AppBar heights
+            // Use container-query margin for full-bleed scrolling area but centered content
+            mx: "auto",
+            width: "100%",
+            maxWidth: "100%"
           }}
         >
           <ScrollContainer>

@@ -21,13 +21,13 @@ import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import NewReleasesIcon from '@mui/icons-material/NewReleases';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import FavoriteIcon from '@mui/icons-material/Favorite';
+import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import AppContext from '../context/AppContext';
 import AuthContext from '../context/AuthContext';
 import CachePurger from '../components/admin/CachePurger';
 import SwipeableBookCard from '../components/books/SwipeableBookCard';
 import SwipeTutorial from '../components/common/SwipeTutorial';
 import BookRequestDialog from '../components/books/BookRequestDialog';
-import AnimatedGrid from '../components/layout/AnimatedGrid';
 import EmptyState from '../components/common/EmptyState';
 
 // Tab panel component
@@ -43,7 +43,7 @@ function TabPanel(props) {
       {...other}
     >
       {value === index && (
-        <Box sx={{ py: 3 }}>
+        <Box sx={{ py: 2 }}>
           {children}
         </Box>
       )}
@@ -128,7 +128,7 @@ const Home = () => {
   
     if (!books) {
       return (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
           <CircularProgress />
         </Box>
       );
@@ -149,22 +149,23 @@ const Home = () => {
     }
   
     return (
-      <AnimatedGrid spacing={3}>
+      <Grid container spacing={2}>
         {filteredBooks.map((book) => (
-          <SwipeableBookCard 
-            book={book} 
-            onRequest={handleRequestBook}
-            key={book.id}
-          />
+          <Grid item xs={6} key={book.id} sx={{ height: '100%' }}>
+            <SwipeableBookCard 
+              book={book} 
+              onRequest={handleRequestBook}
+            />
+          </Grid>
         ))}
-      </AnimatedGrid>
+      </Grid>
     );
   };
 
   // Render filter controls for books
   const renderFilters = () => (
-    <Box sx={{ mb: 3, display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-      <FormControl sx={{ minWidth: 150 }}>
+    <Box sx={{ mb: 2, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+      <FormControl sx={{ minWidth: 130, flexGrow: 1 }} size="small">
         <InputLabel id="year-filter-label">Publication Era</InputLabel>
         <Select
           labelId="year-filter-label"
@@ -182,7 +183,7 @@ const Home = () => {
         </Select>
       </FormControl>
 
-      <FormControl sx={{ minWidth: 150 }}>
+      <FormControl sx={{ minWidth: 130, flexGrow: 1 }} size="small">
         <InputLabel id="rating-filter-label">Minimum Rating</InputLabel>
         <Select
           labelId="rating-filter-label"
@@ -259,97 +260,75 @@ const Home = () => {
   };
 
   return (
-    <Box sx={{ 
-      p: { xs: 2, sm: 3 },
-      maxWidth: '1200px', 
-      mx: 'auto'
-    }}>
+    <Box sx={{ px: { xs: 2, sm: 2, md: 3 } }}> {/* Reduced side margins */}
       <Box
-        sx={{ 
+        sx={{
           display: 'flex',
-          alignItems: 'center',
           justifyContent: 'space-between',
-          mb: 4,
+          alignItems: 'center',
+          mb: 2,
           mt: 1
         }}
       >
-        <Typography 
-          variant="h4" 
-          component="h1" 
-          sx={{ 
-            fontWeight: 600,
-            letterSpacing: '-0.5px'
-          }}
-        >
+        <Typography variant="h5" component="h1">
           Discover Books
         </Typography>
-        
         <Button 
           variant="contained" 
           component={Link} 
           to="/search" 
           startIcon={<SearchIcon />}
-          sx={{
-            borderRadius: '50px',
-            px: 2,
-            py: 1
-          }}
+          size="small"
         >
           Search
         </Button>
       </Box>
-  
-      {/* Remove filters section and keep only refresh */}
-      {isAdmin && (
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
-          <CachePurger onSuccess={handleRefresh} />
-        </Box>
-      )}
-  
-      {/* Improved tabs styling */}
+
+      {/* Filters */}
+      {renderFilters()}
+
+      {/* Main Tabs */}
       <Box 
         sx={{ 
           borderBottom: 1, 
           borderColor: 'divider', 
-          mb: 4,
-          position: 'relative',
+          mb: 2,
+          position: 'sticky',
+          top: 0,
           zIndex: 10,
-          bgcolor: 'background.paper',
-          borderRadius: '12px 12px 0 0',
-          boxShadow: '0 -2px 10px rgba(0,0,0,0.05)'
+          bgcolor: 'background.paper'
         }}
       >
-      <Tabs 
-        value={mainTab} 
-        onChange={handleMainTabChange} 
-        aria-label="discovery tabs"
-        variant="scrollable"
-        scrollButtons="auto"
-        TabIndicatorProps={{
-          style: {
-            height: '3px',
-            borderRadius: '3px 3px 0 0'
-          }
-        }}
-        sx={{
-          '& .MuiTab-root': {
-            minWidth: 100,
-            fontSize: '0.95rem',
-            fontWeight: 500,
-            transition: 'all 0.2s ease',
-            mx: 0.5,
-            '&.Mui-selected': {
-              fontWeight: 700,
-              color: theme => theme.palette.mode === 'dark' ? '#90caf9' : '#1976d2',
+        <Tabs 
+          value={mainTab} 
+          onChange={handleMainTabChange} 
+          aria-label="discovery tabs"
+          variant="scrollable"
+          scrollButtons="auto"
+          sx={{
+            '& .MuiTabs-scroller': {
+              touchAction: 'pan-x',
+              overflowX: 'auto'
+            },
+            '& .MuiTab-root': {
+              minWidth: 'auto',
+              px: 2,
+              py: 1
+            },
+            '& .Mui-selected': {
+              bgcolor: 'rgba(144, 202, 249, 0.1)'
+            },
+            '& .MuiTabs-indicator': {
+              height: 3
             }
-          }
-        }}
-      >
+          }}
+        >
+          {/* For You Tab - Only show when user is authenticated and has recommendations */}
           {showForYouTab && (
             <Tab 
               icon={<FavoriteIcon />} 
               iconPosition="start"
-              label="For You" 
+              label="FOR YOU" 
               id={`tab-${tabIndices.forYou}`} 
               aria-controls={`tabpanel-${tabIndices.forYou}`} 
             />
@@ -358,21 +337,21 @@ const Home = () => {
           <Tab 
             icon={<StarIcon />} 
             iconPosition="start"
-            label="Popular" 
+            label="POPULAR" 
             id={`tab-${tabIndices.popular}`} 
             aria-controls={`tabpanel-${tabIndices.popular}`} 
           />
           <Tab 
             icon={<AutoAwesomeIcon />} 
             iconPosition="start"
-            label="NYT Bestsellers" 
+            label="BESTSELLERS" 
             id={`tab-${tabIndices.nyt}`} 
             aria-controls={`tabpanel-${tabIndices.nyt}`} 
           />
           <Tab 
             icon={<EmojiEventsIcon />} 
             iconPosition="start"
-            label="Award Winners" 
+            label="AWARDS" 
             id={`tab-${tabIndices.awards}`} 
             aria-controls={`tabpanel-${tabIndices.awards}`} 
           />
@@ -383,13 +362,24 @@ const Home = () => {
       {/* For You Panel */}
       {showForYouTab && (
         <TabPanel value={mainTab} index={tabIndices.forYou}>
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              Personalized Recommendations
+          <Box sx={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            mb: 2,
+            mt: -1
+          }}>
+            <Typography variant="subtitle1" fontWeight="medium">
+              Personalized For You
             </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Books selected just for you based on your requests and preferences
-            </Typography>
+            <Box sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              color: 'primary.main',
+              typography: 'caption' 
+            }}>
+              Swipe for more <KeyboardArrowRightIcon fontSize="small" />
+            </Box>
           </Box>
           {contextLoading.personalized ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
@@ -413,19 +403,60 @@ const Home = () => {
       )}
 
       <TabPanel value={mainTab} index={tabIndices.popular}>
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'flex-end', 
+          mb: 1,
+          mt: -1
+        }}>
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            color: 'primary.main',
+            typography: 'caption' 
+          }}>
+            Swipe for more <KeyboardArrowRightIcon fontSize="small" />
+          </Box>
+        </Box>
         {renderBookGrid(popularBooks, "No popular books match your filters.")}
       </TabPanel>
 
       <TabPanel value={mainTab} index={tabIndices.nyt}>
-        {renderBookGrid(nytBooks, "No NYT bestsellers match your filters.")}
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'flex-end', 
+          mb: 1,
+          mt: -1
+        }}>
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            color: 'primary.main',
+            typography: 'caption' 
+          }}>
+            Swipe for more <KeyboardArrowRightIcon fontSize="small" />
+          </Box>
+        </Box>
+        {renderBookGrid(nytBooks, "No bestsellers match your filters.")}
       </TabPanel>
 
       <TabPanel value={mainTab} index={tabIndices.awards}>
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'flex-end', 
+          mb: 1,
+          mt: -1
+        }}>
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            color: 'primary.main',
+            typography: 'caption' 
+          }}>
+            Swipe for more <KeyboardArrowRightIcon fontSize="small" />
+          </Box>
+        </Box>
         {renderBookGrid(awardBooks, "No award-winning books match your filters.")}
-      </TabPanel>
-
-      <TabPanel value={mainTab} index={tabIndices.recent}>
-        {renderBookGrid(recentBooks, "No recent books match your filters.")}
       </TabPanel>
       
       {/* Not authenticated - For You CTA */}
@@ -443,7 +474,7 @@ const Home = () => {
             onClick={() => navigate('/login')}
             startIcon={<FavoriteIcon />}
           >
-            Sign In For Personalized Books
+            Sign In For Recommendations
           </Button>
         </Box>
       )}

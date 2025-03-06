@@ -67,7 +67,7 @@ const SwipeableBookCard = ({ book, onRequest }) => {
       }
 
       // Calculate swipe percentage (0-100)
-      const maxSwipeDistance = 150; // pixels
+      const maxSwipeDistance = 100; // pixels - reduced for easier activation
       const percentage = Math.min(100, Math.abs(eventData.deltaX) / maxSwipeDistance * 100);
 
       setSwipeDirection(eventData.deltaX > 0 ? 'right' : 'left');
@@ -76,9 +76,9 @@ const SwipeableBookCard = ({ book, onRequest }) => {
     onSwipedLeft: (eventData) => {
       // Only trigger if this was primarily a horizontal swipe
       if (Math.abs(eventData.deltaY) < Math.abs(eventData.deltaX)) {
-        // Only trigger if swiped far enough
-        if (swipePercentage > 40 && onRequest) {
-          onRequest(optimizedBook); // Pass the optimized book to maintain high quality
+        // Only trigger if swiped far enough - reduced threshold for easier activation
+        if (swipePercentage > 30 && onRequest) {
+          onRequest(optimizedBook);
         }
       }
       // Reset state
@@ -88,8 +88,8 @@ const SwipeableBookCard = ({ book, onRequest }) => {
     onSwipedRight: (eventData) => {
       // Only trigger if this was primarily a horizontal swipe
       if (Math.abs(eventData.deltaY) < Math.abs(eventData.deltaX)) {
-        // Only trigger if swiped far enough
-        if (swipePercentage > 40) {
+        // Only trigger if swiped far enough - reduced threshold for easier activation
+        if (swipePercentage > 30) {
           navigate(`/book/${book.id}`);
         }
       }
@@ -104,7 +104,7 @@ const SwipeableBookCard = ({ book, onRequest }) => {
     },
     preventScrollOnSwipe: false,
     trackTouch: true,
-    delta: 15,
+    delta: 10, // More sensitive detection
   });
 
   return (
@@ -114,8 +114,10 @@ const SwipeableBookCard = ({ book, onRequest }) => {
         position: 'relative', 
         touchAction: 'pan-y',
         height: '100%',
-        borderRadius: 3,
-        overflow: 'hidden'
+        borderRadius: 2,
+        overflow: 'hidden',
+        // Add subtle shadow to card
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
       }}
     >
       {/* Left swipe indicator (request) */}
@@ -127,9 +129,7 @@ const SwipeableBookCard = ({ book, onRequest }) => {
             right: 0,
             bottom: 0,
             width: '40%',
-            bgcolor: theme.palette.mode === 'dark' 
-              ? 'rgba(0, 127, 255, 0.3)'
-              : 'rgba(25, 118, 210, 0.1)',
+            bgcolor: 'rgba(25, 118, 210, 0.2)',
             backdropFilter: 'blur(3px)',
             zIndex: 1,
             display: 'flex',
@@ -142,21 +142,21 @@ const SwipeableBookCard = ({ book, onRequest }) => {
         >
           <Box
             sx={{
-              width: 60,
-              height: 60,
+              width: 50, // Slightly smaller
+              height: 50,
               borderRadius: '50%',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               bgcolor: 'primary.main',
               mb: 1,
-              boxShadow: theme.shadows[5]
+              boxShadow: theme.shadows[3]
             }}
           >
-            <BookmarkAddIcon sx={{ color: 'white', fontSize: '1.8rem' }} />
+            <BookmarkAddIcon sx={{ color: 'white', fontSize: '1.5rem' }} />
           </Box>
           <Typography 
-            variant="subtitle1" 
+            variant="subtitle2" 
             color="white"
             fontWeight="bold"
             sx={{ 
@@ -169,18 +169,6 @@ const SwipeableBookCard = ({ book, onRequest }) => {
           >
             Request
           </Typography>
-          <Box 
-            sx={{ 
-              display: 'flex', 
-              alignItems: 'center',
-              mt: 1
-            }}
-          >
-            <ArrowBackIosNewIcon sx={{ fontSize: '1rem', color: 'white' }} />
-            <Typography variant="caption" color="white">
-              Swipe
-            </Typography>
-          </Box>
         </Box>
       )}
 
@@ -193,9 +181,7 @@ const SwipeableBookCard = ({ book, onRequest }) => {
             left: 0,
             bottom: 0,
             width: '40%',
-            bgcolor: theme.palette.mode === 'dark' 
-              ? 'rgba(0, 200, 255, 0.3)' 
-              : 'rgba(0, 200, 255, 0.1)',
+            bgcolor: 'rgba(0, 200, 255, 0.2)',
             backdropFilter: 'blur(3px)',
             zIndex: 1,
             display: 'flex',
@@ -208,21 +194,21 @@ const SwipeableBookCard = ({ book, onRequest }) => {
         >
           <Box
             sx={{
-              width: 60,
-              height: 60,
+              width: 50, // Slightly smaller
+              height: 50,
               borderRadius: '50%',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               bgcolor: 'info.main',
               mb: 1,
-              boxShadow: theme.shadows[5]
+              boxShadow: theme.shadows[3]
             }}
           >
-            <InfoIcon sx={{ color: 'white', fontSize: '1.8rem' }} />
+            <InfoIcon sx={{ color: 'white', fontSize: '1.5rem' }} />
           </Box>
           <Typography 
-            variant="subtitle1" 
+            variant="subtitle2" 
             color="white"
             fontWeight="bold"
             sx={{ 
@@ -235,18 +221,6 @@ const SwipeableBookCard = ({ book, onRequest }) => {
           >
             Details
           </Typography>
-          <Box 
-            sx={{ 
-              display: 'flex', 
-              alignItems: 'center',
-              mt: 1
-            }}
-          >
-            <Typography variant="caption" color="white">
-              Swipe
-            </Typography>
-            <ArrowForwardIosIcon sx={{ fontSize: '1rem', color: 'white' }} />
-          </Box>
         </Box>
       )}
 
@@ -262,7 +236,7 @@ const SwipeableBookCard = ({ book, onRequest }) => {
           zIndex: 2
         }}
       >
-        <BookCard book={optimizedBook} /> {/* Use the optimized book with high-quality cover */}
+        <BookCard book={optimizedBook} />
       </Box>
     </Box>
   );
