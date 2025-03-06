@@ -1,13 +1,10 @@
 // src/components/layout/ScrollContainer.js
-import React, { useRef } from 'react';
+import React from 'react';
 import Box from '@mui/material/Box';
 
 const ScrollContainer = ({ children }) => {
-  const containerRef = useRef(null);
-
   return (
     <Box
-      ref={containerRef}
       sx={{
         height: '100%',
         overflowY: 'auto',
@@ -24,12 +21,12 @@ const ScrollContainer = ({ children }) => {
           borderRadius: '4px',
         },
         scrollbarWidth: 'thin',
-        touchAction: 'pan-y',
+        /* Critical to let native touch scrolling work */
+        touchAction: 'pan-y', 
         position: 'relative',
         pb: { xs: 8, sm: 2 }, // Extra padding at the bottom for bottom nav
-        // Remove container padding to allow full bleed
         mx: 0,
-        px: 0,
+        px: 0
       }}
       className="main-scroll-container"
     >

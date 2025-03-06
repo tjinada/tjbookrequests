@@ -6,9 +6,12 @@ import IconButton from '@mui/material/IconButton';
 import KeyboardArrowLeftIcon from '@mui/icons-material/KeyboardArrowLeft';
 import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import CircularProgress from '@mui/material/CircularProgress';
+import BookmarkAddIcon from '@mui/icons-material/BookmarkAdd';
+import InfoIcon from '@mui/icons-material/Info';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
-import SwipeableBookCard from './SwipeableBookCard';
+import BookCard from './BookCard'; // Use regular BookCard instead of swipeable
+import { useNavigate } from 'react-router-dom';
 
 const BookCarousel = ({ 
   title, 
@@ -19,14 +22,12 @@ const BookCarousel = ({
   emptyMessage = "No books available"
 }) => {
   const theme = useTheme();
+  const navigate = useNavigate();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const carouselRef = useRef(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
   const [isScrolling, setIsScrolling] = useState(false);
-  const [touchStartX, setTouchStartX] = useState(0);
-  const [touchStartY, setTouchStartY] = useState(0);
-  const [isHorizontalScroll, setIsHorizontalScroll] = useState(false);
   
   // Card width + gap
   const itemWidth = isMobile ? 160 : 200;
@@ -67,51 +68,6 @@ const BookCarousel = ({
     }
   };
   
-  // Add touch handlers to make the carousel more responsive
-  const handleTouchStart = (e) => {
-    setTouchStartX(e.touches[0].clientX);
-    setTouchStartY(e.touches[0].clientY);
-    
-    // Mark this carousel as actively touched
-    if (carouselRef.current) {
-      carouselRef.current.dataset.touchCarousel = 'true';
-    }
-  };
-  
-  const handleTouchMove = (e) => {
-    if (!carouselRef.current || !touchStartX) return;
-    
-    const touchCurrentX = e.touches[0].clientX;
-    const touchCurrentY = e.touches[0].clientY;
-    const deltaX = touchStartX - touchCurrentX;
-    const deltaY = touchStartY - touchCurrentY;
-    
-    // Determine if this is primarily horizontal scrolling
-    if (!isHorizontalScroll) {
-      if (Math.abs(deltaX) > Math.abs(deltaY) * 1.5) {
-        setIsHorizontalScroll(true);
-        e.preventDefault(); // Prevent vertical scrolling during horizontal swipe
-      }
-    }
-    
-    // Apply horizontal scroll to carousel if this is a horizontal movement
-    if (isHorizontalScroll) {
-      carouselRef.current.scrollLeft += deltaX / 2;
-      setTouchStartX(touchCurrentX);
-      e.stopPropagation();
-    }
-  };
-  
-  const handleTouchEnd = () => {
-    setIsHorizontalScroll(false);
-    checkScrollButtons();
-    
-    // Remove the active touch marker
-    if (carouselRef.current) {
-      delete carouselRef.current.dataset.touchCarousel;
-    }
-  };
-  
   // Handle resize to check arrow visibility
   useEffect(() => {
     const handleResize = () => {
@@ -125,6 +81,11 @@ const BookCarousel = ({
       window.removeEventListener('resize', handleResize);
     };
   }, [books]);
+  
+  // Handle book click
+  const handleBookClick = (book) => {
+    navigate(`/book/${book.id}`);
+  };
 
   if (loading) {
     return (
@@ -234,7 +195,6 @@ const BookCarousel = ({
           mx: -0.5,
           pb: 1.5, // Space for shadow
           position: 'relative',
-          touchAction: 'pan-x', // Allow only horizontal swiping in the carousel
           '&::after': {
             // Fade indicator on the right side when more content is available
             content: '""',
@@ -249,11 +209,7 @@ const BookCarousel = ({
           }
         }}
         onScroll={handleScrollEvent}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
         className="book-carousel"
-        data-carousel="true"
       >
         {books.map((book, index) => (
           <Box 
@@ -264,14 +220,71 @@ const BookCarousel = ({
               height: isMobile ? 280 : 320,
               px: 0.5, // Space between cards
               '&:first-of-type': { pl: 0 },
-              '&:last-of-type': { pr: 0 }
+              '&:last-of-type': { pr: 0 },
+              position: 'relative',
+              cursor: 'pointer'
             }}
+            onClick={() => handleBookClick(book)}
           >
-            <SwipeableBookCard 
-              book={book} 
-              onRequest={onRequestBook}
-              carouselMode={true}
-            />
+            <BookCard book={book} />
+            
+            {/* Action buttons directly in the card container */}
+            <Box
+              sx={{
+                position: 'absolute',
+                top: 10,
+                right: 10,
+                zIndex: 10,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 1
+              }}
+              onClick={(e) => e.stopPropagation()} // Prevent card click when buttons are clicked
+            >
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/book/${book.id}`);
+                }}
+                sx={{
+                  bgcolor: theme.palette.mode === 'dark' ? 'rgba(25, 118, 210, 0.9)' : 'rgba(25, 118, 210, 0.9)',
+                  color: '#ffffff',
+                  '&:hover': { 
+                    bgcolor: theme.palette.mode === 'dark' ? 'rgba(25, 118, 210, 1)' : 'rgba(25, 118, 210, 1)',
+                    transform: 'scale(1.1)'
+                  },
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+                  width: 36,
+                  height: 36,
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                <InfoIcon fontSize="small" />
+              </IconButton>
+              
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRequestBook && onRequestBook(book);
+                }}
+                sx={{
+                  bgcolor: theme.palette.mode === 'dark' ? 'rgba(211, 47, 47, 0.9)' : 'rgba(211, 47, 47, 0.9)',
+                  color: '#ffffff',
+                  '&:hover': { 
+                    bgcolor: theme.palette.mode === 'dark' ? 'rgba(211, 47, 47, 1)' : 'rgba(211, 47, 47, 1)',
+                    transform: 'scale(1.1)'
+                  },
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+                  width: 36,
+                  height: 36,
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                <BookmarkAddIcon fontSize="small" />
+              </IconButton>
+            </Box>
           </Box>
         ))}
       </Box>

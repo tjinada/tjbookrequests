@@ -11,6 +11,41 @@ import StarIcon from '@mui/icons-material/Star';
 import CalendarTodayOutlinedIcon from '@mui/icons-material/CalendarTodayOutlined';
 import noImage from '../../assets/no-image.png';
 
+// Function to optimize image URL for better quality
+const getOptimizedImageUrl = (url) => {
+  if (!url) return null;
+  
+  // Handle Google Books URLs
+  if (url && url.includes('books.google.com')) {
+    let optimizedUrl = url;
+    
+    // Ensure HTTPS
+    if (optimizedUrl.startsWith('http://')) {
+      optimizedUrl = optimizedUrl.replace('http://', 'https://');
+    }
+    
+    // Remove edge curl effect
+    optimizedUrl = optimizedUrl.replace('&edge=curl', '');
+    
+    // Set zoom to 0 (best quality)
+    if (optimizedUrl.includes('zoom=')) {
+      optimizedUrl = optimizedUrl.replace(/zoom=\d/, 'zoom=0');
+    } else {
+      optimizedUrl = optimizedUrl + '&zoom=0';
+    }
+    
+    return optimizedUrl;
+  }
+  
+  // Handle OpenLibrary URLs
+  if (url && url.includes('openlibrary.org')) {
+    // Use largest available image size
+    return url.replace('-M.jpg', '-L.jpg');
+  }
+  
+  return url;
+};
+
 const BookCard = ({ book, showRating = true }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -19,6 +54,9 @@ const BookCard = ({ book, showRating = true }) => {
   const year = book.releaseDate 
     ? new Date(book.releaseDate).getFullYear() 
     : (book.year || null);
+
+  // Get optimized cover image
+  const optimizedCover = getOptimizedImageUrl(book.cover);
 
   return (
     <Card
@@ -43,7 +81,7 @@ const BookCard = ({ book, showRating = true }) => {
       {/* Full Cover Image - Made larger with better aspect ratio */}
       <CardMedia
         component="img"
-        image={book.cover || noImage}
+        image={optimizedCover || noImage}
         alt={book.title}
         sx={{
           height: 220, // Fixed height for consistency
