@@ -123,7 +123,7 @@ exports.getBookDetails = async (req, res) => {
     
     if (id.startsWith('OL') && (id.endsWith('M') || id.endsWith('W'))) {
       // OpenLibrary ID format
-      bookDetails = await openLibraryAPI.getBookDetails(id);
+      //bookDetails = await openLibraryAPI.getBookDetails(id);
     } else if (id.startsWith('gb-') || !id.startsWith('OL')) {
       // Google Books ID format (either with 'gb-' prefix or not matching OpenLibrary pattern)
       const googleId = id.startsWith('gb-') ? id.substring(3) : id;
