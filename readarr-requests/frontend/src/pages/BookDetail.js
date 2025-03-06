@@ -173,20 +173,17 @@ const BookDetail = () => {
             )}
 
             {book.overview && (
-              <Typography 
-                variant="body2" 
-                sx={{ 
-                  mb: 1,
-                  opacity: 0.9,
-                  fontSize: '0.8rem',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  display: '-webkit-box',
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: 'vertical',
-                }}
-                component="div"
-              />
+              <Box sx={{ mt: 3 }}>
+                <Typography variant="h6" gutterBottom>
+                  Overview
+                </Typography>
+                <Typography 
+                  variant="body1" 
+                  paragraph
+                  component="div"
+                  dangerouslySetInnerHTML={{ __html: book.overview }}
+                />
+              </Box>
             )}
 
             {requestError && (
