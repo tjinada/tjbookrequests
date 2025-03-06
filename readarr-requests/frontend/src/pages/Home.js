@@ -319,31 +319,32 @@ const Home = () => {
           boxShadow: '0 -2px 10px rgba(0,0,0,0.05)'
         }}
       >
-        <Tabs 
-          value={mainTab} 
-          onChange={handleMainTabChange} 
-          aria-label="discovery tabs"
-          variant="scrollable"
-          scrollButtons="auto"
-          sx={{
-            '& .MuiTabs-scroller': {
-              touchAction: 'pan-x',
-              overflowX: 'auto'
-            },
-            '& .MuiTab-root': {
-              fontSize: '0.95rem',
-              fontWeight: 600,
-              px: 3
-            },
-            '& .Mui-selected': {
-              color: 'primary.main',
-            },
-            '& .MuiTabs-indicator': {
-              height: 3,
-              borderRadius: '3px 3px 0 0'
+      <Tabs 
+        value={mainTab} 
+        onChange={handleMainTabChange} 
+        aria-label="discovery tabs"
+        variant="scrollable"
+        scrollButtons="auto"
+        TabIndicatorProps={{
+          style: {
+            height: '3px',
+            borderRadius: '3px 3px 0 0'
+          }
+        }}
+        sx={{
+          '& .MuiTab-root': {
+            minWidth: 100,
+            fontSize: '0.95rem',
+            fontWeight: 500,
+            transition: 'all 0.2s ease',
+            mx: 0.5,
+            '&.Mui-selected': {
+              fontWeight: 700,
+              color: theme => theme.palette.mode === 'dark' ? '#90caf9' : '#1976d2',
             }
-          }}
-        >
+          }
+        }}
+      >
           {showForYouTab && (
             <Tab 
               icon={<FavoriteIcon />} 

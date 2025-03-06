@@ -118,13 +118,15 @@ const EnhancedBookCard = ({ book, showRating = true }) => {
         transform: 'translateZ(0)', // Hardware acceleration
         '&:hover': {
           transform: 'translateY(-8px)',
-          boxShadow: theme.palette.mode === 'dark' 
-            ? '0 20px 60px rgba(0,0,0,0.5)'
-            : '0 20px 60px rgba(0,0,0,0.15)',
-          '& .bookCardOverlay': {
-            opacity: 1,
-            transform: 'translateY(0)'
+          boxShadow: theme => theme.palette.mode === 'dark' 
+            ? '0 20px 40px rgba(0,0,0,0.6)'
+            : '0 20px 40px rgba(0,0,0,0.15)',
+          '& img': {
+            transform: 'scale(1.05)',
           }
+        },
+        '& img': {
+          transition: 'transform 0.5s ease'
         }
       }}
     >
@@ -208,17 +210,15 @@ const EnhancedBookCard = ({ book, showRating = true }) => {
           bottom: 0,
           left: 0,
           right: 0,
-          background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.7) 60%, rgba(0,0,0,0) 100%)',
+          background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.8) 50%, rgba(0,0,0,0) 100%)',
           color: 'white',
           p: 2,
-          opacity: isMobile ? 1 : 0.9, // Always visible on mobile
-          transform: isMobile ? 'translateY(0)' : 'translateY(10px)',
-          transition: 'all 0.3s ease',
-          minHeight: '30%',
+          pt: 5, // Extra padding at top to account for gradient
+          backdropFilter: 'blur(2px)',
+          minHeight: '40%',
           display: 'flex',
           flexDirection: 'column',
-          justifyContent: 'flex-end',
-          backdropFilter: 'blur(3px)'
+          justifyContent: 'flex-end'
         }}
       >
         <Typography 
@@ -256,12 +256,14 @@ const EnhancedBookCard = ({ book, showRating = true }) => {
                 label={genre}
                 size="small"
                 sx={{
-                  height: 22,
-                  fontSize: '0.7rem',
-                  bgcolor: 'rgba(255,255,255,0.2)',
+                  backgroundColor: 'rgba(0,0,0,0.6)',
                   color: 'white',
-                  fontWeight: 500,
-                  backdropFilter: 'blur(5px)'
+                  fontSize: '0.7rem',
+                  height: 24,
+                  '& .MuiChip-label': {
+                    px: 1,
+                  },
+                  backdropFilter: 'blur(4px)',
                 }}
               />
             ))}
