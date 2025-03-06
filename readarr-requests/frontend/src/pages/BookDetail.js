@@ -186,7 +186,6 @@ const BookDetail = () => {
                   WebkitBoxOrient: 'vertical',
                 }}
                 component="div"
-                dangerouslySetInnerHTML={{ __html: book.overview }}
               />
             )}
 
