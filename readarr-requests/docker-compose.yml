@@ -1,0 +1,64 @@
+version: '3'
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:5
+    container_name: readarr-requests-mongodb
+    restart: unless-stopped
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - app_network
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_ROOT_USER}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_ROOT_PASSWORD}
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: readarr-requests-backend
+    restart: unless-stopped
+    depends_on:
+      - mongodb
+    networks:
+      - app_network
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - MONGO_URI=mongodb://mongodb:27017/readarr-requests
+      - JWT_SECRET=${JWT_SECRET}
+      - READARR_API_URL=${READARR_API_URL}
+      - READARR_API_KEY=${READARR_API_KEY}
+      - GOOGLE_BOOKS_API_KEY=${GOOGLE_BOOKS_API_KEY}
+      - ADMIN_KEY=${ADMIN_KEY}
+      - CALIBRE_SERVER_URL=${CALIBRE_SERVER_URL}
+      - CALIBRE_USERNAME=${CALIBRE_USERNAME}
+      - CALIBRE_PASSWORD=${CALIBRE_PASSWORD}
+      - CALIBRE_LIBRARY_PATH=${CALIBRE_LIBRARY_PATH}
+      - CALIBRE_USE_CLI_ONLY=${CALIBRE_USE_CLI_ONLY}
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET}
+
+ # Frontend with Nginx (combined)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: readarr-requests-frontend
+    restart: unless-stopped
+    ports:
+      - "${EXTERNAL_PORT}:80"
+    depends_on:
+      - backend
+    networks:
+      - app_network
+
+networks:
+  app_network:
+    driver: bridge
+
+volumes:
+  mongodb_data:
+    driver: local

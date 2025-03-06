@@ -1,0 +1,56 @@
+/* Base mobile styles */
+body {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    touch-action: manipulation;
+  }
+  
+  /* Prevent font size inflation on mobile Safari */
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  
+  /* Improve form element usability on touch devices */
+  input, 
+  select, 
+  textarea, 
+  button {
+    font-size: 16px; /* Prevents iOS zoom on focus */
+  }
+  
+  /* Add smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  /* Larger touch targets for mobile */
+  button, 
+  a, 
+  input[type="button"], 
+  input[type="submit"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Mobile typography adjustments */
+  @media (max-width: 768px) {
+    h1 {
+      font-size: 1.8rem;
+    }
+    h2 {
+      font-size: 1.5rem;
+    }
+    body {
+      font-size: 1rem;
+    }
+  }
+  
+  /* Handle notches and safe areas */
+  @supports (padding: max(0px)) {
+    body {
+      padding-left: min(0vmin, env(safe-area-inset-left));
+      padding-right: min(0vmin, env(safe-area-inset-right));
+      padding-top: min(0vmin, env(safe-area-inset-top));
+      padding-bottom: min(0vmin, env(safe-area-inset-bottom));
+    }
+  }

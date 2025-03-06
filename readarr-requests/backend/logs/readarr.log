@@ -1,0 +1,245 @@
+2025-02-25T22:20:15.272Z - Starting to add book: The War of the Worlds by H. G. Wells
+2025-02-25T22:20:15.281Z - Using quality profile ID: 1
+2025-02-25T22:20:15.281Z - Using metadata profile ID: 1
+2025-02-25T22:20:15.282Z - Using root folder path: /data/media/ebooks/
+2025-02-25T22:20:15.282Z - Searching for author: H. G. Wells
+2025-02-25T22:20:15.287Z - Author not found, searching in Readarr lookups
+2025-02-25T22:20:25.378Z - Creating new author with payload: {"authorName":"Robert Masello","foreignAuthorId":"201369","titleSlug":"201369","qualityProfileId":1,"metadataProfileId":1,"rootFolderPath":"/data/media/ebooks/","monitored":true,"monitorNewItems":"all"}
+2025-02-25T22:20:25.394Z - Created new author with ID: 11
+2025-02-25T22:20:27.407Z - Searching for book with term: The War of the Worlds H. G. Wells
+2025-02-25T22:20:31.634Z - Found 3 books in search results
+2025-02-25T22:20:31.635Z - Selected book: The War of the Worlds: From H. G. Wells to Orson Welles, Jeff Wayne, Steven Spielberg and Beyond
+2025-02-25T22:20:31.635Z - Adding book with payload: {"authorId":11,"foreignBookId":"47291508","title":"The War of the Worlds: From H. G. Wells to Orson Welles, Jeff Wayne, Steven Spielberg and Beyond","qualityProfileId":1,"metadataProfileId":1,"rootFolderPath":"/data/media/ebooks/","monitored":true,"addOptions":{"searchForNewBook":true}}
+2025-02-25T22:20:31.645Z - Error adding book with standard approach: Object reference not set to an instance of an object.
+2025-02-25T22:20:31.645Z - Trying alternative approach via import
+2025-02-25T22:20:31.647Z - Import approach failed: Could not find any books for import
+2025-02-25T22:20:31.647Z - ERROR: Could not find any books for import
+2025-02-25T22:43:22.713Z - Starting to add book: Harry Potter and the Order of the Phoenix by J. K. Rowling
+2025-02-25T22:43:22.721Z - Using quality profile ID: 1
+2025-02-25T22:43:22.721Z - Using metadata profile ID: 1
+2025-02-25T22:43:22.721Z - Using root folder path: /data/media/ebooks/
+2025-02-25T22:43:22.721Z - Searching for author: J. K. Rowling
+2025-02-25T22:43:22.728Z - Author not found, searching in Readarr lookups
+2025-02-25T22:43:23.578Z - Author search result 1: J.K. Rowling
+2025-02-25T22:43:23.578Z - Selected author: J.K. Rowling (best match for "J. K. Rowling")
+2025-02-25T22:43:23.579Z - Creating new author with payload: {"authorName":"J.K. Rowling","foreignAuthorId":"1077326","titleSlug":"1077326","qualityProfileId":1,"metadataProfileId":1,"rootFolderPath":"/data/media/ebooks/","monitored":true,"monitorNewItems":"all"}
+2025-02-25T22:43:23.706Z - Created new author with ID: 12
+2025-02-25T22:43:25.712Z - Searching for book with term: Harry Potter and the Order of the Phoenix J. K. Rowling
+2025-02-25T22:43:28.934Z - Found 5 books in search results
+2025-02-25T22:43:28.935Z - Book result 1: "Harry Potter And The Order Of The Phoenix (Film): Harry Potter And The Order Of The Phoenix, J. K. Rowling, David Yates, David Heyman, Michael Goldenberg, ... Series), Magic In Harry Potter, Hogwarts" by miller,
+2025-02-25T22:43:28.935Z - Book result 2: ""Harry Potter and the Order of the Phoenix" ... Or, Did J.K. Rowling Ever Read Ayn Rand?" by lalor,
+2025-02-25T22:43:28.935Z - Book result 3: "Harry Potter and the Order of the Phoenix by J. K. Rowling | Chapter Outlines" by bookrags
+2025-02-25T22:43:28.935Z - Book result 4: "Harry Potter and the Order of the Phoenix by J.K. Rowling (Book Analysis): Detailed Summary, Analysis and Reading Guide" by summaries,
+2025-02-25T22:43:28.935Z - Book result 5: "Harry Potter and the Order of the Phoenix" by rowling,
+2025-02-25T22:43:28.938Z - Selected book: Harry Potter and the Order of the Phoenix
+2025-02-25T22:43:28.938Z - Adding book with payload: {"authorId":12,"foreignBookId":"2809203","title":"Harry Potter and the Order of the Phoenix","qualityProfileId":1,"metadataProfileId":1,"rootFolderPath":"/data/media/ebooks/","monitored":true,"addOptions":{"searchForNewBook":true}}
+2025-02-25T22:43:28.947Z - Error adding book with standard approach: Object reference not set to an instance of an object.
+2025-02-25T22:43:28.948Z - Trying to find books by author ID: 12
+2025-02-25T22:43:28.950Z - Error getting author books: Request failed with status code 404
+2025-02-25T22:43:28.950Z - Trying alternative import approach
+2025-02-25T22:43:28.952Z - Import approach failed: Could not find any books for import
+2025-02-25T22:43:28.952Z - ERROR: Could not find any books for import
+2025-02-26T00:24:25.085Z - Starting to add book: All the Colors of the Dark by Chris Whitaker
+2025-02-26T00:24:25.093Z - Using quality profile ID: 1
+2025-02-26T00:24:25.094Z - Using metadata profile ID: 1
+2025-02-26T00:24:25.094Z - Using root folder path: /data/media/ebooks/
+2025-02-26T00:24:25.094Z - Searching for author: Chris Whitaker
+2025-02-26T00:24:25.102Z - Author not found, searching in Readarr lookups
+2025-02-26T00:24:25.423Z - Author search result 1: Chris Whitaker
+2025-02-26T00:24:25.424Z - Selected author: Chris Whitaker (best match for "Chris Whitaker")
+2025-02-26T00:24:25.424Z - Creating new author with payload: {"authorName":"Chris Whitaker","foreignAuthorId":"14950866","titleSlug":"14950866","qualityProfileId":1,"metadataProfileId":1,"rootFolderPath":"/data/media/ebooks/","monitored":true,"monitorNewItems":"none","addOptions":{"monitor":"none","searchForMissingBooks":false}}
+2025-02-26T00:24:25.449Z - Created new author with ID: 13
+2025-02-26T00:24:27.460Z - Warning: Could not update existing books monitoring status: Request failed with status code 404
+2025-02-26T00:24:27.460Z - Searching for book with term: All the Colors of the Dark Chris Whitaker
+2025-02-26T00:24:30.899Z - Found 2 books in search results
+2025-02-26T00:24:30.900Z - Book result 1: "All the Colors of the Dark" by whitaker,
+2025-02-26T00:24:30.900Z - Book result 2: "Chris Whitaker 4 Books Collection Set" by whitaker,
+2025-02-26T00:24:30.901Z - Selected book: All the Colors of the Dark
+2025-02-26T00:24:30.901Z - Adding book with payload: {"authorId":13,"foreignBookId":"178254142","title":"All the Colors of the Dark","qualityProfileId":1,"metadataProfileId":1,"rootFolderPath":"/data/media/ebooks/","monitored":true,"addOptions":{"searchForNewBook":true}}
+2025-02-26T00:24:30.910Z - Error adding book with standard approach: Object reference not set to an instance of an object.
+2025-02-26T00:24:30.911Z - Trying alternative import approach
+2025-02-26T00:24:30.912Z - Import approach failed: Could not find any books for import
+2025-02-26T00:24:30.913Z - ERROR: Could not find any books for import
+2025-02-26T00:31:59.339Z - Starting to add book: It Ends With Us by Colleen Hoover
+2025-02-26T00:31:59.349Z - Using profiles - Quality: 1, Metadata: 1, Root: /data/media/ebooks/
+2025-02-26T00:31:59.349Z - Searching for book: It Ends With Us by Colleen Hoover
+2025-02-26T00:32:00.139Z - Found 10 books in initial search
+2025-02-26T00:32:00.139Z - Selected book: undefined
+2025-02-26T00:32:00.139Z - Adding book using command API...
+2025-02-26T00:32:00.146Z - Author not found in system, adding first...
+2025-02-26T00:32:00.591Z - Added author with ID: 14
+2025-02-26T00:32:02.977Z - Adding book: Summary of It Ends With Us by Colleen Hoover (ID: 93211198)
+2025-02-26T00:32:02.983Z - Standard book add failed. Error: Request failed with status code 500
+2025-02-26T00:32:02.984Z - Trying simple add first, then update...
+2025-02-26T00:32:02.989Z - Alternative approach failed: Request failed with status code 500
+2025-02-26T00:32:02.989Z - Error with author processing: Request failed with status code 500
+2025-02-26T00:32:02.989Z - Command approach failed: Request failed with status code 500
+2025-02-26T00:32:02.989Z - Trying final approach - manual addition...
+2025-02-26T00:32:03.305Z - Found book in search: undefined
+2025-02-26T00:32:03.307Z - Manual approach failed: Request failed with status code 405
+2025-02-26T00:32:03.308Z - ERROR: All attempts to add book failed: It Ends With Us by Colleen Hoover
+2025-02-26T00:40:09.350Z - Starting to add book: The 48 Laws of Power by Robert Greene
+2025-02-26T00:40:09.360Z - Using profiles - Quality: 1, Metadata: 1, Root: /data/media/ebooks/
+2025-02-26T00:40:09.988Z - Creating author with payload: {"authorName":"Robert Greene","foreignAuthorId":"865","titleSlug":"865","qualityProfileId":1,"metadataProfileId":1,"rootFolderPath":"/data/media/ebooks/","monitored":true,"monitorNewItems":"none","addOptions":{"monitor":"none","searchForMissingBooks":false}}
+2025-02-26T00:40:10.042Z - Created author with ID: 15
+2025-02-26T00:40:12.052Z - Searching for book: The 48 Laws of Power Robert Greene
+2025-02-26T00:40:12.775Z - Selected book: Summary: The 48 Laws of Power by Robert Greene
+2025-02-26T00:40:12.775Z - Adding book with payload: {"authorId":15,"foreignBookId":"58274009","title":"Summary: The 48 Laws of Power by Robert Greene","qualityProfileId":1,"metadataProfileId":1,"rootFolderPath":"/data/media/ebooks/","monitored":true}
+2025-02-26T00:40:12.795Z - ERROR: Request failed with status code 500
+2025-02-26T05:06:28.550Z - Starting to add book: Atomic Habits by James Clear
+2025-02-26T05:06:28.559Z - Using profiles - Quality: 1, Metadata: 1, Root: /data/media/ebooks/
+2025-02-26T05:06:33.436Z - Creating author with payload: {"authorName":"James Clear","foreignAuthorId":"7327369","titleSlug":"7327369","qualityProfileId":1,"metadataProfileId":1,"rootFolderPath":"/data/media/ebooks/","monitored":true,"monitorNewItems":"none","addOptions":{"monitor":"none","searchForMissingBooks":false}}
+2025-02-26T05:06:33.491Z - Created author with ID: 16
+2025-02-26T05:06:35.496Z - Searching for book: Atomic Habits James Clear
+2025-02-26T05:06:36.049Z - Selected book: Summary of Atomic Habits by James Clear
+2025-02-26T05:06:36.049Z - Adding book with payload: {"authorId":16,"foreignBookId":"66977448","title":"Summary of Atomic Habits by James Clear","qualityProfileId":1,"metadataProfileId":1,"rootFolderPath":"/data/media/ebooks/","monitored":true}
+2025-02-26T05:06:36.058Z - ERROR: Request failed with status code 500
+2025-02-26T06:15:14.759Z - Starting to add book: A Game of Thrones by George R. R. Martin
+2025-02-26T06:15:14.769Z - Using profiles - Quality: 1, Metadata: 1, Root: /data/media/ebooks/
+2025-02-26T06:15:17.530Z - Creating author with payload: {"authorName":"George R.R. Martin","foreignAuthorId":"346732","titleSlug":"346732","qualityProfileId":1,"metadataProfileId":1,"rootFolderPath":"/data/media/ebooks/","monitored":true,"monitorNewItems":"none","addOptions":{"monitor":"none","searchForMissingBooks":false}}
+2025-02-26T06:15:17.681Z - Created author with ID: 17
+2025-02-26T06:15:19.686Z - Getting books for author ID: 17
+2025-02-26T06:15:19.729Z - Found 121 books for author
+2025-02-26T06:15:19.729Z - Found matching book: "A Game of Thrones" with ID: 233
+2025-02-26T06:15:19.729Z - Setting book to monitored
+2025-02-26T06:15:19.740Z - ERROR: Request failed with status code 500
+2025-02-26T06:27:10.483Z - Starting to add book: Can't Hurt Me by David Goggins
+2025-02-26T06:27:10.492Z - Using profiles - Quality: 1, Metadata: 1, Root: /data/media/ebooks/
+2025-02-26T06:27:12.314Z - Creating author with payload: {"authorName":"David Goggins","foreignAuthorId":"17977069","titleSlug":"17977069","qualityProfileId":1,"metadataProfileId":1,"rootFolderPath":"/data/media/ebooks/","monitored":true,"monitorNewItems":"none","addOptions":{"monitor":"none","searchForMissingBooks":false}}
+2025-02-26T06:27:12.327Z - Created author with ID: 18
+2025-02-26T06:27:14.333Z - Getting books for author ID: 18
+2025-02-26T06:27:14.342Z - Found 4 books for author
+2025-02-26T06:27:14.342Z - Found matching book: "Can't Hurt Me: Master Your Mind and Defy the Odds" with ID: 288
+2025-02-26T06:27:14.342Z - Triggering search for book ID: 288
+2025-02-26T06:27:14.346Z - Search command successful: Command ID: 254674, Status: queued
+2025-02-26T06:31:16.627Z - Starting to add book: A Storm of Swords by George R. R. Martin
+2025-02-26T06:31:16.637Z - Using profiles - Quality: 1, Metadata: 1, Root: /data/media/ebooks/
+2025-02-26T06:31:17.068Z - Creating author with payload: {"authorName":"George R.R. Martin","foreignAuthorId":"346732","titleSlug":"346732","qualityProfileId":1,"metadataProfileId":1,"rootFolderPath":"/data/media/ebooks/","monitored":true,"monitorNewItems":"none","addOptions":{"monitor":"none","searchForMissingBooks":false}}
+2025-02-26T06:31:17.073Z - ERROR: Request failed with status code 400
+2025-02-26T06:41:45.221Z - Starting to add book: Control Your Mind and Master Your Feelings by Eric Robertson
+2025-02-26T06:41:45.230Z - Using profiles - Quality: 1, Metadata: 1, Root: /data/media/ebooks/
+2025-02-26T06:41:47.953Z - Creating author with payload: {"authorName":"Eric Robertson","foreignAuthorId":"487602","titleSlug":"487602","qualityProfileId":1,"metadataProfileId":1,"rootFolderPath":"/data/media/ebooks/","monitored":true,"monitorNewItems":"none","addOptions":{"monitor":"none","searchForMissingBooks":false}}
+2025-02-26T06:41:47.966Z - Created author with ID: 19
+2025-02-26T06:41:49.980Z - Getting books for author ID: 19
+2025-02-26T06:41:49.988Z - Found 1 books for author
+2025-02-26T06:41:49.989Z - Found matching book: "Control Your Mind and Master Your Feelings: This Book Includes - Break Overthinking & Master Your Emotions" with ID: 292
+2025-02-26T06:41:49.989Z - Triggering search for book ID: 292
+2025-02-26T06:41:49.992Z - Search command successful: Command ID: 254706, Status: queued
+2025-02-26T06:51:59.275Z - Starting to add book: A Dance With Dragons by George R. R. Martin
+2025-02-26T06:51:59.285Z - Using profiles - Quality: 1, Metadata: 1, Root: /data/media/ebooks/
+2025-02-26T06:51:59.285Z - Checking if author exists: George R. R. Martin
+2025-02-26T06:51:59.294Z - Found existing author: George R.R. Martin with ID: 17
+2025-02-26T06:51:59.294Z - Getting books for author ID: 17
+2025-02-26T06:51:59.349Z - Found 121 books for author
+2025-02-26T06:51:59.350Z - Found matching book in author's library: "A Dance with Dragons" with ID: 192
+2025-02-26T06:51:59.350Z - Setting book to monitored status
+2025-02-26T06:51:59.357Z - ERROR: Request failed with status code 500
+2025-02-26T06:53:20.644Z - Starting to add book: Fire & Blood by George R. R. Martin
+2025-02-26T06:53:20.653Z - Using profiles - Quality: 1, Metadata: 1, Root: /data/media/ebooks/
+2025-02-26T06:53:20.654Z - Checking if author exists: George R. R. Martin
+2025-02-26T06:53:20.661Z - Found existing author: George R.R. Martin with ID: 17
+2025-02-26T06:53:20.661Z - Getting books for author ID: 17
+2025-02-26T06:53:20.725Z - Found 121 books for author
+2025-02-26T06:53:20.726Z - Found matching book in author's library: "Fire & Blood" with ID: 257
+2025-02-26T06:53:20.726Z - Triggering search for book ID: 257
+2025-02-26T06:53:20.730Z - Search command successful: Command ID: 254728, Status: queued
+2025-02-26T06:56:28.091Z - Starting to add book: Orbit : George R.R. Martin by J. S. Earls
+2025-02-26T06:56:28.101Z - Using profiles - Quality: 1, Metadata: 1, Root: /data/media/ebooks/
+2025-02-26T06:56:28.101Z - Checking if author exists: J. S. Earls
+2025-02-26T06:56:28.113Z - No matching author found among 18 existing authors
+2025-02-26T06:56:28.113Z - Author not found in existing authors, looking up in Readarr's database
+2025-02-26T06:56:30.044Z - Creating new author with payload: {"authorName":"J.S. Earls","foreignAuthorId":"2750309","titleSlug":"2750309","qualityProfileId":1,"metadataProfileId":1,"rootFolderPath":"/data/media/ebooks/","monitored":true,"monitorNewItems":"none","addOptions":{"monitor":"none","searchForMissingBooks":false}}
+2025-02-26T06:56:30.058Z - Created new author with ID: 20
+2025-02-26T06:56:33.072Z - Getting books for author ID: 20
+2025-02-26T06:56:33.078Z - Found 0 books for author
+2025-02-26T06:56:33.078Z - ERROR: Could not find or add the requested book: Orbit : George R.R. Martin
+2025-02-26T06:57:39.762Z - Starting to add book: A Feast for Crows by George R. R. Martin
+2025-02-26T06:57:39.770Z - Using profiles - Quality: 1, Metadata: 1, Root: /data/media/ebooks/
+2025-02-26T06:57:39.771Z - Checking if author exists: George R. R. Martin
+2025-02-26T06:57:39.778Z - Found existing author: George R.R. Martin with ID: 17
+2025-02-26T06:57:39.779Z - Getting books for author ID: 17
+2025-02-26T06:57:39.830Z - Found 121 books for author
+2025-02-26T06:57:39.831Z - Found matching book in author's library: "A Feast for Crows" with ID: 242
+2025-02-26T06:57:39.831Z - Triggering search for book ID: 242
+2025-02-26T06:57:39.835Z - Search command successful: Command ID: 254741, Status: queued
+2025-02-26T06:57:39.835Z - Book "A Feast for Crows" successfully added to Readarr and search initiated
+2025-02-26T15:53:02.526Z - Starting to add book: Tampa by Alissa Nutting
+2025-02-26T15:53:02.544Z - Using profiles - Quality: 1, Metadata: 1, Root: /data/media/ebooks/
+2025-02-26T15:53:02.544Z - Checking if author exists: Alissa Nutting
+2025-02-26T15:53:02.566Z - No matching author found among 19 existing authors
+2025-02-26T15:53:02.566Z - Author not found in existing authors, looking up in Readarr's database
+2025-02-26T15:53:03.623Z - Creating new author with payload: {"authorName":"Alissa Nutting","foreignAuthorId":"4125204","titleSlug":"4125204","qualityProfileId":1,"metadataProfileId":1,"rootFolderPath":"/data/media/ebooks/","monitored":true,"monitorNewItems":"none","addOptions":{"monitor":"none","searchForMissingBooks":false}}
+2025-02-26T15:53:03.637Z - Created new author with ID: 21
+2025-02-26T15:53:06.639Z - Getting books for author ID: 21
+2025-02-26T15:53:06.650Z - Found 4 books for author
+2025-02-26T15:53:06.650Z - Found matching book in author's library: "Tampa" with ID: 294
+2025-02-26T15:53:06.650Z - Triggering search for book ID: 294
+2025-02-26T15:53:06.655Z - Search command successful: Command ID: 255715, Status: queued
+2025-02-26T15:53:35.879Z - Checking status for book ID: 294
+2025-02-26T15:53:35.887Z - Book status: Downloaded=true, Percent=100%
+2025-02-26T16:26:29.812Z - Starting to add book: The First Men in the Moon by H. G. Wells
+2025-02-26T16:26:29.826Z - Using profiles - Quality: 1, Metadata: 1, Root: /data/media/ebooks/
+2025-02-26T16:26:29.826Z - Checking if author exists: H. G. Wells
+2025-02-26T16:26:29.840Z - No matching author found among 20 existing authors
+2025-02-26T16:26:29.840Z - Author not found in existing authors, looking up in Readarr's database
+2025-02-26T16:26:31.845Z - Creating new author with payload: {"authorName":"Robert Masello","foreignAuthorId":"201369","titleSlug":"201369","qualityProfileId":1,"metadataProfileId":1,"rootFolderPath":"/data/media/ebooks/","monitored":true,"monitorNewItems":"none","addOptions":{"monitor":"none","searchForMissingBooks":false}}
+2025-02-26T16:26:31.858Z - ERROR: Request failed with status code 400
+2025-02-26T16:28:17.110Z - Starting to add book: Harry Potter and the Chamber of Secrets by J. K. Rowling
+2025-02-26T16:28:17.120Z - Using profiles - Quality: 1, Metadata: 1, Root: /data/media/ebooks/
+2025-02-26T16:28:17.121Z - Checking if author exists: J. K. Rowling
+2025-02-26T16:28:17.128Z - Found existing author: J.K. Rowling with ID: 12
+2025-02-26T16:28:17.128Z - Getting books for author ID: 12
+2025-02-26T16:28:17.161Z - Found 34 books for author
+2025-02-26T16:28:17.162Z - Found matching book in author's library: "Harry Potter and the Chamber of Secrets" with ID: 89
+2025-02-26T16:28:17.162Z - Triggering search for book ID: 89
+2025-02-26T16:28:17.166Z - Search command successful: Command ID: 255786, Status: started
+2025-02-26T16:29:35.207Z - Checking status for book ID: 89
+2025-02-26T16:29:35.218Z - Book status: Downloaded=true, Percent=100%
+2025-02-26T16:41:00.065Z - Starting to add book: Tampa by Alissa Nutting
+2025-02-26T16:41:00.074Z - Using profiles - Quality: 1, Metadata: 1, Root: /data/media/ebooks/
+2025-02-26T16:41:00.074Z - Checking if author exists: Alissa Nutting
+2025-02-26T16:41:00.081Z - Found existing author: Alissa Nutting with ID: 21
+2025-02-26T16:41:00.082Z - Getting books for author ID: 21
+2025-02-26T16:41:00.086Z - Found 4 books for author
+2025-02-26T16:41:00.087Z - Found matching book in author's library: "Tampa" with ID: 294
+2025-02-26T16:41:00.087Z - Triggering search for book ID: 294
+2025-02-26T16:41:00.091Z - Search command successful: Command ID: 255809, Status: queued
+2025-02-26T16:46:38.097Z - Checking status for book ID: 294
+2025-02-26T16:46:38.103Z - Book status: Downloaded=true, Percent=100%
+2025-02-27T05:35:24.900Z - Starting to add book: Divergent by Veronica Roth
+2025-02-27T05:35:24.929Z - Using profiles - Quality: 1, Metadata: 1, Root: /data/media/ebooks/
+2025-02-27T05:35:24.930Z - Checking if author exists: Veronica Roth
+2025-02-27T05:35:24.937Z - No matching author found among 24 existing authors
+2025-02-27T05:35:24.938Z - Author not found in existing authors, looking up in Readarr's database
+2025-02-27T05:35:25.373Z - Creating new author with payload: {"authorName":"Veronica Roth","foreignAuthorId":"4039811","titleSlug":"4039811","qualityProfileId":1,"metadataProfileId":1,"rootFolderPath":"/data/media/ebooks/","monitored":true,"monitorNewItems":"none","addOptions":{"monitor":"none","searchForMissingBooks":false}}
+2025-02-27T05:35:25.423Z - Created new author with ID: 26
+2025-02-27T05:35:28.433Z - Getting books for author ID: 26
+2025-02-27T05:35:28.456Z - Found 21 books for author
+2025-02-27T05:35:28.456Z - Found matching book in author's library: "Inside Divergent: The Initiate's World" with ID: 342
+2025-02-27T05:35:28.457Z - Triggering search for book ID: 342
+2025-02-27T05:35:28.461Z - Search command successful: Command ID: 257237, Status: queued
+2025-02-27T05:41:37.027Z - Checking status for book ID: 342
+2025-02-27T05:41:37.035Z - Book status: Downloaded=false, Percent=0%
+2025-02-27T16:34:14.833Z - Starting to add book: How to Win at Chess by Levy Rozman
+2025-02-27T16:34:14.864Z - Using profiles - Quality: 1, Metadata: 1, Root: /data/media/ebooks/
+2025-02-27T16:34:14.865Z - Checking if author exists: Levy Rozman
+2025-02-27T16:34:14.876Z - No matching author found among 25 existing authors
+2025-02-27T16:34:14.876Z - Author not found in existing authors, looking up in Readarr's database
+2025-02-27T16:34:17.199Z - Creating new author with payload: {"authorName":"Levy Rozman","foreignAuthorId":"30451278","titleSlug":"30451278","qualityProfileId":1,"metadataProfileId":1,"rootFolderPath":"/data/media/ebooks/","monitored":true,"monitorNewItems":"none","addOptions":{"monitor":"none","searchForMissingBooks":false}}
+2025-02-27T16:34:17.212Z - Created new author with ID: 27
+2025-02-27T16:34:20.212Z - Getting books for author ID: 27
+2025-02-27T16:34:20.221Z - Found 0 books for author
+2025-02-27T16:34:20.221Z - ERROR: Could not find or add the requested book: How to Win at Chess
+2025-02-27T20:42:51.323Z - Starting to add book: Allegiant by Veronica Roth
+2025-02-27T20:42:51.331Z - Using profiles - Quality: 1, Metadata: 1, Root: /data/media/ebooks/
+2025-02-27T20:42:51.331Z - Checking if author exists: Veronica Roth
+2025-02-27T20:42:51.340Z - Found existing author: Veronica Roth with ID: 26
+2025-02-27T20:42:51.340Z - Getting books for author ID: 26
+2025-02-27T20:42:51.352Z - Found 21 books for author
+2025-02-27T20:42:51.353Z - Found matching book in author's library: "Allegiant" with ID: 341
+2025-02-27T20:42:51.353Z - Triggering search for book ID: 341
+2025-02-27T20:42:51.356Z - Search command successful: Command ID: 258884, Status: started
+2025-02-27T20:44:09.616Z - Checking status for book ID: 342
+2025-02-27T20:44:09.624Z - Book status: Downloaded=false, Percent=0%
+2025-02-27T20:44:09.624Z - Checking status for book ID: 341
+2025-02-27T20:44:09.629Z - Book status: Downloaded=true, Percent=100%
