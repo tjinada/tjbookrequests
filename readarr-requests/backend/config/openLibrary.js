@@ -1,574 +1,573 @@
-// config/openLibrary.js
+// backend/config/openLibrary.js
 const axios = require('axios');
+const NodeCache = require('node-cache');
+const cache = new NodeCache({ stdTTL: 3600 }); // Cache for 1 hour
 
-// Create axios instance for OpenLibrary
-const openLibraryAPI = axios.create({
-  baseURL: 'https://openlibrary.org',
-  timeout: 10000,
-});
-
-// List of popular genres with their subject identifiers
-const genres = {
-  'fiction': 'fiction',
-  'science-fiction': 'science_fiction',
-  'romance': 'romance',
-  'historical-fiction': 'historical_fiction',
-  'mystery': 'mystery',
-  'thriller': 'thriller',
-  'fantasy': 'fantasy',
-  'biography': 'biography',
-  'horror': 'horror',
-  'classics': 'classics',
-  'non-fiction': 'non-fiction',
-  'young-adult': 'young_adult',
-  'children': 'children',
-  'poetry': 'poetry',
-  'comics': 'comics'
-};
-
-// Simple in-memory cache for API responses
-const cache = {
-  genres: {},
-  trending: null,
-  popular: null,
-  nytBestsellers: null,
-  awardWinners: null,
-  recentBooks: null,
-  genreTimestamps: {},
-  trendingTimestamp: 0,
-  popularTimestamp: 0,
-  nytTimestamp: 0,
-  awardsTimestamp: 0,
-  recentTimestamp: 0
-};
-
-// Cache expiration time (4 hours in milliseconds)
-const CACHE_EXPIRY = 4 * 60 * 60 * 1000;
-
-// Helper function to process book data into consistent format
-const processBookData = (work, genreOrCategory = '') => {
-  // Get cover URL
-  let coverUrl = null;
-  if (work.cover_id) {
-    coverUrl = `https://covers.openlibrary.org/b/id/${work.cover_id}-L.jpg`;
+/**
+ * Open Library API service with enhanced cover support
+ */
+class OpenLibraryAPI {
+  constructor() {
+    this.baseUrl = 'https://openlibrary.org';
+    this.coversUrl = 'https://covers.openlibrary.org';
+    this.apiUrl = 'https://openlibrary.org/api';
+    this.genresList = [
+      { id: 'fiction', name: 'Fiction' },
+      { id: 'nonfiction', name: 'Non-Fiction' },
+      { id: 'mystery', name: 'Mystery' },
+      { id: 'romance', name: 'Romance' },
+      { id: 'science_fiction', name: 'Science Fiction' },
+      { id: 'fantasy', name: 'Fantasy' },
+      { id: 'biography', name: 'Biography' },
+      { id: 'history', name: 'History' },
+      { id: 'horror', name: 'Horror' },
+      { id: 'thriller', name: 'Thriller' },
+      { id: 'young_adult', name: 'Young Adult' },
+      { id: 'childrens', name: 'Children\'s' },
+      { id: 'poetry', name: 'Poetry' },
+      { id: 'classics', name: 'Classics' },
+      { id: 'self_help', name: 'Self-Help' }
+    ];
   }
 
-  // Extract author names
-  const authorNames = work.authors 
-    ? work.authors.map(a => a.name).join(', ') 
-    : 'Unknown Author';
-
-  // Format publish year
-  const publishYear = work.first_publish_year || 0;
-  const publishDate = publishYear 
-    ? new Date(publishYear, 0, 1).toISOString().split('T')[0]
-    : null;
-
-  return {
-    id: work.key.replace('/works/', ''),
-    title: work.title,
-    author: authorNames,
-    overview: work.description || '',
-    cover: coverUrl,
-    releaseDate: publishDate,
-    year: publishYear,
-    genre: genreOrCategory,
-    rating: work.ratings_average || 0,
-    ratings_count: work.ratings_count || 0
-  };
-};
-
-// Helper function to filter and sort books
-const filterAndSortBooks = (books, limit = 100) => {
-  // Filter out books with no cover image (improves quality)
-  let filteredBooks = books.filter(book => book.cover !== null);
-
-  // Get current year for age calculations
-  const currentYear = new Date().getFullYear();
-
-  // First, try to get books from last 30 years but don't exclude classics entirely
-  const recentBooks = filteredBooks.filter(book => 
-    book.year && book.year >= (currentYear - 30)
-  );
-
-  // If we have enough recent books, prioritize them
-  if (recentBooks.length >= limit / 2) {
-    filteredBooks = recentBooks;
+  /**
+   * Get genres list
+   * @returns {Array} - List of genres
+   */
+  getGenres() {
+    return this.genresList;
   }
 
-  // Sort primarily by rating, with a bonus for recent books
-  filteredBooks.sort((a, b) => {
-    // Start with the raw rating (0-5)
-    let scoreA = a.rating || 0;
-    let scoreB = b.rating || 0;
-
-    // Add recency bonus - max 1.5 points for very recent books
-    const recentYearThreshold = currentYear - 5;
-    if (a.year && a.year >= recentYearThreshold) {
-      scoreA += 1.5;
-    } else if (a.year && a.year >= currentYear - 15) {
-      scoreA += 1; // Smaller bonus for books from last 15 years
-    } else if (a.year && a.year >= currentYear - 30) {
-      scoreA += 0.5; // Minimal bonus for books from last 30 years
-    }
-
-    if (b.year && b.year >= recentYearThreshold) {
-      scoreB += 1.5;
-    } else if (b.year && b.year >= currentYear - 15) {
-      scoreB += 1;
-    } else if (b.year && b.year >= currentYear - 30) {
-      scoreB += 0.5;
-    }
-
-    // Sort descending by total score
-    return scoreB - scoreA;
-  });
-
-  // Take only the requested number of books
-  return filteredBooks.slice(0, limit);
-};
-
-module.exports = {
   /**
-   * Get list of available genres
+   * Search books in Open Library
+   * @param {string} query - Search query
+   * @param {number} limit - Number of results to return
+   * @returns {Promise<Array>} - Array of books
    */
-  getGenres: () => {
-    return Object.keys(genres).map(key => ({
-      id: key,
-      name: key.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
-    }));
-  },
-
-  /**
-   * Get books by genre using the subjects API
-   */
-  getBooksByGenre: async (genre, limit = 100) => {
+  async searchBooks(query, limit = 20) {
     try {
-      // Check cache first
-      const now = Date.now();
-      if (
-        cache.genres[genre] && 
-        cache.genreTimestamps[genre] && 
-        now - cache.genreTimestamps[genre] < CACHE_EXPIRY
-      ) {
-        console.log(`Using cached data for genre: ${genre}`);
-        return cache.genres[genre];
+      const cacheKey = `search_${query}_${limit}`;
+      const cachedResults = cache.get(cacheKey);
+      
+      if (cachedResults) {
+        return cachedResults;
       }
-
-      // Get the correct subject key for the requested genre
-      const subjectKey = genres[genre] || genre;
-
-      console.log(`Fetching books for genre: ${genre} (subject: ${subjectKey})`);
-
-      // Request more books than we need so we can filter and sort
-      const requestLimit = Math.min(100, limit * 3);
-
-      // Use the subjects API without editions sorting
-      const response = await openLibraryAPI.get(`/subjects/${subjectKey}.json?limit=${requestLimit}`);
-
-      // Check for valid response
-      if (!response.data || !response.data.works || !Array.isArray(response.data.works)) {
-        console.error(`Invalid response for genre ${genre}:`, response.data);
-        return [];
-      }
-
-      // Map to consistent format
-      const books = response.data.works.map(work => processBookData(work, genre));
-
-      // Filter and sort by rating/recency
-      const processedBooks = filterAndSortBooks(books, limit);
-
-      console.log(`Returning ${processedBooks.length} ${genre} books`);
-
-      // Update cache
-      cache.genres[genre] = processedBooks;
-      cache.genreTimestamps[genre] = now;
-
-      return processedBooks;
-    } catch (error) {
-      console.error(`Error fetching ${genre} books from OpenLibrary:`, error);
-
-      // Return cached data if available
-      if (cache.genres[genre]) {
-        console.log(`Returning expired cache for ${genre} due to API error`);
-        return cache.genres[genre];
-      }
-
-      // Return empty array as fallback
-      return [];
-    }
-  },
-
-  /**
-   * Get trending books
-   */
-  getTrendingBooks: async (limit = 100) => {
-    try {
-      // Check cache first
-      const now = Date.now();
-      if (cache.trending && now - cache.trendingTimestamp < CACHE_EXPIRY) {
-        console.log('Using cached trending books');
-        return cache.trending;
-      }
-
-      // Use a popular subject
-      const requestLimit = Math.min(100, limit * 3);
-      const response = await openLibraryAPI.get(`/subjects/bestseller.json?limit=${requestLimit}`);
-
-      if (!response.data || !response.data.works) {
-        return [];
-      }
-
-      // Process and filter books
-      const books = response.data.works.map(work => processBookData(work, 'trending'));
-      const processedBooks = filterAndSortBooks(books, limit);
-
-      // Update cache
-      cache.trending = processedBooks;
-      cache.trendingTimestamp = now;
-
-      return processedBooks;
-    } catch (error) {
-      console.error('Error fetching trending books:', error);
-
-      // Return cached data if available
-      if (cache.trending) {
-        return cache.trending;
-      }
-
-      return [];
-    }
-  },
-
-  /**
-   * Get popular books
-   */
-  getPopularBooks: async (limit = 100) => {
-    try {
-      // Check cache first
-      const now = Date.now();
-      if (cache.popular && now - cache.popularTimestamp < CACHE_EXPIRY) {
-        console.log('Using cached popular books');
-        return cache.popular;
-      }
-
-      // Use a different subject for popular books
-      const requestLimit = Math.min(100, limit * 3);
-      const response = await openLibraryAPI.get(`/subjects/popular.json?limit=${requestLimit}`);
-
-      if (!response.data || !response.data.works) {
-        return [];
-      }
-
-      // Process and filter books
-      const books = response.data.works.map(work => processBookData(work, 'popular'));
-      const processedBooks = filterAndSortBooks(books, limit);
-
-      // Update cache
-      cache.popular = processedBooks;
-      cache.popularTimestamp = now;
-
-      return processedBooks;
-    } catch (error) {
-      console.error('Error fetching popular books:', error);
-
-      if (cache.popular) {
-        return cache.popular;
-      }
-
-      return [];
-    }
-  },
-
-  /**
-   * Get New York Times bestsellers
-   */
-  getNytBestsellers: async (limit = 100) => {
-    try {
-      // Check cache first
-      const now = Date.now();
-      if (cache.nytBestsellers && now - cache.nytTimestamp < CACHE_EXPIRY) {
-        console.log('Using cached NYT bestsellers');
-        return cache.nytBestsellers;
-      }
-
-      // Fetch New York Times bestsellers
-      const requestLimit = Math.min(100, limit * 3);
-      const response = await openLibraryAPI.get(`/subjects/new_york_times_bestseller.json?limit=${requestLimit}`);
-
-      if (!response.data || !response.data.works) {
-        return [];
-      }
-
-      // Process and filter books
-      const books = response.data.works.map(work => processBookData(work, 'nyt_bestseller'));
-      const processedBooks = filterAndSortBooks(books, limit);
-
-      // Update cache
-      cache.nytBestsellers = processedBooks;
-      cache.nytTimestamp = now;
-
-      return processedBooks;
-    } catch (error) {
-      console.error('Error fetching NYT bestsellers:', error);
-
-      if (cache.nytBestsellers) {
-        return cache.nytBestsellers;
-      }
-
-      return [];
-    }
-  },
-
-  /**
-   * Get award-winning books
-   */
-  getAwardWinners: async (limit = 100) => {
-    try {
-      // Check cache first
-      const now = Date.now();
-      if (cache.awardWinners && now - cache.awardsTimestamp < CACHE_EXPIRY) {
-        console.log('Using cached award winners');
-        return cache.awardWinners;
-      }
-
-      // Fetch award-winning books
-      const requestLimit = Math.min(100, limit * 3);
-      const response = await openLibraryAPI.get(`/subjects/awards.json?limit=${requestLimit}`);
-
-      if (!response.data || !response.data.works) {
-        return [];
-      }
-
-      // Process and filter books
-      const books = response.data.works.map(work => processBookData(work, 'award_winner'));
-      const processedBooks = filterAndSortBooks(books, limit);
-
-      // Update cache
-      cache.awardWinners = processedBooks;
-      cache.awardsTimestamp = now;
-
-      return processedBooks;
-    } catch (error) {
-      console.error('Error fetching award-winning books:', error);
-
-      if (cache.awardWinners) {
-        return cache.awardWinners;
-      }
-
-      return [];
-    }
-  },
-
-  /**
-   * Get recently published books
-   */
-  getRecentBooks: async (limit = 100) => {
-    try {
-      // Check cache first
-      const now = Date.now();
-      if (cache.recentBooks && now - cache.recentTimestamp < CACHE_EXPIRY) {
-        console.log('Using cached recent books');
-        return cache.recentBooks;
-      }
-
-      // Fetch a large set of books and filter by publication year
-      const requestLimit = Math.min(150, limit * 5); // Need more books to filter effectively
-      const response = await openLibraryAPI.get(`/subjects/accessible_book.json?limit=${requestLimit}`);
-
-      if (!response.data || !response.data.works) {
-        return [];
-      }
-
-      // Map to our format
-      const allBooks = response.data.works.map(work => processBookData(work, 'recent'));
-
-      // Filter for books published in the last 5 years
-      const currentYear = new Date().getFullYear();
-      const recentYearThreshold = currentYear - 5;
-
-      let recentBooks = allBooks.filter(book => 
-        book.year && book.year >= recentYearThreshold && book.cover !== null
-      );
-
-      // If we don't have enough recent books, expand the range
-      if (recentBooks.length < limit) {
-        recentBooks = allBooks.filter(book => 
-          book.year && book.year >= (currentYear - 10) && book.cover !== null
-        );
-      }
-
-      // Sort by year (descending) and then by rating
-      recentBooks.sort((a, b) => {
-        // First by year (newest first)
-        if (b.year !== a.year) {
-          return b.year - a.year;
+      
+      const response = await axios.get(`${this.baseUrl}/search.json`, {
+        params: {
+          q: query,
+          limit: limit * 2 // Request more to ensure enough good results
         }
-        // Then by rating
-        return b.rating - a.rating;
       });
-
-      // Take only what we need
-      const processedBooks = recentBooks.slice(0, limit);
-
-      // Update cache
-      cache.recentBooks = processedBooks;
-      cache.recentTimestamp = now;
-
-      return processedBooks;
+      
+      const books = response.data.docs
+        .filter(book => book.title && (book.author_name || book.author_key))
+        .map(book => this.mapOpenLibraryData(book))
+        .slice(0, limit);
+      
+      cache.set(cacheKey, books);
+      return books;
     } catch (error) {
-      console.error('Error fetching recent books:', error);
-
-      if (cache.recentBooks) {
-        return cache.recentBooks;
-      }
-
+      console.error('Error searching Open Library:', error);
       return [];
     }
-  },
+  }
 
   /**
-   * Get book details from OpenLibrary by ID
+   * Get book details from Open Library
+   * @param {string} id - Open Library ID
+   * @returns {Promise<Object>} - Book details
    */
-  getBookDetails: async (bookId) => {
+  async getBookDetails(id) {
     try {
-      // Check if bookId is one of our special routes
-      if (['genres', 'genre', 'latest', 'popular', 'search'].includes(bookId)) {
-        throw new Error(`Invalid book ID: ${bookId} is a reserved route name`);
+      const cacheKey = `details_${id}`;
+      const cachedDetails = cache.get(cacheKey);
+      
+      if (cachedDetails) {
+        return cachedDetails;
       }
-
-      // Format the work ID if needed
-      let workId = bookId;
-      if (!workId.includes('/')) {
-        // If the ID doesn't include a slash, assume it's a works ID
-        if (!workId.startsWith('OL')) {
-          workId = `OL${workId}`;
-        }
-        if (!workId.endsWith('W')) {
-          workId = `${workId}W`;
-        }
+      
+      // Remove any prefix
+      const bookId = id.startsWith('ol-') ? id.substring(3) : id;
+      
+      let response;
+      
+      // Try works endpoint first
+      if (bookId.toLowerCase().includes('w')) {
+        response = await axios.get(`${this.baseUrl}/works/${bookId}.json`);
+      } 
+      // Try editions endpoint if not a work
+      else if (bookId.toLowerCase().includes('m')) {
+        response = await axios.get(`${this.baseUrl}/books/${bookId}.json`);
       }
-
-      // Make sure we're requesting the JSON format
-      if (!workId.endsWith('.json')) {
-        workId = `${workId}.json`;
+      // Otherwise try by ISBN
+      else {
+        response = await axios.get(`${this.baseUrl}/isbn/${bookId}.json`);
       }
-
-      // Remove any leading slash
-      workId = workId.replace(/^\//, '');
-
-      const url = workId.includes('/') ? workId : `works/${workId}`;
-      console.log(`Fetching book details from: ${url}`);
-
-      // Get work details
-      const workResponse = await openLibraryAPI.get(`/${url}`);
-
-      // Process response
-      const bookData = workResponse.data;
-
-      // Create standard format object
-      const bookDetails = {
-        id: bookId,
-        title: bookData.title,
-        author: 'Unknown Author', // Will be updated if author info is available
-        overview: typeof bookData.description === 'object' 
-          ? bookData.description.value 
-          : (bookData.description || ''),
-        cover: null,
-        releaseDate: bookData.first_publish_date || null,
-        year: bookData.first_publish_year || null,
-        genres: bookData.subjects ? bookData.subjects.slice(0, 5) : [],
-        rating: bookData.ratings_average || 0,
-        ratings_count: bookData.ratings_count || 0
-      };
-
-      // Get cover if available
-      if (bookData.covers && bookData.covers.length > 0) {
-        bookDetails.cover = `https://covers.openlibrary.org/b/id/${bookData.covers[0]}-L.jpg`;
-      }
-
-      // Get author information if available
-      if (bookData.authors && bookData.authors.length > 0) {
+      
+      const details = response.data;
+      
+      // Get author details if needed
+      let authorName = '';
+      if (details.authors && details.authors.length > 0) {
         try {
-          const authorKey = bookData.authors[0].author.key;
-          if (authorKey) {
-            // OpenLibrary author keys start with /authors/
-            const authorResponse = await openLibraryAPI.get(`${authorKey}.json`);
-            bookDetails.author = authorResponse.data.name;
-          }
+          // Get first author's details
+          const authorKey = details.authors[0].author.key;
+          const authorResponse = await axios.get(`${this.baseUrl}${authorKey}.json`);
+          authorName = authorResponse.data.name;
         } catch (authorError) {
-          console.error('Error fetching author information:', authorError);
-          // Continue with unknown author
+          console.error('Error fetching author details:', authorError);
         }
       }
-
-      return bookDetails;
+      
+      // Create cover URL
+      let coverUrl = null;
+      if (details.covers && details.covers.length > 0) {
+        coverUrl = `${this.coversUrl}/b/id/${details.covers[0]}-L.jpg`;
+      }
+      
+      // Process descriptions
+      let description = '';
+      if (details.description) {
+        description = typeof details.description === 'object' ? 
+          details.description.value : details.description;
+      }
+      
+      // Map to standard format
+      const book = {
+        id: `ol-${bookId}`,
+        title: details.title,
+        author: authorName || (details.author_name ? details.author_name[0] : 'Unknown'),
+        overview: description,
+        cover: coverUrl,
+        rating: details.ratings_average || null,
+        year: details.first_publish_date ? parseInt(details.first_publish_date) : null,
+        genres: details.subjects ? details.subjects.slice(0, 5) : [],
+        isbn: details.isbn_13 ? details.isbn_13[0] : (details.isbn_10 ? details.isbn_10[0] : null),
+        pageCount: details.number_of_pages || null,
+        publisher: details.publishers ? details.publishers[0] : null,
+        language: details.language ? details.language.key : null,
+        source: 'openLibrary',
+        olid: bookId
+      };
+      
+      cache.set(cacheKey, book);
+      return book;
     } catch (error) {
-      console.error('Error getting book details from OpenLibrary:', error);
+      console.error(`Error fetching book details for ${id}:`, error);
       throw error;
     }
-  },
+  }
 
-    /**
-   * Search books in OpenLibrary
+  /**
+   * Get books by genre
+   * @param {string} genre - Genre ID
+   * @param {number} limit - Number of results
+   * @returns {Promise<Array>} - Array of books
    */
-    searchBooks: async (query) => {
-      try {
-        const response = await openLibraryAPI.get(`/search.json?q=${encodeURIComponent(query)}`);
-  
-        // Map the response to a consistent format
-        const books = response.data.docs.slice(0, 30).map(book => {
-          // Get cover if available
+  async getBooksByGenre(genre, limit = 20) {
+    try {
+      const cacheKey = `genre_${genre}_${limit}`;
+      const cachedResults = cache.get(cacheKey);
+      
+      if (cachedResults) {
+        return cachedResults;
+      }
+      
+      const response = await axios.get(`${this.baseUrl}/subjects/${genre}.json`, {
+        params: {
+          limit: limit * 2 // Request more to filter better results
+        }
+      });
+      
+      if (!response.data.works || !Array.isArray(response.data.works)) {
+        return [];
+      }
+      
+      // Process books and add cover URLs
+      const books = await Promise.all(
+        response.data.works
+          .filter(work => work.title && work.authors && work.authors.length > 0)
+          .map(async work => {
+            let coverUrl = null;
+            
+            // Get cover if available
+            if (work.cover_id) {
+              coverUrl = `${this.coversUrl}/b/id/${work.cover_id}-L.jpg`;
+            } else if (work.cover_edition_key) {
+              coverUrl = `${this.coversUrl}/b/olid/${work.cover_edition_key}-L.jpg`;
+            }
+            
+            // Check for ISBN and get better cover if possible
+            let isbn = null;
+            if (work.cover_edition_key) {
+              try {
+                const editionResponse = await axios.get(`${this.baseUrl}/books/${work.cover_edition_key}.json`);
+                if (editionResponse.data.isbn_13) {
+                  isbn = editionResponse.data.isbn_13[0];
+                  // Use ISBN for cover if we have it (typically better quality)
+                  coverUrl = `${this.coversUrl}/b/isbn/${isbn}-L.jpg`;
+                } else if (editionResponse.data.isbn_10) {
+                  isbn = editionResponse.data.isbn_10[0];
+                  coverUrl = `${this.coversUrl}/b/isbn/${isbn}-L.jpg`;
+                }
+              } catch (error) {
+                // Continue if edition fetch fails
+              }
+            }
+            
+            // Extract year from first_publish_date
+            let year = null;
+            if (work.first_publish_date) {
+              const yearMatch = work.first_publish_date.match(/\d{4}/);
+              if (yearMatch) {
+                year = parseInt(yearMatch[0]);
+              }
+            }
+            
+            return {
+              id: `ol-${work.key.split('/').pop()}`,
+              title: work.title,
+              author: work.authors[0].name,
+              overview: work.description ? 
+                (typeof work.description === 'object' ? work.description.value : work.description) : '',
+              cover: coverUrl,
+              rating: work.ratings_average || null,
+              year,
+              genres: [genre],
+              source: 'openLibrary',
+              olid: work.key.split('/').pop(),
+              isbn
+            };
+          })
+      );
+      
+      // Filter out books without covers and limit results
+      const booksWithCovers = books
+        .filter(book => book.cover !== null)
+        .slice(0, limit);
+      
+      cache.set(cacheKey, booksWithCovers);
+      return booksWithCovers;
+    } catch (error) {
+      console.error(`Error fetching books for genre ${genre}:`, error);
+      return [];
+    }
+  }
+
+  /**
+   * Get popular books from Open Library
+   * @param {number} limit - Number of results
+   * @returns {Promise<Array>} - Array of books
+   */
+  async getPopularBooks(limit = 20) {
+    try {
+      const cacheKey = `popular_${limit}`;
+      const cachedResults = cache.get(cacheKey);
+      
+      if (cachedResults) {
+        return cachedResults;
+      }
+      
+      // We'll get "most read" books from OpenLibrary
+      const response = await axios.get(`${this.baseUrl}/trending/daily.json`, {
+        params: {
+          limit: limit * 2
+        }
+      });
+      
+      // Process the book data
+      const books = response.data.works
+        .filter(work => work.title && work.author_name)
+        .map(work => {
+          // Generate cover URL if cover_i exists
           let coverUrl = null;
-          if (book.cover_i) {
-            coverUrl = `https://covers.openlibrary.org/b/id/${book.cover_i}-L.jpg`;
+          if (work.cover_i) {
+            coverUrl = `${this.coversUrl}/b/id/${work.cover_i}-L.jpg`;
+          } else if (work.cover_edition_key) {
+            coverUrl = `${this.coversUrl}/b/olid/${work.cover_edition_key}-L.jpg`;
           }
-  
-          // Format author names
-          const authorNames = book.author_name ? book.author_name.join(', ') : 'Unknown Author';
-  
+          
+          // Extract year from first_publish_year
+          let year = work.first_publish_year || null;
+          
           return {
-            id: book.key.replace('/works/', ''),
-            title: book.title,
-            author: authorNames,
-            overview: book.excerpt || book.description || '',
+            id: `ol-${work.key.split('/').pop()}`,
+            title: work.title,
+            author: work.author_name[0],
             cover: coverUrl,
-            releaseDate: book.first_publish_year ? `${book.first_publish_year}-01-01` : null,
-            olid: book.key,
-            isbn: book.isbn ? book.isbn[0] : null
+            rating: work.ratings_average || null,
+            year,
+            genres: work.subject ? work.subject.slice(0, 5) : [],
+            source: 'openLibrary',
+            olid: work.key.split('/').pop()
           };
-        });
-  
-        return books;
-      } catch (error) {
-        console.error('Error searching books from OpenLibrary:', error);
-        throw error;
+        })
+        .slice(0, limit);
+      
+      cache.set(cacheKey, books);
+      return books;
+    } catch (error) {
+      console.error('Error fetching popular books from Open Library:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get trending books from Open Library
+   * @param {number} limit - Number of results
+   * @returns {Promise<Array>} - Array of books
+   */
+  async getTrendingBooks(limit = 20) {
+    try {
+      const cacheKey = `trending_${limit}`;
+      const cachedResults = cache.get(cacheKey);
+      
+      if (cachedResults) {
+        return cachedResults;
+      }
+      
+      // Get trending weekly books from OpenLibrary
+      const response = await axios.get(`${this.baseUrl}/trending/weekly.json`, {
+        params: {
+          limit: limit * 2
+        }
+      });
+      
+      // Process the book data
+      const books = response.data.works
+        .filter(work => work.title && work.author_name)
+        .map(work => {
+          // Generate cover URL if cover_i exists
+          let coverUrl = null;
+          if (work.cover_i) {
+            coverUrl = `${this.coversUrl}/b/id/${work.cover_i}-L.jpg`;
+          } else if (work.cover_edition_key) {
+            coverUrl = `${this.coversUrl}/b/olid/${work.cover_edition_key}-L.jpg`;
+          }
+          
+          // Extract year from first_publish_year
+          let year = work.first_publish_year || null;
+          
+          return {
+            id: `ol-${work.key.split('/').pop()}`,
+            title: work.title,
+            author: work.author_name[0],
+            cover: coverUrl,
+            rating: work.ratings_average || null,
+            year,
+            genres: work.subject ? work.subject.slice(0, 5) : [],
+            source: 'openLibrary',
+            olid: work.key.split('/').pop()
+          };
+        })
+        .slice(0, limit);
+      
+      cache.set(cacheKey, books);
+      return books;
+    } catch (error) {
+      console.error('Error fetching trending books from Open Library:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get recent books from Open Library
+   * @param {number} limit - Number of results
+   * @returns {Promise<Array>} - Array of books
+   */
+  async getRecentBooks(limit = 20) {
+    try {
+      const cacheKey = `recent_${limit}`;
+      const cachedResults = cache.get(cacheKey);
+      
+      if (cachedResults) {
+        return cachedResults;
+      }
+      
+      // Get current year
+      const currentYear = new Date().getFullYear();
+      
+      // Get books published in last 2 years
+      const response = await axios.get(`${this.baseUrl}/search.json`, {
+        params: {
+          q: `publishDate:${currentYear - 2} OR publishDate:${currentYear - 1} OR publishDate:${currentYear}`,
+          limit: limit * 2,
+          sort: 'new'
+        }
+      });
+      
+      // Process the book data
+      const books = response.data.docs
+        .filter(book => book.title && (book.author_name || book.author_key))
+        .map(book => this.mapOpenLibraryData(book))
+        .slice(0, limit);
+      
+      cache.set(cacheKey, books);
+      return books;
+    } catch (error) {
+      console.error('Error fetching recent books from Open Library:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get award-winning books from Open Library
+   * @param {number} limit - Number of results
+   * @returns {Promise<Array>} - Array of books
+   */
+  async getAwardWinners(limit = 20) {
+    try {
+      const cacheKey = `awards_${limit}`;
+      const cachedResults = cache.get(cacheKey);
+      
+      if (cachedResults) {
+        return cachedResults;
+      }
+      
+      // We'll search for specific award terms
+      const awardTerms = [
+        'pulitzer prize',
+        'booker prize',
+        'national book award',
+        'hugo award',
+        'nebula award'
+      ];
+      
+      // Make parallel requests for each award type
+      const requests = awardTerms.map(term => 
+        axios.get(`${this.baseUrl}/search.json`, {
+          params: {
+            q: term,
+            limit: Math.ceil(limit / awardTerms.length) * 2
+          }
+        })
+      );
+      
+      const responses = await Promise.all(requests);
+      
+      // Combine and process results
+      let allBooks = [];
+      responses.forEach((response, index) => {
+        const awardBooks = response.data.docs
+          .filter(book => book.title && (book.author_name || book.author_key))
+          .map(book => {
+            const mappedBook = this.mapOpenLibraryData(book);
+            // Add award info
+            mappedBook.awards = [awardTerms[index]];
+            return mappedBook;
+          });
+        
+        allBooks = [...allBooks, ...awardBooks];
+      });
+      
+      // Deduplicate books (same book might win multiple awards)
+      const uniqueBooks = [];
+      const bookIds = new Set();
+      
+      allBooks.forEach(book => {
+        if (!bookIds.has(book.id)) {
+          uniqueBooks.push(book);
+          bookIds.add(book.id);
+        }
+      });
+      
+      // Sort by rating and limit results
+      const sortedBooks = uniqueBooks
+        .sort((a, b) => (b.rating || 0) - (a.rating || 0))
+        .slice(0, limit);
+      
+      cache.set(cacheKey, sortedBooks);
+      return sortedBooks;
+    } catch (error) {
+      console.error('Error fetching award winners from Open Library:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Map OpenLibrary search data to standard book format
+   * @param {Object} data - OpenLibrary book data
+   * @returns {Object} - Standardized book object
+   */
+  mapOpenLibraryData(data) {
+    // Generate cover URL if cover_i exists
+    let coverUrl = null;
+    if (data.cover_i) {
+      coverUrl = `${this.coversUrl}/b/id/${data.cover_i}-L.jpg`;
+    } else if (data.cover_edition_key) {
+      coverUrl = `${this.coversUrl}/b/olid/${data.cover_edition_key}-L.jpg`;
+    } else if (data.isbn && data.isbn.length > 0) {
+      coverUrl = `${this.coversUrl}/b/isbn/${data.isbn[0]}-L.jpg`;
+    }
+    
+    // Extract year from first_publish_year or publish_year
+    let year = null;
+    if (data.first_publish_year) {
+      year = data.first_publish_year;
+    } else if (data.publish_year && data.publish_year.length > 0) {
+      year = Math.max(...data.publish_year);
+    } else if (data.publish_date) {
+      const yearMatch = data.publish_date.match(/\d{4}/);
+      if (yearMatch) {
+        year = parseInt(yearMatch[0]);
       }
     }
-};
+    
+    const workKey = data.key ? data.key.split('/').pop() : '';
+    
+    return {
+      id: `ol-${workKey}`,
+      title: data.title,
+      author: data.author_name ? data.author_name[0] : 'Unknown',
+      cover: coverUrl,
+      rating: data.ratings_average || null,
+      year,
+      genres: data.subject ? data.subject.slice(0, 5) : [],
+      source: 'openLibrary',
+      olid: workKey,
+      isbn: data.isbn ? data.isbn[0] : null
+    };
+  }
 
-// Export a function to purge the cache
-module.exports.purgeCache = function() {
-  console.log('Purging OpenLibrary cache...');
-  // Reset all cache objects
-  Object.keys(cache.genres).forEach(key => {
-    delete cache.genres[key];
-  });
-  cache.trending = null;
-  cache.popular = null;
-  cache.nytBestsellers = null;
-  cache.awardWinners = null;
-  cache.recentBooks = null;
-  // Reset all timestamps
-  Object.keys(cache.genreTimestamps).forEach(key => {
-    delete cache.genreTimestamps[key];
-  });
-  cache.trendingTimestamp = 0;
-  cache.popularTimestamp = 0;
-  cache.nytTimestamp = 0;
-  cache.awardsTimestamp = 0;
-  cache.recentTimestamp = 0;
+  /**
+   * Get high-quality cover URL for a book by ISBN
+   * @param {string} isbn - ISBN number
+   * @returns {string|null} - Cover URL or null if not found
+   */
+  getCoverByISBN(isbn) {
+    if (!isbn) return null;
+    
+    // Clean ISBN - keep only digits and X
+    const cleanIsbn = isbn.replace(/[^0-9X]/g, '');
+    
+    // Return large cover URL
+    return `${this.coversUrl}/b/isbn/${cleanIsbn}-L.jpg`;
+  }
 
-  console.log('OpenLibrary cache has been purged');
-  return true;
-};
+  /**
+   * Get high-quality cover URL for a book by OpenLibrary ID
+   * @param {string} olid - OpenLibrary ID
+   * @returns {string|null} - Cover URL or null if not found
+   */
+  getCoverByOLID(olid) {
+    if (!olid) return null;
+    
+    // Return large cover URL
+    return `${this.coversUrl}/b/olid/${olid}-L.jpg`;
+  }
+
+  /**
+   * Get high-quality cover URL for a book by cover ID
+   * @param {number} coverId - Cover ID
+   * @returns {string|null} - Cover URL or null if not found
+   */
+  getCoverById(coverId) {
+    if (!coverId) return null;
+    
+    // Return large cover URL
+    return `${this.coversUrl}/b/id/${coverId}-L.jpg`;
+  }
+}
+
+module.exports = new OpenLibraryAPI();

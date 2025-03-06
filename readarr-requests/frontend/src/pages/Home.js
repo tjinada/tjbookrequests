@@ -15,18 +15,16 @@ import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import Rating from '@mui/material/Rating';
 import SearchIcon from '@mui/icons-material/Search';
-import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import StarIcon from '@mui/icons-material/Star';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import NewReleasesIcon from '@mui/icons-material/NewReleases';
-import LocalLibraryIcon from '@mui/icons-material/LocalLibrary';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import AppContext from '../context/AppContext';
 import AuthContext from '../context/AuthContext';
 import CachePurger from '../components/admin/CachePurger';
-import EnhancedSwipeableBookCard from '../components/books/EnhancedSwipeableBookCard';
+import SwipeableBookCard from '../components/books/SwipeableBookCard';
 import SwipeTutorial from '../components/common/SwipeTutorial';
 import BookRequestDialog from '../components/books/BookRequestDialog';
 import AnimatedGrid from '../components/layout/AnimatedGrid';
@@ -56,7 +54,6 @@ function TabPanel(props) {
 const Home = () => {
   // Main tabs state
   const [mainTab, setMainTab] = useState(0);
-  const [genreTab, setGenreTab] = useState(0);
   const [loading, setLoading] = useState(true);
   const { user, isAuthenticated } = useContext(AuthContext);
   const isAdmin = user && user.role === 'admin';
@@ -66,19 +63,13 @@ const Home = () => {
 
   // Get data and functions from context
   const { 
-    trendingBooks, 
     popularBooks,
     nytBooks,
     awardBooks,
     recentBooks,
     personalizedBooks,
-    genres, 
-    genreBooks, 
-    currentGenre,
     fetchHomeData,
     fetchPersonalizedRecommendations,
-    fetchGenres,
-    selectGenre,
     yearFilter,
     setYearFilter,
     ratingFilter,
@@ -99,7 +90,6 @@ const Home = () => {
     const loadData = async () => {
       setLoading(true);
       await fetchHomeData();
-      await fetchGenres();
       if (isAuthenticated) {
         await fetchPersonalizedRecommendations();
       }
@@ -107,28 +97,11 @@ const Home = () => {
     };
 
     loadData();
-  }, [fetchHomeData, fetchGenres, fetchPersonalizedRecommendations, isAuthenticated]);
-
-  // Set initial genre when genres are loaded
-  useEffect(() => {
-    if (genres.length > 0 && !currentGenre) {
-      selectGenre(genres[0].id);
-      // If genreTab is not in sync with current genre, update it
-      if (genreTab !== genres.findIndex(g => g.id === genres[0].id)) {
-        setGenreTab(0);
-      }
-    }
-  }, [genres, currentGenre, selectGenre, genreTab]);
+  }, [fetchHomeData, fetchPersonalizedRecommendations, isAuthenticated]);
 
   // Handler for main tab changes
   const handleMainTabChange = (event, newValue) => {
     setMainTab(newValue);
-  };
-
-  // Handler for genre tab changes
-  const handleGenreTabChange = (event, newValue) => {
-    setGenreTab(newValue);
-    selectGenre(genres[newValue].id);
   };
 
   // Handler for filter changes
@@ -178,7 +151,7 @@ const Home = () => {
     return (
       <AnimatedGrid spacing={3}>
         {filteredBooks.map((book) => (
-          <EnhancedSwipeableBookCard 
+          <SwipeableBookCard 
             book={book} 
             onRequest={handleRequestBook}
             key={book.id}
@@ -265,7 +238,7 @@ const Home = () => {
   );
 
   // If initial loading, show loading spinner
-  if (loading && !trendingBooks.length && !genres.length) {
+  if (loading && !popularBooks.length) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
         <CircularProgress />
@@ -279,12 +252,10 @@ const Home = () => {
   // Adjust tab indices if For You tab is shown
   const tabIndices = {
     forYou: 0,
-    trending: showForYouTab ? 1 : 0,
-    popular: showForYouTab ? 2 : 1,
-    nyt: showForYouTab ? 3 : 2,
-    awards: showForYouTab ? 4 : 3,
-    recent: showForYouTab ? 5 : 4,
-    genres: showForYouTab ? 6 : 5
+    popular: showForYouTab ? 1 : 0,
+    nyt: showForYouTab ? 2 : 1,
+    awards: showForYouTab ? 3 : 2,
+    recent: showForYouTab ? 4 : 3
   };
 
   return (
@@ -351,13 +322,6 @@ const Home = () => {
           )}
           
           <Tab 
-            icon={<TrendingUpIcon />} 
-            iconPosition="start"
-            label="Trending" 
-            id={`tab-${tabIndices.trending}`} 
-            aria-controls={`tabpanel-${tabIndices.trending}`} 
-          />
-          <Tab 
             icon={<StarIcon />} 
             iconPosition="start"
             label="Popular" 
@@ -384,13 +348,6 @@ const Home = () => {
             label="Recent Books" 
             id={`tab-${tabIndices.recent}`} 
             aria-controls={`tabpanel-${tabIndices.recent}`} 
-          />
-          <Tab 
-            icon={<LocalLibraryIcon />} 
-            iconPosition="start"
-            label="Genres" 
-            id={`tab-${tabIndices.genres}`} 
-            aria-controls={`tabpanel-${tabIndices.genres}`} 
           />
         </Tabs>
       </Box>
@@ -428,10 +385,6 @@ const Home = () => {
         </TabPanel>
       )}
 
-      <TabPanel value={mainTab} index={tabIndices.trending}>
-        {renderBookGrid(trendingBooks, "No trending books match your filters.")}
-      </TabPanel>
-
       <TabPanel value={mainTab} index={tabIndices.popular}>
         {renderBookGrid(popularBooks, "No popular books match your filters.")}
       </TabPanel>
@@ -446,69 +399,6 @@ const Home = () => {
 
       <TabPanel value={mainTab} index={tabIndices.recent}>
         {renderBookGrid(recentBooks, "No recent books match your filters.")}
-      </TabPanel>
-
-      <TabPanel value={mainTab} index={tabIndices.genres}>
-        {/* Genre Sub-tabs */}
-        {genres.length > 0 ? (
-          <>
-            <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-              <Tabs 
-                value={genreTab} 
-                onChange={handleGenreTabChange} 
-                aria-label="genre tabs"
-                variant="scrollable"
-                scrollButtons="auto"
-                sx={{ 
-                  maxWidth: '100%',
-                  '& .MuiTabs-flexContainer': {
-                    flexWrap: { xs: 'wrap', md: 'nowrap' }
-                  }
-                }}
-              >
-                {genres.map((genre, index) => (
-                  <Tab 
-                    key={genre.id}
-                    label={genre.name} 
-                    id={`genre-tab-${index}`}
-                    aria-controls={`genre-tabpanel-${index}`}
-                    sx={{ minWidth: { xs: 120, md: 'auto' } }}
-                  />
-                ))}
-              </Tabs>
-            </Box>
-
-            {/* Genre Tab Contents */}
-            {genres.map((genre, index) => (
-              <div 
-                key={genre.id}
-                role="tabpanel" 
-                hidden={genreTab !== index}
-                id={`genre-tabpanel-${index}`} 
-                aria-labelledby={`genre-tab-${index}`}
-              >
-                {genreTab === index && (
-                  <>
-                    {!genreBooks[genre.id] ? (
-                      <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
-                        <CircularProgress />
-                      </Box>
-                    ) : (
-                      renderBookGrid(
-                        genreBooks[genre.id], 
-                        `No ${genre.name} books match your filters.`
-                      )
-                    )}
-                  </>
-                )}
-              </div>
-            ))}
-          </>
-        ) : (
-          <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
-            <CircularProgress />
-          </Box>
-        )}
       </TabPanel>
       
       {/* Not authenticated - For You CTA */}

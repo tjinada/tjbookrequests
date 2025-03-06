@@ -529,6 +529,154 @@ class RecommendationService {
     }
   }
 
+  async postProcessResults(books, limit) {
+    if (!books || !Array.isArray(books)) return [];
+    
+    // Current date for age calculations
+    const currentYear = new Date().getFullYear();
+    
+    // Score books for ranking
+    const scoredBooks = books.map(book => {
+      // Start with base score
+      let score = 0;
+      
+      // Convert year to number if it's a string
+      const year = typeof book.year === 'string' ? parseInt(book.year) : book.year;
+      
+      // Boost for recent books (0-5 points)
+      if (year) {
+        // Books from current year get maximum points
+        if (year === currentYear) {
+          score += 5;
+        }
+        // Books from last 5 years get gradually fewer points
+        else if (year >= currentYear - 5) {
+          score += 5 - (currentYear - year);
+        }
+        // Books from last 10 years get a smaller boost
+        else if (year >= currentYear - 10) {
+          score += 1;
+        }
+      }
+      
+      // Boost for books with ratings (0-5 points)
+      if (book.rating) {
+        score += Math.min(book.rating, 5);
+      }
+      
+      // Boost for books with cover images (3 points)
+      if (book.cover) {
+        score += 3;
+      }
+      
+      // Boost for books with genres/categories (0-2 points)
+      if (book.genres && book.genres.length > 0) {
+        score += Math.min(book.genres.length, 2);
+      }
+      
+      // Penalize books with no year or very old books
+      if (!year || year < currentYear - 50) {
+        score -= 2;
+      }
+      
+      return { ...book, score };
+    });
+    
+    // Sort by score (descending)
+    const sortedBooks = scoredBooks.sort((a, b) => b.score - a.score);
+    
+    // Take only as many books as requested (plus some extras for cover enhancement)
+    const topBooks = sortedBooks.slice(0, limit * 1.5);
+    
+    // Enhance book covers using OpenLibrary
+    const enhancedBooks = await this.enhanceCoversWithOpenLibrary(topBooks);
+    
+    // Re-score books after cover enhancement
+    const rescoredBooks = enhancedBooks.map(book => {
+      // Start with the existing score
+      let score = book.score || 0;
+      
+      // Boost books that now have covers
+      if (book.cover) {
+        score += 3;
+      }
+      
+      return { ...book, score };
+    });
+    
+    // Re-sort by score and limit to requested number
+    const finalBooks = rescoredBooks
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit);
+    
+    return finalBooks;
+  }
+
+  /**
+   * Enhance book covers with OpenLibrary
+   * This replaces the call to coverService.enhanceBookCovers
+   * @param {Array} books - Books to enhance
+   * @returns {Array} - Enhanced books
+   */
+  async enhanceCoversWithOpenLibrary(books) {
+    if (!books || !Array.isArray(books)) return [];
+    
+    const enhanced = [];
+    
+    for (const book of books) {
+      try {
+        // Skip if book already has a good cover from OpenLibrary
+        if (book.cover && 
+            book.cover.includes('openlibrary.org') && 
+            !book.cover.includes('no_cover')) {
+          enhanced.push(book);
+          continue;
+        }
+        
+        const enhancedBook = { ...book };
+        
+        // Try to get cover from OpenLibrary by ISBN
+        if (book.isbn) {
+          enhancedBook.cover = `https://covers.openlibrary.org/b/isbn/${book.isbn.replace(/[^0-9X]/g, '')}-L.jpg`;
+          enhanced.push(enhancedBook);
+          continue;
+        }
+        
+        // Try by OLID if available
+        if (book.olid) {
+          enhancedBook.cover = `https://covers.openlibrary.org/b/olid/${book.olid}-L.jpg`;
+          enhanced.push(enhancedBook);
+          continue;
+        }
+        
+        // If book is from Google, try to search OpenLibrary by title/author
+        if (book.source === 'google' && book.title && book.author) {
+          try {
+            const searchResults = await openLibraryAPI.searchBooks(`${book.title} ${book.author}`, 1);
+            if (searchResults && searchResults.length > 0 && searchResults[0].cover) {
+              enhancedBook.cover = searchResults[0].cover;
+              // Also add OpenLibrary ID for future reference
+              enhancedBook.olid = searchResults[0].olid;
+              enhanced.push(enhancedBook);
+              continue;
+            }
+          } catch (error) {
+            // If search fails, continue with original book
+            log(`Error searching OpenLibrary cover: ${error.message}`);
+          }
+        }
+        
+        // If still no OpenLibrary cover, keep original book
+        enhanced.push(book);
+      } catch (error) {
+        log(`Error enhancing cover for ${book.title}: ${error.message}`);
+        enhanced.push(book);
+      }
+    }
+    
+    return enhanced;
+  }
+
   /**
    * Blend and deduplicate books from multiple sources
    * @param {Array} source1Books - Books from first source
