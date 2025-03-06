@@ -5,77 +5,69 @@ import Box from '@mui/material/Box';
 const ScrollContainer = ({ children }) => {
   const containerRef = useRef(null);
 
-  // Add event listeners to handle touch events properly
+  // Add global event listeners to handle touch events properly on all elements
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    // Helper to determine if the touch started on a card or swipeable element
-    const isTouchOnSwipeableElement = (event) => {
-      const target = event.target;
-      let currentNode = target;
-      
-      // Check if the touch is on a card swipe element or its children
-      while (currentNode != null) {
-        if (currentNode.dataset && 
-            (currentNode.dataset.cardswipe === 'true' || 
-             currentNode.classList.contains('bookCardOverlay'))) {
-          return true;
-        }
-        currentNode = currentNode.parentNode;
-      }
-      return false;
+    // Disable all horizontal swiping on book cards when user is scrolling vertically
+    let isVerticalScrolling = false;
+    let touchStartY = 0;
+    let touchStartX = 0;
+    let touchStartTime = 0;
+    
+    const handleGlobalTouchStart = (e) => {
+      // Store initial touch position and time
+      touchStartY = e.touches[0].clientY;
+      touchStartX = e.touches[0].clientX;
+      touchStartTime = Date.now();
+      isVerticalScrolling = false;
     };
 
-    // Store initial touch position for determining scroll direction
-    let startY = 0;
-    let startX = 0;
-    let initialScrollTop = 0;
-    let isScrolling = false;
-
-    const handleTouchStart = (e) => {
-      // Store the initial touch position
-      startY = e.touches[0].clientY;
-      startX = e.touches[0].clientX;
-      initialScrollTop = container.scrollTop;
-      isScrolling = false;
+    const handleGlobalTouchMove = (e) => {
+      // If we don't have a touch start position, exit
+      if (touchStartY === 0) return;
       
-      // If we're at the top or bottom of the container, allow pull-to-refresh
-      // or overscroll behavior from browser
-      if (container.scrollTop <= 0 || 
-          container.scrollTop + container.clientHeight >= container.scrollHeight) {
-        return;
-      }
-    };
-
-    const handleTouchMove = (e) => {
-      // Skip if we already determined scrolling direction
-      if (isScrolling) return;
+      // Calculate distance moved
+      const deltaY = touchStartY - e.touches[0].clientY;
+      const deltaX = touchStartX - e.touches[0].clientX;
+      const moveTime = Date.now() - touchStartTime;
       
-      const deltaY = startY - e.touches[0].clientY;
-      const deltaX = startX - e.touches[0].clientX;
-      
-      // If it's primarily a vertical scroll
-      if (Math.abs(deltaY) > Math.abs(deltaX) * 1.5) {
-        isScrolling = true;
+      // If movement is primarily vertical (1.2x more vertical than horizontal)
+      // and it's not just a tap (moved more than 10px)
+      if (Math.abs(deltaY) > Math.abs(deltaX) * 1.2 && Math.abs(deltaY) > 10) {
+        isVerticalScrolling = true;
         
-        // If the touch is on a swipeable element, we need to check
-        // if we should scroll the container or let the card handle it
-        if (isTouchOnSwipeableElement(e)) {
-          // Allow container scrolling to take precedence for primarily vertical swipes
-          e.stopPropagation();
+        // Find if we're over a card element
+        let targetElement = e.target;
+        while (targetElement) {
+          // If we're over a book card while trying to scroll vertically
+          if (targetElement.classList && 
+              (targetElement.classList.contains('MuiCard-root') || 
+               targetElement.dataset && targetElement.dataset.cardswipe === 'true')) {
+            
+            // Prevent default to disable card swiping during vertical scrolling
+            e.stopPropagation();
+            return;
+          }
+          targetElement = targetElement.parentElement;
         }
       }
     };
-
-    // Attach the event listeners
-    container.addEventListener('touchstart', handleTouchStart, { passive: true });
-    container.addEventListener('touchmove', handleTouchMove, { passive: false });
-
-    // Clean up event listeners when component unmounts
+    
+    const handleGlobalTouchEnd = () => {
+      // Reset tracking variables
+      touchStartY = 0;
+      touchStartX = 0;
+      isVerticalScrolling = false;
+    };
+    
+    // Add global event listeners
+    document.addEventListener('touchstart', handleGlobalTouchStart, {passive: true});
+    document.addEventListener('touchmove', handleGlobalTouchMove, {passive: false});
+    document.addEventListener('touchend', handleGlobalTouchEnd, {passive: true});
+    
     return () => {
-      container.removeEventListener('touchstart', handleTouchStart);
-      container.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchstart', handleGlobalTouchStart);
+      document.removeEventListener('touchmove', handleGlobalTouchMove);
+      document.removeEventListener('touchend', handleGlobalTouchEnd);
     };
   }, []);
 

@@ -78,7 +78,11 @@ const SwipeableBookCard = ({ book, onRequest, carouselMode = false }) => {
       if (carouselMode && !isSwiping) return;
       
       // Only handle horizontal swipes
-      if (Math.abs(eventData.deltaY) > Math.abs(eventData.deltaX)) {
+      // More strict condition: vertical movement must be less than half of horizontal
+      if (Math.abs(eventData.deltaY) > Math.abs(eventData.deltaX) * 0.5) {
+        // This is likely a vertical scroll attempt, cancel any swipe action
+        setSwipeDirection(null);
+        setSwipePercentage(0);
         return;
       }
 
@@ -152,7 +156,7 @@ const SwipeableBookCard = ({ book, onRequest, carouselMode = false }) => {
       ref={cardRef}
       sx={{ 
         position: 'relative', 
-        touchAction: carouselMode ? 'pan-x' : 'pan-y',
+        touchAction: 'pan-y', // Always allow vertical scrolling
         height: '100%',
         borderRadius: 2,
         overflow: 'hidden',
@@ -161,22 +165,22 @@ const SwipeableBookCard = ({ book, onRequest, carouselMode = false }) => {
       }}
       {...cardHandlers}
       data-cardswipe="true"
+      className="book-card-swipeable"
     >
-      {/* IMPROVED ACTION BUTTONS */}
+      {/* IMPROVED ACTION BUTTONS - Repositioned to right side */}
       <Box
         sx={{
           position: 'absolute',
-          bottom: 16,
-          left: 0,
-          right: 0,
+          top: 10,
+          right: 10,
           zIndex: 10,
           display: 'flex',
-          justifyContent: 'center',
-          gap: 2
+          flexDirection: 'column',
+          gap: 1
         }}
       >
         <IconButton
-          size="medium"
+          size="small"
           onClick={() => navigate(`/book/${book.id}`)}
           sx={{
             bgcolor: theme.palette.mode === 'dark' ? 'rgba(25, 118, 210, 0.9)' : 'rgba(25, 118, 210, 0.9)',
@@ -186,16 +190,16 @@ const SwipeableBookCard = ({ book, onRequest, carouselMode = false }) => {
               transform: 'scale(1.1)'
             },
             boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
-            width: 48,
-            height: 48,
+            width: 36,
+            height: 36,
             transition: 'all 0.2s ease',
           }}
         >
-          <InfoIcon />
+          <InfoIcon fontSize="small" />
         </IconButton>
         
         <IconButton
-          size="medium"
+          size="small"
           onClick={() => onRequest && onRequest(optimizedBook)}
           sx={{
             bgcolor: theme.palette.mode === 'dark' ? 'rgba(211, 47, 47, 0.9)' : 'rgba(211, 47, 47, 0.9)',
@@ -205,12 +209,12 @@ const SwipeableBookCard = ({ book, onRequest, carouselMode = false }) => {
               transform: 'scale(1.1)'
             },
             boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
-            width: 48,
-            height: 48,
+            width: 36,
+            height: 36,
             transition: 'all 0.2s ease',
           }}
         >
-          <BookmarkAddIcon />
+          <BookmarkAddIcon fontSize="small" />
         </IconButton>
       </Box>
 

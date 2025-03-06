@@ -2,11 +2,9 @@
 import React from 'react';
 import { useTheme } from '@mui/material/styles';
 import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
 import CardMedia from '@mui/material/CardMedia';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
-import Rating from '@mui/material/Rating';
 import Chip from '@mui/material/Chip';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import StarIcon from '@mui/icons-material/Star';
@@ -64,7 +62,7 @@ const BookCard = ({ book, showRating = true }) => {
           sx={{
             position: 'absolute',
             top: 8,
-            right: 8,
+            left: 8,
             display: 'flex',
             alignItems: 'center',
             bgcolor: 'rgba(0,0,0,0.7)',
@@ -81,7 +79,7 @@ const BookCard = ({ book, showRating = true }) => {
         >
           <StarIcon fontSize="inherit" sx={{ color: 'gold', fontSize: '0.9rem' }} />
           <Typography variant="caption" fontWeight="bold">
-            {book.rating.toFixed(1)}
+            {typeof book.rating === 'number' ? book.rating.toFixed(1) : '5.0'}
           </Typography>
         </Box>
       )}
@@ -92,7 +90,7 @@ const BookCard = ({ book, showRating = true }) => {
           sx={{
             position: 'absolute',
             top: 8,
-            left: 8,
+            right: 8,
             display: 'flex',
             alignItems: 'center',
             bgcolor: 'rgba(0,0,0,0.7)',
