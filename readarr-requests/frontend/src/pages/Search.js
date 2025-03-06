@@ -1,5 +1,6 @@
 // src/pages/Search.js
 import React, { useState, useEffect, useContext } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { 
   Box,
   Button,
@@ -25,22 +26,61 @@ import BookIcon from '@mui/icons-material/Book';
 import AuthContext from '../context/AuthContext';
 import api from '../utils/api';
 
+// Create a session storage key for caching search results
+const SEARCH_CACHE_KEY = 'readarr_search_state';
+
 const Search = () => {
   const { user } = useContext(AuthContext);
+  const location = useLocation();
+  const navigate = useNavigate();
+  
+  // Initialize state from session storage if available
+  const loadCachedState = () => {
+    try {
+      const cachedState = sessionStorage.getItem(SEARCH_CACHE_KEY);
+      if (cachedState) {
+        return JSON.parse(cachedState);
+      }
+    } catch (err) {
+      console.error('Error loading cached search state:', err);
+    }
+    return null;
+  };
+  
+  const cachedState = loadCachedState();
+  
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
+  const [searchQuery, setSearchQuery] = useState(cachedState?.searchQuery || '');
+  const [searchResults, setSearchResults] = useState(cachedState?.searchResults || []);
   const [selectedBook, setSelectedBook] = useState(null);
   const [requestDialogOpen, setRequestDialogOpen] = useState(false);
-  const [metadataSource, setMetadataSource] = useState('google'); // Default to google
-  const [hasSearched, setHasSearched] = useState(false);
+  const [metadataSource, setMetadataSource] = useState(cachedState?.metadataSource || 'google');
+  const [hasSearched, setHasSearched] = useState(cachedState?.hasSearched || false);
 
   const isAdmin = user && user.role === 'admin';
 
+  // Save search state to session storage whenever it changes
+  useEffect(() => {
+    const stateToCache = {
+      searchQuery,
+      searchResults,
+      metadataSource,
+      hasSearched
+    };
+    
+    try {
+      sessionStorage.setItem(SEARCH_CACHE_KEY, JSON.stringify(stateToCache));
+    } catch (err) {
+      console.error('Error caching search state:', err);
+    }
+  }, [searchQuery, searchResults, metadataSource, hasSearched]);
+
   // Handle search
   const handleSearch = async (e) => {
-    e.preventDefault();
+    if (e) {
+      e.preventDefault();
+    }
     
     if (!searchQuery.trim()) return;
     
@@ -89,11 +129,24 @@ const Search = () => {
     setSearchQuery('');
     setSearchResults([]);
     setHasSearched(false);
+    
+    // Also clear the cache
+    try {
+      sessionStorage.removeItem(SEARCH_CACHE_KEY);
+    } catch (err) {
+      console.error('Error clearing search cache:', err);
+    }
   };
 
   // Handle metadata source change (for admins only)
   const handleSourceChange = (e) => {
     setMetadataSource(e.target.value);
+    
+    // If we have an active search, re-run it with the new source
+    if (searchQuery.trim() && hasSearched) {
+      // Use setTimeout to allow the state update to complete
+      setTimeout(() => handleSearch(), 0);
+    }
   };
 
   return (
