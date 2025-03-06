@@ -43,7 +43,7 @@ function TabPanel(props) {
       {...other}
     >
       {value === index && (
-        <Box sx={{ py: 3 }}>
+        <Box sx={{ py: 3, px: 0, width: '100%' }}>
           {children}
         </Box>
       )}
@@ -125,7 +125,7 @@ const Home = () => {
   // Render book grid with optional loading and empty states
   const renderBookGrid = (books, emptyMessage) => {
     const filteredBooks = filterBooks(books);
-    
+  
     if (!books) {
       return (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
@@ -133,7 +133,7 @@ const Home = () => {
         </Box>
       );
     }
-    
+  
     if (filteredBooks.length === 0) {
       return (
         <EmptyState 
@@ -147,29 +147,21 @@ const Home = () => {
         />
       );
     }
-    
+  
     return (
-      <AnimatedGrid 
-        spacing={2} // Reduced spacing from 3 to 2
-        sx={{ 
-          width: '100%',
-          mx: 0,
-          px: 0
-        }}
-        itemProps={{ 
-          xs: 6, // Ensure 2 items per row on mobile
-          sx: { px: { xs: 1 } } // Reduced padding for each item
-        }}
-      >
-        {filteredBooks.map((book) => (
-          <SwipeableBookCard 
-            book={book} 
-            onRequest={handleRequestBook}
-            key={book.id}
-          />
-        ))}
-      </AnimatedGrid>
+      <Box sx={{ width: '100%', mx: -1 }}> {/* Negative margin to offset grid spacing */}
+        <AnimatedGrid spacing={2}> {/* Reduced spacing from 3 to 2 */}
+          {filteredBooks.map((book) => (
+            <SwipeableBookCard 
+              book={book} 
+              onRequest={handleRequestBook}
+              key={book.id}
+            />
+          ))}
+        </AnimatedGrid>
+      </Box>
     );
+  };
 
   // Render filter controls for books
   const renderFilters = () => (
@@ -270,12 +262,12 @@ const Home = () => {
 
   return (
     <Box sx={{ 
-      px: { xs: 1, sm: 2 }, // Reduce horizontal padding
-      width: '100%',
-      maxWidth: '100%',
-      overflowX: 'hidden', // Prevent any horizontal scrolling
-      // Add bottom padding to ensure content isn't hidden behind bottom nav
-      pb: { xs: 8, sm: 4 }
+      px: { xs: 1, sm: 2 }, // Reduced horizontal padding
+      py: { xs: 2, sm: 3 },
+      width: '100%',        // Full width
+      maxWidth: '100%',     // No constraints
+      overflowX: 'hidden',  // Prevent horizontal scrolling
+      pb: { xs: 8, sm: 4 }  // Bottom padding for nav
     }}>
       <Box
         sx={{ 
@@ -283,7 +275,8 @@ const Home = () => {
           alignItems: 'center',
           justifyContent: 'space-between',
           mb: 4,
-          mt: 1
+          mt: 1,
+          width: '100%'
         }}
       >
         <Typography 
@@ -329,7 +322,8 @@ const Home = () => {
           zIndex: 10,
           bgcolor: 'background.paper',
           borderRadius: '12px 12px 0 0',
-          boxShadow: '0 -2px 10px rgba(0,0,0,0.05)'
+          boxShadow: '0 -2px 10px rgba(0,0,0,0.05)',
+          width: '100%'
         }}
       >
       <Tabs 
@@ -345,6 +339,7 @@ const Home = () => {
           }
         }}
         sx={{
+          width: '100%',
           '& .MuiTab-root': {
             minWidth: 100,
             fontSize: '0.95rem',
@@ -444,7 +439,7 @@ const Home = () => {
       
       {/* Not authenticated - For You CTA */}
       {!isAuthenticated && mainTab === 0 && (
-        <Box sx={{ mt: 4, p: 3, textAlign: 'center', bgcolor: 'background.paper', borderRadius: 2, boxShadow: 1 }}>
+        <Box sx={{ mt: 4, p: 3, textAlign: 'center', bgcolor: 'background.paper', borderRadius: 2, boxShadow: 1, width: '100%' }}>
           <Typography variant="h6" gutterBottom>
             Get Personalized Recommendations
           </Typography>
@@ -473,6 +468,5 @@ const Home = () => {
     </Box>
   );
 };
-}
 
 export default Home;
