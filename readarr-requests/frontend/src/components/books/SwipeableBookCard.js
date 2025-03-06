@@ -66,7 +66,7 @@ const SwipeableBookCard = ({ book, onRequest, carouselMode = false }) => {
     
     // Only set swiping mode if we're not in a carousel
     // Or if we explicitly intend to swipe the card (touch started on the card)
-    const parentElement = event.currentTarget.closest('[data-touchcarousel="true"]');
+    const parentElement = e.currentTarget.closest('[data-touchcarousel="true"]');
     if (!parentElement) {
       setIsSwiping(true);
     }
