@@ -125,7 +125,7 @@ const Home = () => {
   // Render book grid with optional loading and empty states
   const renderBookGrid = (books, emptyMessage) => {
     const filteredBooks = filterBooks(books);
-  
+    
     if (!books) {
       return (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
@@ -133,7 +133,7 @@ const Home = () => {
         </Box>
       );
     }
-  
+    
     if (filteredBooks.length === 0) {
       return (
         <EmptyState 
@@ -147,9 +147,20 @@ const Home = () => {
         />
       );
     }
-  
+    
     return (
-      <AnimatedGrid spacing={3}>
+      <AnimatedGrid 
+        spacing={2} // Reduced spacing from 3 to 2
+        sx={{ 
+          width: '100%',
+          mx: 0,
+          px: 0
+        }}
+        itemProps={{ 
+          xs: 6, // Ensure 2 items per row on mobile
+          sx: { px: { xs: 1 } } // Reduced padding for each item
+        }}
+      >
         {filteredBooks.map((book) => (
           <SwipeableBookCard 
             book={book} 
@@ -159,7 +170,6 @@ const Home = () => {
         ))}
       </AnimatedGrid>
     );
-  };
 
   // Render filter controls for books
   const renderFilters = () => (
@@ -260,9 +270,12 @@ const Home = () => {
 
   return (
     <Box sx={{ 
-      p: { xs: 2, sm: 3 },
-      maxWidth: '1200px', 
-      mx: 'auto'
+      px: { xs: 1, sm: 2 }, // Reduce horizontal padding
+      width: '100%',
+      maxWidth: '100%',
+      overflowX: 'hidden', // Prevent any horizontal scrolling
+      // Add bottom padding to ensure content isn't hidden behind bottom nav
+      pb: { xs: 8, sm: 4 }
     }}>
       <Box
         sx={{ 
@@ -383,7 +396,7 @@ const Home = () => {
       {/* For You Panel */}
       {showForYouTab && (
         <TabPanel value={mainTab} index={tabIndices.forYou}>
-          <Box sx={{ mb: 3 }}>
+          <Box sx={{ mb: 3, width: '100%', px: 0 }}>
             <Typography variant="h6" gutterBottom>
               Personalized Recommendations
             </Typography>
@@ -403,6 +416,7 @@ const Home = () => {
                   Retry
                 </Button>
               }
+              sx={{ width: '100%' }}
             >
               {contextError.personalized}
             </Alert>
