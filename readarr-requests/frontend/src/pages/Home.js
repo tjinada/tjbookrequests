@@ -259,41 +259,64 @@ const Home = () => {
   };
 
   return (
-    <Box>
+    <Box sx={{ 
+      p: { xs: 2, sm: 3 },
+      maxWidth: '1200px', 
+      mx: 'auto'
+    }}>
       <Box
         sx={{ 
-          // Ensure the container doesn't interfere with scrolling
-          overflowY: 'visible',
-          touchAction: 'pan-y',
-          // Add bottom padding to ensure content isn't hidden behind bottom nav
-          pb: { xs: 8, sm: 4 }
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          mb: 4,
+          mt: 1
         }}
       >
-        <Typography variant="h4" component="h1" gutterBottom>
+        <Typography 
+          variant="h4" 
+          component="h1" 
+          sx={{ 
+            fontWeight: 600,
+            letterSpacing: '-0.5px'
+          }}
+        >
           Discover Books
         </Typography>
+        
         <Button 
           variant="contained" 
           component={Link} 
           to="/search" 
           startIcon={<SearchIcon />}
+          sx={{
+            borderRadius: '50px',
+            px: 2,
+            py: 1
+          }}
         >
-          Search Books
+          Search
         </Button>
       </Box>
-
-      {/* Filters */}
-      {renderFilters()}
-
-      {/* Main Tabs */}
+  
+      {/* Remove filters section and keep only refresh */}
+      {isAdmin && (
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
+          <CachePurger onSuccess={handleRefresh} />
+        </Box>
+      )}
+  
+      {/* Improved tabs styling */}
       <Box 
         sx={{ 
           borderBottom: 1, 
           borderColor: 'divider', 
-          mb: 3,
+          mb: 4,
           position: 'relative',
-          zIndex: 10, // Ensure it's above content but doesn't break scrolling
-          bgcolor: 'background.paper'
+          zIndex: 10,
+          bgcolor: 'background.paper',
+          borderRadius: '12px 12px 0 0',
+          boxShadow: '0 -2px 10px rgba(0,0,0,0.05)'
         }}
       >
         <Tabs 
@@ -303,14 +326,24 @@ const Home = () => {
           variant="scrollable"
           scrollButtons="auto"
           sx={{
-            // Improve touch scrolling on the tabs
             '& .MuiTabs-scroller': {
               touchAction: 'pan-x',
               overflowX: 'auto'
+            },
+            '& .MuiTab-root': {
+              fontSize: '0.95rem',
+              fontWeight: 600,
+              px: 3
+            },
+            '& .Mui-selected': {
+              color: 'primary.main',
+            },
+            '& .MuiTabs-indicator': {
+              height: 3,
+              borderRadius: '3px 3px 0 0'
             }
           }}
         >
-          {/* For You Tab - Only show when user is authenticated and has recommendations */}
           {showForYouTab && (
             <Tab 
               icon={<FavoriteIcon />} 
