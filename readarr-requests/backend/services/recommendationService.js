@@ -1,6 +1,7 @@
 // backend/services/recommendationService.js
 const openLibraryAPI = require('../config/openLibrary');
 const googleBooksAPI = require('../config/googleBooks');
+const coverService = require('./coverService');
 const Request = require('../models/Request');
 const fs = require('fs');
 const path = require('path');
@@ -64,24 +65,71 @@ class RecommendationService {
         return this.cache.trending;
       }
 
-      log('Fetching trending books from multiple sources');
+      log('Fetching trending books from Google Books (prioritizing recent 5 years)');
       
-      // Fetch from both sources
-      const [googleTrending, openLibraryTrending] = await Promise.all([
-        googleBooksAPI.getRecentBooks(limit),
-        openLibraryAPI.getTrendingBooks(limit)
-      ]);
+      // Current year for filtering
+      const currentYear = new Date().getFullYear();
+      const lastFiveYearsStart = currentYear - 5;
       
-      // Blend and deduplicate results
-      const blendedBooks = this.blendAndDeduplicate(
-        googleTrending, 
-        openLibraryTrending,
-        // Rank weights - prioritize recency and novelty
-        { recencyWeight: 0.6, ratingWeight: 0.3, popularityWeight: 0.1 }
+      // Use Google Books API for trending books with recent date filter
+      // We'll prioritize Google Books since it tends to have better data for recent books
+      const googleTrendingResponse = await googleBooksAPI.searchBooks(
+        `publishedDate:${lastFiveYearsStart}-${currentYear}`, 
+        80
       );
       
-      // Apply post-processing to improve result quality
-      const processedBooks = this.postProcessResults(blendedBooks, limit);
+      // Generate a highly targeted search for recent popular books
+      const googlePopularRecent = await googleBooksAPI.searchBooks(
+        `subject:fiction+publishedDate:${lastFiveYearsStart}-${currentYear}+bestseller`, 
+        40
+      );
+      
+      // Get OpenLibrary trending as backup/supplementary
+      const openLibraryTrending = await openLibraryAPI.getTrendingBooks(40);
+      
+      // Combine all results
+      const allBooks = [
+        ...googleTrendingResponse,
+        ...googlePopularRecent, 
+        ...openLibraryTrending
+      ];
+      
+      // Deduplicate and clean results
+      const uniqueBooks = new Map();
+      
+      allBooks.forEach(book => {
+        // Skip books without year or with year before our cutoff (we want recent books)
+        if (book.year && book.year >= lastFiveYearsStart) {
+          const key = `${book.title}|${book.author}`.toLowerCase();
+          
+          // If book already exists, keep the one with the cover image
+          if (uniqueBooks.has(key)) {
+            const existingBook = uniqueBooks.get(key);
+            // Prefer the version with a cover
+            if (!existingBook.cover && book.cover) {
+              uniqueBooks.set(key, book);
+            }
+          } else {
+            uniqueBooks.set(key, book);
+          }
+        }
+      });
+      
+      // Convert to array
+      const recentBooks = Array.from(uniqueBooks.values());
+      
+      // Sort primarily by year (most recent first) and then by rating
+      recentBooks.sort((a, b) => {
+        // First prioritize by year
+        if (b.year !== a.year) {
+          return b.year - a.year;
+        }
+        // Then by rating
+        return (b.rating || 0) - (a.rating || 0);
+      });
+      
+      // Apply post-processing to improve result quality with cover enhancement
+      const processedBooks = await this.postProcessResults(recentBooks, limit);
       
       // Update cache
       this.cache.trending = processedBooks;
@@ -135,8 +183,8 @@ class RecommendationService {
         { recencyWeight: 0.2, ratingWeight: 0.5, popularityWeight: 0.3 }
       );
       
-      // Apply post-processing to improve result quality
-      const processedBooks = this.postProcessResults(blendedBooks, limit);
+      // Apply post-processing to improve result quality with cover enhancement
+      const processedBooks = await this.postProcessResults(blendedBooks, limit);
       
       // Update cache
       this.cache.popular = processedBooks;
@@ -179,8 +227,8 @@ class RecommendationService {
       // Get NYT bestsellers from Google Books
       const nytBooks = await googleBooksAPI.getNytBestsellers(limit);
       
-      // Apply post-processing to improve result quality
-      const processedBooks = this.postProcessResults(nytBooks, limit);
+      // Apply post-processing to improve result quality with cover enhancement
+      const processedBooks = await this.postProcessResults(nytBooks, limit);
       
       // Update cache
       this.cache.nytBestsellers = processedBooks;
@@ -217,8 +265,8 @@ class RecommendationService {
       // Get award winners from OpenLibrary
       const awardBooks = await openLibraryAPI.getAwardWinners(limit);
       
-      // Apply post-processing to improve result quality
-      const processedBooks = this.postProcessResults(awardBooks, limit);
+      // Apply post-processing to improve result quality with cover enhancement
+      const processedBooks = await this.postProcessResults(awardBooks, limit);
       
       // Update cache
       this.cache.awardWinners = processedBooks;
@@ -266,8 +314,8 @@ class RecommendationService {
         { recencyWeight: 0.8, ratingWeight: 0.1, popularityWeight: 0.1 }
       );
       
-      // Apply post-processing to improve result quality
-      const processedBooks = this.postProcessResults(blendedBooks, limit);
+      // Apply post-processing to improve result quality with cover enhancement
+      const processedBooks = await this.postProcessResults(blendedBooks, limit);
       
       // Update cache
       this.cache.recentBooks = processedBooks;
@@ -411,7 +459,7 @@ class RecommendationService {
       recommendations = recommendations.filter(book => !requestedBookIds.has(book.id));
       
       // Process and sort the results to boost personalized relevance
-      const processedRecommendations = this.processPersonalizedResults(
+      const processedRecommendations = await this.processPersonalizedResults(
         recommendations, 
         {
           authors, 
@@ -461,8 +509,8 @@ class RecommendationService {
       // Get books from OpenLibrary for this genre
       const genreBooks = await openLibraryAPI.getBooksByGenre(genreId, limit);
       
-      // Apply post-processing to improve result quality
-      const processedBooks = this.postProcessResults(genreBooks, limit);
+      // Apply post-processing to improve result quality with cover enhancement
+      const processedBooks = await this.postProcessResults(genreBooks, limit);
       
       // Update cache
       this.cache.genreRecommendations[genreId] = processedBooks;
@@ -524,7 +572,7 @@ class RecommendationService {
    * @param {number} limit - Number of books to return
    * @returns {Array} - Processed books
    */
-  postProcessResults(books, limit) {
+  async postProcessResults(books, limit) {
     if (!books || !Array.isArray(books)) return [];
     
     // Current date for age calculations
@@ -580,59 +628,35 @@ class RecommendationService {
     // Sort by score (descending)
     const sortedBooks = scoredBooks.sort((a, b) => b.score - a.score);
     
-    // Take only as many books as requested
-    return sortedBooks.slice(0, limit);
+    // Take only as many books as requested (plus some extras for cover enhancement)
+    const topBooks = sortedBooks.slice(0, limit * 1.5);
+    
+    // Enhance book covers for results that don't have them
+    log(`Enhancing covers for ${topBooks.length} books`);
+    const enhancedBooks = await coverService.enhanceBookCovers(topBooks);
+    
+    // Re-score books after cover enhancement
+    const rescoredBooks = enhancedBooks.map(book => {
+      // Start with the existing score
+      let score = book.score || 0;
+      
+      // Boost books that now have covers
+      if (book.cover) {
+        score += 3;
+      }
+      
+      return { ...book, score };
+    });
+    
+    // Re-sort by score and limit to requested number
+    const finalBooks = rescoredBooks
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit);
+    
+    return finalBooks;
   }
 
-  /**
-   * Process personalized results
-   * @param {Array} books - Books to process
-   * @param {Object} preferences - User preferences
-   * @param {number} limit - Number of books to return
-   * @returns {Array} - Processed books
-   */
-  processPersonalizedResults(books, preferences, limit) {
-    if (!books || !Array.isArray(books)) return [];
-    
-    const { authors, genres, recencyWeight, ratingWeight, relevanceWeight } = preferences;
-    const currentYear = new Date().getFullYear();
-    
-    // Score books for ranking
-    const scoredBooks = books.map(book => {
-      // Start with base score
-      let score = 0;
-      
-      // Recency score (0-10)
-      const year = typeof book.year === 'string' ? parseInt(book.year) : book.year;
-      let recencyScore = 0;
-      
-      if (year) {
-        if (year === currentYear) {
-          recencyScore = 10;
-        } else if (year >= currentYear - 5) {
-          recencyScore = 8 - (currentYear - year);
-        } else if (year >= currentYear - 10) {
-          recencyScore = 3;
-        } else {
-          recencyScore = 1;
-        }
-      }
-      
-      // Rating score (0-10)
-      let ratingScore = 0;
-      if (book.rating) {
-        ratingScore = book.rating * 2; // Convert 0-5 to 0-10
-      }
-      
-      // Relevance score (0-10)
-      let relevanceScore = 0;
-      
-      // Author match
-      if (authors.some(author => book.author.toLowerCase().includes(author.toLowerCase()))) {
-        relevanceScore += 5;
-      }
-      
-      // Genre match
+ Genre match
       if (book.genres && genres.some(genre => book.genres.includes(genre))) {
         relevanceScore += 5;
       }
