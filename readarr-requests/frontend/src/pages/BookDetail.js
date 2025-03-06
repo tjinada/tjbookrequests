@@ -81,7 +81,8 @@ const BookDetail = () => {
         title: book.title,
         author: book.author,
         cover: book.cover,
-        isbn: book.isbn // Add ISBN to the request
+        isbn: book.isbn,
+        source: source || (id.includes('google') ? 'google' : 'openLibrary')
       });
 
       setRequested(true);
@@ -145,9 +146,34 @@ const BookDetail = () => {
           </Grid>
 
           <Grid item xs={12} md={8}>
-            <Typography variant="h4" component="h1" gutterBottom>
-              {book.title}
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h4" component="h1" sx={{ mr: 2 }}>
+                {book.title}
+              </Typography>
+
+              {requested ? (
+                <Button
+                  variant="contained"
+                  color="success"
+                  startIcon={<CheckCircleIcon />}
+                  size="large"
+                  disabled
+                >
+                  Requested
+                </Button>
+              ) : (
+                <Button
+                  variant="contained"
+                  color="primary"
+                  startIcon={<BookmarkAddIcon />}
+                  onClick={handleRequestBook}
+                  disabled={requesting}
+                  size="large"
+                >
+                  {requesting ? 'Requesting...' : 'Request Book'}
+                </Button>
+              )}
+            </Box>
 
             <Typography variant="h6" gutterBottom>
               by {book.author}
@@ -195,28 +221,6 @@ const BookDetail = () => {
                 {requestError}
               </Alert>
             )}
-
-            <Box sx={{ mt: 4 }}>
-              {requested ? (
-                <Button
-                  variant="contained"
-                  color="success"
-                  startIcon={<CheckCircleIcon />}
-                  disabled
-                >
-                  Requested
-                </Button>
-              ) : (
-                <Button
-                  variant="contained"
-                  startIcon={<BookmarkAddIcon />}
-                  onClick={handleRequestBook}
-                  disabled={requesting}
-                >
-                  {requesting ? 'Requesting...' : 'Request Book'}
-                </Button>
-              )}
-            </Box>
           </Grid>
         </Grid>
       </Paper>

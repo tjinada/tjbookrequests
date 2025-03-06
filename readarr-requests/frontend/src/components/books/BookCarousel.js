@@ -1,17 +1,15 @@
 // src/components/books/BookCarousel.js
 import React, { useRef, useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import KeyboardArrowLeftIcon from '@mui/icons-material/KeyboardArrowLeft';
 import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import CircularProgress from '@mui/material/CircularProgress';
-import BookmarkAddIcon from '@mui/icons-material/BookmarkAdd';
-import InfoIcon from '@mui/icons-material/Info';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
-import BookCard from './BookCard'; // Use regular BookCard instead of swipeable
-import { useNavigate } from 'react-router-dom';
+import BookCard from './BookCard';
 
 const BookCarousel = ({ 
   title, 
@@ -68,6 +66,11 @@ const BookCarousel = ({
     }
   };
   
+  // Handle book click - Navigate to details page
+  const handleBookClick = (book) => {
+    navigate(`/book/${book.id}`);
+  };
+  
   // Handle resize to check arrow visibility
   useEffect(() => {
     const handleResize = () => {
@@ -81,11 +84,6 @@ const BookCarousel = ({
       window.removeEventListener('resize', handleResize);
     };
   }, [books]);
-  
-  // Handle book click
-  const handleBookClick = (book) => {
-    navigate(`/book/${book.id}`);
-  };
 
   if (loading) {
     return (
@@ -227,64 +225,6 @@ const BookCarousel = ({
             onClick={() => handleBookClick(book)}
           >
             <BookCard book={book} />
-            
-            {/* Action buttons directly in the card container */}
-            <Box
-              sx={{
-                position: 'absolute',
-                top: 10,
-                right: 10,
-                zIndex: 10,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 1
-              }}
-              onClick={(e) => e.stopPropagation()} // Prevent card click when buttons are clicked
-            >
-              <IconButton
-                size="small"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  navigate(`/book/${book.id}`);
-                }}
-                sx={{
-                  bgcolor: theme.palette.mode === 'dark' ? 'rgba(25, 118, 210, 0.9)' : 'rgba(25, 118, 210, 0.9)',
-                  color: '#ffffff',
-                  '&:hover': { 
-                    bgcolor: theme.palette.mode === 'dark' ? 'rgba(25, 118, 210, 1)' : 'rgba(25, 118, 210, 1)',
-                    transform: 'scale(1.1)'
-                  },
-                  boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
-                  width: 36,
-                  height: 36,
-                  transition: 'all 0.2s ease',
-                }}
-              >
-                <InfoIcon fontSize="small" />
-              </IconButton>
-              
-              <IconButton
-                size="small"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onRequestBook && onRequestBook(book);
-                }}
-                sx={{
-                  bgcolor: theme.palette.mode === 'dark' ? 'rgba(211, 47, 47, 0.9)' : 'rgba(211, 47, 47, 0.9)',
-                  color: '#ffffff',
-                  '&:hover': { 
-                    bgcolor: theme.palette.mode === 'dark' ? 'rgba(211, 47, 47, 1)' : 'rgba(211, 47, 47, 1)',
-                    transform: 'scale(1.1)'
-                  },
-                  boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
-                  width: 36,
-                  height: 36,
-                  transition: 'all 0.2s ease',
-                }}
-              >
-                <BookmarkAddIcon fontSize="small" />
-              </IconButton>
-            </Box>
           </Box>
         ))}
       </Box>
