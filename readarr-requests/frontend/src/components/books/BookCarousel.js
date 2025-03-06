@@ -1,5 +1,5 @@
 // src/components/books/BookCarousel.js
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
@@ -24,6 +24,9 @@ const BookCarousel = ({
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
   const [isScrolling, setIsScrolling] = useState(false);
+  const [touchStartX, setTouchStartX] = useState(0);
+  const [touchStartY, setTouchStartY] = useState(0);
+  const [isHorizontalScroll, setIsHorizontalScroll] = useState(false);
   
   // Card width + gap
   const itemWidth = isMobile ? 160 : 200;
@@ -64,11 +67,64 @@ const BookCarousel = ({
     }
   };
   
-  // Function to identify when a touch is for swiping a book vs. scrolling the carousel
+  // Add touch handlers to make the carousel more responsive
   const handleTouchStart = (e) => {
-    // Mark the touch as being for the carousel
-    carouselRef.current.dataset.touchCarousel = 'true';
+    setTouchStartX(e.touches[0].clientX);
+    setTouchStartY(e.touches[0].clientY);
+    
+    // Mark this carousel as actively touched
+    if (carouselRef.current) {
+      carouselRef.current.dataset.touchCarousel = 'true';
+    }
   };
+  
+  const handleTouchMove = (e) => {
+    if (!carouselRef.current || !touchStartX) return;
+    
+    const touchCurrentX = e.touches[0].clientX;
+    const touchCurrentY = e.touches[0].clientY;
+    const deltaX = touchStartX - touchCurrentX;
+    const deltaY = touchStartY - touchCurrentY;
+    
+    // Determine if this is primarily horizontal scrolling
+    if (!isHorizontalScroll) {
+      if (Math.abs(deltaX) > Math.abs(deltaY) * 1.5) {
+        setIsHorizontalScroll(true);
+        e.preventDefault(); // Prevent vertical scrolling during horizontal swipe
+      }
+    }
+    
+    // Apply horizontal scroll to carousel if this is a horizontal movement
+    if (isHorizontalScroll) {
+      carouselRef.current.scrollLeft += deltaX / 2;
+      setTouchStartX(touchCurrentX);
+      e.stopPropagation();
+    }
+  };
+  
+  const handleTouchEnd = () => {
+    setIsHorizontalScroll(false);
+    checkScrollButtons();
+    
+    // Remove the active touch marker
+    if (carouselRef.current) {
+      delete carouselRef.current.dataset.touchCarousel;
+    }
+  };
+  
+  // Handle resize to check arrow visibility
+  useEffect(() => {
+    const handleResize = () => {
+      checkScrollButtons();
+    };
+    
+    window.addEventListener('resize', handleResize);
+    checkScrollButtons(); // Initial check
+    
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [books]);
 
   if (loading) {
     return (
@@ -178,6 +234,7 @@ const BookCarousel = ({
           mx: -0.5,
           pb: 1.5, // Space for shadow
           position: 'relative',
+          touchAction: 'pan-x', // Allow only horizontal swiping in the carousel
           '&::after': {
             // Fade indicator on the right side when more content is available
             content: '""',
@@ -193,6 +250,10 @@ const BookCarousel = ({
         }}
         onScroll={handleScrollEvent}
         onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        className="book-carousel"
+        data-carousel="true"
       >
         {books.map((book, index) => (
           <Box 

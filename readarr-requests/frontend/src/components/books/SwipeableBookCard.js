@@ -1,5 +1,5 @@
 // src/components/books/SwipeableBookCard.js
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useSwipeable } from 'react-swipeable';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
@@ -17,7 +17,7 @@ const SwipeableBookCard = ({ book, onRequest, carouselMode = false }) => {
   const [swipePercentage, setSwipePercentage] = useState(0);
   const cardRef = useRef(null);
   const [isSwiping, setIsSwiping] = useState(false);
-  const touchStartXRef = useRef(0);
+  const [isInCarousel, setIsInCarousel] = useState(carouselMode);
   
   // Function to optimize image URL for better quality
   const getOptimizedImageUrl = (url) => {
@@ -60,27 +60,44 @@ const SwipeableBookCard = ({ book, onRequest, carouselMode = false }) => {
     cover: getOptimizedImageUrl(book.cover)
   };
 
-  // Track if touch is intended for card swipe vs carousel scroll
-  const handleTouchStart = (e) => {
-    touchStartXRef.current = e.touches[0].clientX;
-    
-    // Only set swiping mode if we're not in a carousel
-    // Or if we explicitly intend to swipe the card (touch started on the card)
-    const parentElement = e.currentTarget.closest('[data-touchcarousel="true"]');
-    if (!parentElement) {
-      setIsSwiping(true);
+  // Check if card is actually inside a carousel
+  useEffect(() => {
+    if (cardRef.current) {
+      // Check if any parent has a carousel data attribute or class
+      let parent = cardRef.current.parentElement;
+      while (parent) {
+        if (parent.dataset && parent.dataset.carousel === 'true' || 
+            parent.classList && parent.classList.contains('book-carousel')) {
+          setIsInCarousel(true);
+          break;
+        }
+        parent = parent.parentElement;
+      }
     }
+  }, []);
+
+  // For touch events on card body
+  const handleTouchStart = (e) => {
+    // Skip swipe handling if we're in a carousel
+    if (isInCarousel) return;
+    
+    // Setup for card-specific swipe
+    setIsSwiping(true);
+  };
+
+  // Helper to determine if we're trying to scroll the page
+  const isVerticalScrollAttempt = (deltaX, deltaY) => {
+    // If primarily vertical motion (1.5x more vertical than horizontal)
+    return Math.abs(deltaY) > Math.abs(deltaX) * 1.5;
   };
 
   const handlers = useSwipeable({
     onSwiping: (eventData) => {
-      // Skip if we're in carousel mode and not explicitly swiping this card
-      if (carouselMode && !isSwiping) return;
+      // Skip if in carousel or if we're trying to scroll the page
+      if (isInCarousel || !isSwiping) return;
       
-      // Only handle horizontal swipes
-      // More strict condition: vertical movement must be less than half of horizontal
-      if (Math.abs(eventData.deltaY) > Math.abs(eventData.deltaX) * 0.5) {
-        // This is likely a vertical scroll attempt, cancel any swipe action
+      // Check if this is likely a scroll attempt
+      if (isVerticalScrollAttempt(eventData.deltaX, eventData.deltaY)) {
         setSwipeDirection(null);
         setSwipePercentage(0);
         return;
@@ -94,14 +111,14 @@ const SwipeableBookCard = ({ book, onRequest, carouselMode = false }) => {
       setSwipePercentage(percentage);
     },
     onSwipedLeft: (eventData) => {
-      // Skip if we're in carousel mode and not explicitly swiping this card
-      if (carouselMode && !isSwiping) {
+      // Skip if in carousel
+      if (isInCarousel || !isSwiping) {
         setIsSwiping(false);
         return;
       }
       
       // Only trigger if this was primarily a horizontal swipe
-      if (Math.abs(eventData.deltaY) < Math.abs(eventData.deltaX)) {
+      if (!isVerticalScrollAttempt(eventData.deltaX, eventData.deltaY)) {
         // Only trigger if swiped far enough - reduced threshold for easier activation
         if (swipePercentage > 30 && onRequest) {
           onRequest(optimizedBook);
@@ -113,14 +130,14 @@ const SwipeableBookCard = ({ book, onRequest, carouselMode = false }) => {
       setIsSwiping(false);
     },
     onSwipedRight: (eventData) => {
-      // Skip if we're in carousel mode and not explicitly swiping this card
-      if (carouselMode && !isSwiping) {
+      // Skip if in carousel
+      if (isInCarousel || !isSwiping) {
         setIsSwiping(false);
         return;
       }
       
       // Only trigger if this was primarily a horizontal swipe
-      if (Math.abs(eventData.deltaY) < Math.abs(eventData.deltaX)) {
+      if (!isVerticalScrollAttempt(eventData.deltaX, eventData.deltaY)) {
         // Only trigger if swiped far enough - reduced threshold for easier activation
         if (swipePercentage > 30) {
           navigate(`/book/${book.id}`);
@@ -145,8 +162,10 @@ const SwipeableBookCard = ({ book, onRequest, carouselMode = false }) => {
   // For touch events on card body
   const cardHandlers = {
     onTouchStart: (e) => {
-      e.stopPropagation();
-      handleTouchStart(e);
+      if (!isInCarousel) {
+        e.stopPropagation();
+        handleTouchStart(e);
+      }
     }
   };
 
