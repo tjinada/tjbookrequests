@@ -1,4 +1,4 @@
-// Updated SwipeableBookCard.js with carousel compatibility
+// src/components/books/SwipeableBookCard.js
 import React, { useState, useRef } from 'react';
 import { useSwipeable } from 'react-swipeable';
 import { useNavigate } from 'react-router-dom';
@@ -61,8 +61,8 @@ const SwipeableBookCard = ({ book, onRequest, carouselMode = false }) => {
   };
 
   // Track if touch is intended for card swipe vs carousel scroll
-  const handleTouchStart = (event) => {
-    touchStartXRef.current = event.touches[0].clientX;
+  const handleTouchStart = (e) => {
+    touchStartXRef.current = e.touches[0].clientX;
     
     // Only set swiping mode if we're not in a carousel
     // Or if we explicitly intend to swipe the card (touch started on the card)
@@ -162,45 +162,55 @@ const SwipeableBookCard = ({ book, onRequest, carouselMode = false }) => {
       {...cardHandlers}
       data-cardswipe="true"
     >
-      {/* Action buttons for easier interaction (alternative to swipe) */}
+      {/* IMPROVED ACTION BUTTONS */}
       <Box
         sx={{
           position: 'absolute',
-          bottom: 8,
-          right: 8,
+          bottom: 16,
+          left: 0,
+          right: 0,
           zIndex: 10,
           display: 'flex',
-          gap: 0.5
+          justifyContent: 'center',
+          gap: 2
         }}
       >
         <IconButton
-          size="small"
-          color="primary"
+          size="medium"
           onClick={() => navigate(`/book/${book.id}`)}
           sx={{
-            bgcolor: 'rgba(255,255,255,0.8)',
-            '&:hover': { bgcolor: 'rgba(255,255,255,0.9)' },
-            boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-            width: 32,
-            height: 32
+            bgcolor: theme.palette.mode === 'dark' ? 'rgba(25, 118, 210, 0.9)' : 'rgba(25, 118, 210, 0.9)',
+            color: '#ffffff',
+            '&:hover': { 
+              bgcolor: theme.palette.mode === 'dark' ? 'rgba(25, 118, 210, 1)' : 'rgba(25, 118, 210, 1)',
+              transform: 'scale(1.1)'
+            },
+            boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+            width: 48,
+            height: 48,
+            transition: 'all 0.2s ease',
           }}
         >
-          <InfoIcon fontSize="small" />
+          <InfoIcon />
         </IconButton>
         
         <IconButton
-          size="small"
-          color="primary"
+          size="medium"
           onClick={() => onRequest && onRequest(optimizedBook)}
           sx={{
-            bgcolor: 'rgba(255,255,255,0.8)',
-            '&:hover': { bgcolor: 'rgba(255,255,255,0.9)' },
-            boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-            width: 32,
-            height: 32
+            bgcolor: theme.palette.mode === 'dark' ? 'rgba(211, 47, 47, 0.9)' : 'rgba(211, 47, 47, 0.9)',
+            color: '#ffffff',
+            '&:hover': { 
+              bgcolor: theme.palette.mode === 'dark' ? 'rgba(211, 47, 47, 1)' : 'rgba(211, 47, 47, 1)',
+              transform: 'scale(1.1)'
+            },
+            boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+            width: 48,
+            height: 48,
+            transition: 'all 0.2s ease',
           }}
         >
-          <BookmarkAddIcon fontSize="small" />
+          <BookmarkAddIcon />
         </IconButton>
       </Box>
 
@@ -213,7 +223,7 @@ const SwipeableBookCard = ({ book, onRequest, carouselMode = false }) => {
             right: 0,
             bottom: 0,
             width: '40%',
-            bgcolor: 'rgba(25, 118, 210, 0.2)',
+            bgcolor: 'rgba(211, 47, 47, 0.4)',
             backdropFilter: 'blur(3px)',
             zIndex: 1,
             display: 'flex',
@@ -232,7 +242,7 @@ const SwipeableBookCard = ({ book, onRequest, carouselMode = false }) => {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              bgcolor: 'primary.main',
+              bgcolor: 'error.main',
               mb: 1,
               boxShadow: theme.shadows[3]
             }}
@@ -265,7 +275,7 @@ const SwipeableBookCard = ({ book, onRequest, carouselMode = false }) => {
             left: 0,
             bottom: 0,
             width: '40%',
-            bgcolor: 'rgba(0, 200, 255, 0.2)',
+            bgcolor: 'rgba(25, 118, 210, 0.4)',
             backdropFilter: 'blur(3px)',
             zIndex: 1,
             display: 'flex',
@@ -284,7 +294,7 @@ const SwipeableBookCard = ({ book, onRequest, carouselMode = false }) => {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              bgcolor: 'info.main',
+              bgcolor: 'primary.main',
               mb: 1,
               boxShadow: theme.shadows[3]
             }}
