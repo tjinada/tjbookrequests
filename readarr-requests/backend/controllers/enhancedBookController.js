@@ -103,43 +103,66 @@ exports.getPersonalizedRecommendations = async (req, res) => {
 
 // Get book details
 exports.getBookDetails = async (req, res) => {
-  try {
-    const { id } = req.params;
-    console.log(`Book details requested for ID: ${id}`);
-
-    // Add validation to prevent reserved route names
-    if (['genres', 'genre', 'latest', 'popular', 'search', 'nyt', 'awards', 'recent', 'personalized'].includes(id)) {
-      return res.status(400).json({ 
-        message: `Invalid book ID: ${id} is a reserved route name` 
-      });
+    try {
+      const { id } = req.params;
+      console.log(`Book details requested for ID: ${id}`);
+  
+      // Add validation to prevent reserved route names
+      if (['genres', 'genre', 'latest', 'popular', 'search', 'nyt', 'awards', 'recent', 'personalized'].includes(id)) {
+        return res.status(400).json({ 
+          message: `Invalid book ID: ${id} is a reserved route name` 
+        });
+      }
+  
+      // Determine which API to use based on the ID format
+      if (id.startsWith('gb-')) {
+        // Google Books ID
+        const googleId = id.substring(3); // Remove the 'gb-' prefix
+        const bookDetails = await googleBooksAPI.getBookDetails(googleId);
+        return res.json(bookDetails);
+      } else if (id.startsWith('ol-')) {
+        // OpenLibrary ID
+        const bookDetails = await openLibraryAPI.getBookDetails(id);
+        return res.json(bookDetails);
+      } else {
+        // Try to determine the format based on the ID structure
+        if (id.match(/^[A-Za-z0-9_-]{12,}$/)) {
+          // Looks like a Google Books ID (typically 12+ alphanumeric chars)
+          const bookDetails = await googleBooksAPI.getBookDetails(id);
+          return res.json(bookDetails);
+        } else {
+          // Default to OpenLibrary
+          const bookDetails = await openLibraryAPI.getBookDetails(id);
+          return res.json(bookDetails);
+        }
+      }
+    } catch (err) {
+      console.error('Error getting book details:', err);
+      res.status(500).json({ message: 'Failed to get book details' });
     }
-
-    const bookDetails = await openLibraryAPI.getBookDetails(id);
-    res.json(bookDetails);
-  } catch (err) {
-    console.error('Error getting book details:', err);
-    res.status(500).json({ message: 'Failed to get book details' });
-  }
-};
-
-// Get Google book details
-exports.getGoogleBookDetails = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    // Call Google Books API to get the book details
-    const bookDetails = await googleBooksAPI.getBookDetails(id);
-    
-    if (!bookDetails) {
-      return res.status(404).json({ message: 'Book not found' });
+  };
+  
+  // Get Google book details
+  exports.getGoogleBookDetails = async (req, res) => {
+    try {
+      const { id } = req.params;
+  
+      // Remove any prefix if present
+      const googleId = id.startsWith('gb-') ? id.substring(3) : id;
+  
+      // Call Google Books API to get the book details
+      const bookDetails = await googleBooksAPI.getBookDetails(googleId);
+      
+      if (!bookDetails) {
+        return res.status(404).json({ message: 'Book not found' });
+      }
+  
+      res.json(bookDetails);
+    } catch (err) {
+      console.error('Error getting Google book details:', err);
+      res.status(500).json({ message: 'Failed to get book details' });
     }
-
-    res.json(bookDetails);
-  } catch (err) {
-    console.error('Error getting Google book details:', err);
-    res.status(500).json({ message: 'Failed to get book details' });
-  }
-};
+  };
 
 // Search books
 exports.searchBooks = async (req, res) => {
