@@ -1,4 +1,4 @@
-// Streamlined Home.js without filters and tabs
+// src/pages/Home.js
 import React, { useState, useEffect, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Typography from '@mui/material/Typography';
@@ -12,7 +12,6 @@ import AppContext from '../context/AppContext';
 import AuthContext from '../context/AuthContext';
 import CachePurger from '../components/admin/CachePurger';
 import BookCarousel from '../components/books/BookCarousel';
-import SwipeTutorial from '../components/common/SwipeTutorial';
 import BookRequestDialog from '../components/books/BookRequestDialog';
 
 const Home = () => {
@@ -28,7 +27,6 @@ const Home = () => {
     popularBooks,
     nytBooks,
     awardBooks,
-    recentBooks,
     personalizedBooks,
     fetchHomeData,
     fetchPersonalizedRecommendations,
@@ -62,13 +60,6 @@ const Home = () => {
     return [...books].sort((a, b) => (b.rating || 0) - (a.rating || 0));
   };
 
-  // Helper function to filter recent books
-  const getRecentBooks = (books) => {
-    if (!books || !Array.isArray(books)) return [];
-    const currentYear = new Date().getFullYear();
-    return books.filter(book => book.year && book.year >= currentYear - 5);
-  };
-
   // If initial loading, show loading spinner
   if (loading && !popularBooks.length) {
     return (
@@ -78,28 +69,7 @@ const Home = () => {
     );
   }
 
-  // Filter fiction books
-  const fictionBooks = popularBooks.filter(book => 
-    book.genres && book.genres.some(g => 
-      g.toLowerCase().includes('fiction') && 
-      !g.toLowerCase().includes('non-fiction')
-    )
-  );
-
-  // Filter non-fiction books
-  const nonFictionBooks = popularBooks.filter(book => 
-    book.genres && book.genres.some(g => 
-      g.toLowerCase().includes('non-fiction')
-    )
-  );
-
-  // Filter literary fiction
-  const literaryBooks = [...popularBooks, ...awardBooks].filter(book => 
-    book.genres && book.genres.some(g => 
-      g.toLowerCase().includes('literary') || 
-      g.toLowerCase().includes('classic')
-    )
-  );
+  // We're no longer filtering for non-fiction books
 
   // Check if we have personalized recommendations
   const hasPersonalizedBooks = isAuthenticated && personalizedBooks && personalizedBooks.length > 0;
@@ -143,14 +113,6 @@ const Home = () => {
           />
         )}
         
-        {/* New Releases */}
-        <BookCarousel
-          title="New Releases"
-          books={getRecentBooks(recentBooks)}
-          onRequestBook={handleRequestBook}
-          emptyMessage="No recent releases available."
-        />
-        
         {/* Popular Now */}
         <BookCarousel
           title="Popular Now"
@@ -167,25 +129,7 @@ const Home = () => {
           emptyMessage="No bestsellers available."
         />
         
-        {/* Fiction */}
-        {fictionBooks.length > 0 && (
-          <BookCarousel
-            title="Fiction"
-            books={sortByRating(fictionBooks)}
-            onRequestBook={handleRequestBook}
-            emptyMessage="No fiction books available."
-          />
-        )}
-        
-        {/* Non-Fiction */}
-        {nonFictionBooks.length > 0 && (
-          <BookCarousel
-            title="Non-Fiction"
-            books={sortByRating(nonFictionBooks)}
-            onRequestBook={handleRequestBook}
-            emptyMessage="No non-fiction books available."
-          />
-        )}
+        {/* Non-Fiction section removed */}
         
         {/* Award Winners */}
         <BookCarousel
@@ -194,16 +138,6 @@ const Home = () => {
           onRequestBook={handleRequestBook}
           emptyMessage="No award-winning books available."
         />
-        
-        {/* Literary Fiction */}
-        {literaryBooks.length > 0 && (
-          <BookCarousel
-            title="Literary Fiction"
-            books={sortByRating(literaryBooks)}
-            onRequestBook={handleRequestBook}
-            emptyMessage="No literary fiction books available."
-          />
-        )}
       </Box>
       
       {/* Admin-only refresh section */}
@@ -241,9 +175,6 @@ const Home = () => {
           book={selectedBook}
         />
       )}
-      
-      {/* Tutorial for swipe gestures */}
-      <SwipeTutorial />
     </Box>
   );
 };
