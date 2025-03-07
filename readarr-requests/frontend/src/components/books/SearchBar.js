@@ -1,10 +1,19 @@
-// src/components/books/SearchBar.js
+// src/components/books/SearchBar.js - Enhanced version
 import React from 'react';
-import Paper from '@mui/material/Paper';
-import InputBase from '@mui/material/InputBase';
-import IconButton from '@mui/material/IconButton';
+import { 
+  Paper, 
+  InputBase, 
+  IconButton,
+
+  Divider,
+  Box,
+  useTheme,
+  useMediaQuery
+} from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
+import BookIcon from '@mui/icons-material/Book';
+import PersonIcon from '@mui/icons-material/Person';
 
 const SearchBar = ({ 
   titleValue = '', 
@@ -13,21 +22,22 @@ const SearchBar = ({
   onAuthorChange, 
   onSubmit, 
   onClear, 
-  disabled = false
+  disabled = false 
 }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
   return (
     <Paper
-      component="form"
-      onSubmit={(e) => {
-        e.preventDefault(); // Prevent form from actually submitting
-        if (onSubmit) onSubmit(e);
-      }}
+      component="div"
       sx={{
         p: '2px 4px',
         display: 'flex',
         alignItems: 'center',
         width: '100%',
-        flexDirection: { xs: 'column', sm: 'row' }
+        flexDirection: isMobile ? 'column' : 'row',
+        flexWrap: isMobile ? 'wrap' : 'nowrap',
+        borderRadius: 2
       }}
       elevation={1}
     >
@@ -36,45 +46,88 @@ const SearchBar = ({
         type="submit" 
         sx={{ p: '10px' }} 
         aria-label="search"
+        onClick={onSubmit}
         disabled={disabled || (!titleValue.trim() && !authorValue.trim())}
       >
         <SearchIcon />
       </IconButton>
       
       {/* Title Input */}
-      <InputBase
-        sx={{ ml: 1, flex: 1, borderBottom: { xs: '1px solid rgba(0, 0, 0, 0.1)', sm: 'none' }, width: { xs: '100%', sm: 'auto' } }}
-        placeholder="Book title"
-        inputProps={{ 'aria-label': 'search book title' }}
-        value={titleValue}
-        onChange={onTitleChange}
-        disabled={disabled}
-      />
+      <Box sx={{
+        display: 'flex',
+        alignItems: 'center',
+        flexGrow: 1,
+        width: isMobile ? '100%' : 'auto',
+        borderBottom: isMobile ? 1 : 0,
+        borderColor: 'divider'
+      }}>
+        <BookIcon color="action" sx={{ mx: 1, fontSize: '1.2rem' }} />
+        <InputBase
+          sx={{ 
+            ml: 1, 
+            flex: 1,
+            py: 1
+          }}
+          placeholder="Book title"
+          inputProps={{ 'aria-label': 'search book title' }}
+          value={titleValue}
+          onChange={onTitleChange}
+          disabled={disabled}
+        />
+        {titleValue && (
+          <IconButton 
+            size="small" 
+            aria-label="clear title"
+            onClick={() => onTitleChange({ target: { value: '' } })}
+            disabled={disabled}
+          >
+            <ClearIcon fontSize="small" />
+          </IconButton>
+        )}
+      </Box>
       
       {/* Divider - visual separator between inputs */}
-      <div style={{ 
-        height: '20px', 
-        width: '1px', 
-        backgroundColor: 'rgba(0, 0, 0, 0.1)', 
-        margin: '0 8px',
-        display: { xs: 'none', sm: 'block' } 
-      }} />
+      {!isMobile && (
+        <Divider sx={{ height: 28, m: 0.5 }} orientation="vertical" />
+      )}
       
       {/* Author Input */}
-      <InputBase
-        sx={{ ml: 1, flex: 1, width: { xs: '100%', sm: 'auto' } }}
-        placeholder="Author name"
-        inputProps={{ 'aria-label': 'search author name' }}
-        value={authorValue}
-        onChange={onAuthorChange}
-        disabled={disabled}
-      />
+      <Box sx={{
+        display: 'flex',
+        alignItems: 'center',
+        flexGrow: 1,
+        width: isMobile ? '100%' : 'auto'
+      }}>
+        <PersonIcon color="action" sx={{ mx: 1, fontSize: '1.2rem' }} />
+        <InputBase
+          sx={{ 
+            ml: 1, 
+            flex: 1,
+            py: 1
+          }}
+          placeholder="Author name"
+          inputProps={{ 'aria-label': 'search author name' }}
+          value={authorValue}
+          onChange={onAuthorChange}
+          disabled={disabled}
+        />
+        {authorValue && (
+          <IconButton 
+            size="small" 
+            aria-label="clear author"
+            onClick={() => onAuthorChange({ target: { value: '' } })}
+            disabled={disabled}
+          >
+            <ClearIcon fontSize="small" />
+          </IconButton>
+        )}
+      </Box>
       
-      {/* Clear Button - Show only if either field has content */}
+      {/* Clear All Button - Show only if either field has content */}
       {(titleValue || authorValue) && (
         <IconButton 
           sx={{ p: '10px' }} 
-          aria-label="clear"
+          aria-label="clear all"
           onClick={onClear}
           disabled={disabled}
         >
