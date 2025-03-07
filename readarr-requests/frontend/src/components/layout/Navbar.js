@@ -73,7 +73,7 @@ const Navbar = ({ open, toggleSidebar, drawerWidth }) => {
             color: 'inherit' 
           }}
         >
-          Readarr Requests
+          Book Requests
         </Typography>
 
         {isAuthenticated ? (

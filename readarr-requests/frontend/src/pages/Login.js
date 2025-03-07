@@ -72,7 +72,7 @@ const Login = () => {
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
             <LibraryBooksIcon sx={{ mr: 1, color: 'primary.main' }} />
             <Typography component="h1" variant="h5">
-              Readarr Requests
+              TJ Book Requests
             </Typography>
           </Box>
 
