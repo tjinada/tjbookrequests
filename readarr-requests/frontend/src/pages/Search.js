@@ -17,7 +17,7 @@ import {
   ToggleButton
 } from '@mui/material';
 import EnhancedSearchBar from '../components/books/EnhancedSearchBar';
-import BookCard from '../components/books/BookCard'; // Added import
+import BookCard from '../components/books/BookCard';
 import BookRequestDialog from '../components/books/BookRequestDialog';
 import EmptyState from '../components/common/EmptyState';
 import SearchIcon from '@mui/icons-material/Search';
@@ -262,6 +262,12 @@ const Search = () => {
     }
   };
 
+  // Handle search term selected from suggestions
+  const handleSearchTermSelected = (term) => {
+    setSearchQuery(term);
+    setTimeout(() => handleSearch(), 0);
+  };
+
   return (
     <Box sx={{ p: 2 }}>
       <Typography variant="h4" gutterBottom>
@@ -300,21 +306,18 @@ const Search = () => {
             
             {/* Search Bar */}
             <Grid item xs={12} sm={isAdmin ? 6 : 9} md={isAdmin ? 7 : 10}>
-            <EnhancedSearchBar
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onSubmit={handleSearch}
-              onClear={handleClearSearch}
-              placeholder={
-                searchType === 'title' ? 'Search by book title...' :
-                searchType === 'author' ? 'Search by author name...' :
-                'Search for books...'
-              }
-              onSearchTermSelected={(term) => {
-                setSearchQuery(term);
-                setTimeout(() => handleSearch(), 0);
-              }}
-            />
+              <EnhancedSearchBar
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onSubmit={handleSearch}
+                onClear={handleClearSearch}
+                placeholder={
+                  searchType === 'title' ? 'Search by book title...' :
+                  searchType === 'author' ? 'Search by author name...' :
+                  'Search for books...'
+                }
+                onSearchTermSelected={handleSearchTermSelected}
+              />
             </Grid>
             
             {/* Only show source selector to admins */}

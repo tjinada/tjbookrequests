@@ -1,3 +1,4 @@
+// src/components/books/EnhancedSearchBar.js
 import React, { useState, useEffect } from 'react';
 import Paper from '@mui/material/Paper';
 import InputBase from '@mui/material/InputBase';
@@ -10,6 +11,7 @@ import ListItemText from '@mui/material/ListItemText';
 import Popper from '@mui/material/Popper';
 import Grow from '@mui/material/Grow';
 import ClickAwayListener from '@mui/material/ClickAwayListener';
+import CircularProgress from '@mui/material/CircularProgress';
 import api from '../../utils/api';
 
 const EnhancedSearchBar = ({ 
@@ -36,8 +38,7 @@ const EnhancedSearchBar = ({
       try {
         setLoading(true);
         
-        // Use a lightweight API endpoint for getting suggestions
-        // This is a simplified example - you would need to implement this endpoint
+        // Call the suggestions API endpoint
         const response = await api.get('/search/suggestions', {
           params: { query: value, limit: 5 }
         });
@@ -141,6 +142,9 @@ const EnhancedSearchBar = ({
             onKeyDown={handleKeyDown}
             inputRef={handleInputRef}
           />
+          {loading && (
+            <CircularProgress size={20} sx={{ mr: 1 }} color="inherit" />
+          )}
           {value && (
             <IconButton 
               sx={{ p: '10px' }} 

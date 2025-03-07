@@ -1,4 +1,4 @@
-// Enhanced searchController.js with improved relevance scoring algorithms
+// backend/controllers/searchController.js
 const googleBooksAPI = require('../config/googleBooks');
 const openLibraryAPI = require('../config/openLibrary');
 const readarrAPI = require('../config/readarr');
@@ -403,7 +403,9 @@ exports.searchBooks = async (req, res) => {
   }
 };
 
-// The rest of your controller functions remain the same
+/**
+ * Get book details from a specific source
+ */
 exports.getBookDetails = async (req, res) => {
   try {
     const { id, source } = req.params;
