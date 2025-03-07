@@ -62,6 +62,20 @@ const Search = () => {
     return query;
   };
 
+  // Process books to use thumbnail from imageLinks when available
+  const processBooks = (books) => {
+    return books.map(book => {
+      // If book has imageLinks.thumbnail, use it for cover
+      if (book.imageLinks && book.imageLinks.thumbnail) {
+        return {
+          ...book,
+          cover: book.imageLinks.thumbnail
+        };
+      }
+      return book;
+    });
+  };
+
   // Handle search submission
   const handleSearch = async (e) => {
     if (e) {
@@ -88,14 +102,19 @@ const Search = () => {
       
       // Process search results
       if (response.data && response.data.results) {
+        let processedResults = [];
+        
         // Handle different result formats based on source
         if (Array.isArray(response.data.results)) {
-          setSearchResults(response.data.results);
+          processedResults = processBooks(response.data.results);
         } else if (typeof response.data.results === 'object') {
           // For admin view with 'all' source that returns an object of sources
           const source = metadataSource === 'all' ? 'combined' : metadataSource;
-          setSearchResults(response.data.results[source] || []);
+          const sourceResults = response.data.results[source] || [];
+          processedResults = processBooks(sourceResults);
         }
+        
+        setSearchResults(processedResults);
       } else {
         setSearchResults([]);
       }

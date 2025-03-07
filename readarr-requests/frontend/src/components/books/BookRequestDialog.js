@@ -16,6 +16,25 @@ import BookmarkAddIcon from '@mui/icons-material/BookmarkAdd';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import AuthContext from '../../context/AuthContext';
 import api from '../../utils/api';
+import noImage from '../../assets/no-image.png';
+
+// Function to get the best available image from a book object
+const getBestCoverImage = (book) => {
+  if (!book) return null;
+  
+  // First check if imageLinks exists and has thumbnails (Google Books API)
+  if (book.imageLinks) {
+    // Try to get the largest available image in descending order of quality
+    return book.imageLinks.extraLarge || 
+           book.imageLinks.large || 
+           book.imageLinks.medium || 
+           book.imageLinks.small || 
+           book.imageLinks.thumbnail;
+  }
+  
+  // Fallback to cover property if imageLinks is not available
+  return book.cover || null;
+};
 
 const BookRequestDialog = ({ open, onClose, book }) => {
   const { user } = useContext(AuthContext);
@@ -67,11 +86,14 @@ const BookRequestDialog = ({ open, onClose, book }) => {
     setError(null);
 
     try {
+      // Get the best cover image URL 
+      const coverImageUrl = getBestCoverImage(book);
+
       await api.post('/requests', {
         bookId: book.id,
         title: book.title,
         author: book.author,
-        cover: book.cover,
+        cover: coverImageUrl,
         isbn: book.isbn,
         source: book.source || 'google' // Ensure source is passed 
       });
@@ -98,6 +120,9 @@ const BookRequestDialog = ({ open, onClose, book }) => {
 
   if (!book) return null;
 
+  // Get the best image for display
+  const coverImageUrl = getBestCoverImage(book);
+
   return (
     <Dialog
       open={open}
@@ -111,10 +136,9 @@ const BookRequestDialog = ({ open, onClose, book }) => {
       </DialogTitle>
       <DialogContent>
         <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
-        {book.cover && (
           <Box
             component="img"
-            src={book.cover}
+            src={coverImageUrl || noImage}
             alt={book.title}
             sx={{ 
               width: 120, 
@@ -132,7 +156,6 @@ const BookRequestDialog = ({ open, onClose, book }) => {
               imageRendering: 'high-quality'
             }}
           />
-        )}
           <Box>
             <Typography variant="h6" component="div">
               {book.title}
@@ -153,6 +176,12 @@ const BookRequestDialog = ({ open, onClose, book }) => {
                 size="small" 
                 sx={{ mt: 1 }}
               />
+            )}
+
+            {book.isbn && (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                ISBN: {book.isbn}
+              </Typography>
             )}
           </Box>
         </Box>
@@ -176,6 +205,25 @@ const BookRequestDialog = ({ open, onClose, book }) => {
             </Typography>
           </Box>
         ) : null}
+
+        {/* Book description if available */}
+        {book.overview && (
+          <Box sx={{ mt: 2, mb: 2 }}>
+            <Divider sx={{ mb: 1 }}>
+              <Chip label="Description" size="small" />
+            </Divider>
+            <Typography 
+              variant="body2" 
+              sx={{ 
+                maxHeight: 150, 
+                overflow: 'auto',
+                fontSize: '0.85rem',
+                lineHeight: 1.5
+              }}
+              dangerouslySetInnerHTML={{ __html: book.overview }}
+            />
+          </Box>
+        )}
 
         <DialogContentText sx={{ mt: 2 }}>
           Do you want to request this book to be added to the library?
