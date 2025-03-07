@@ -1,4 +1,4 @@
-// controllers/searchController.js
+// Enhanced searchController.js with improved relevance scoring algorithms
 const googleBooksAPI = require('../config/googleBooks');
 const openLibraryAPI = require('../config/openLibrary');
 const readarrAPI = require('../config/readarr');
@@ -21,7 +21,14 @@ const log = (message) => {
 };
 
 /**
- * Calculate similarity between two strings (0-1)
+ * Common stop words to be weighted less in search relevance
+ */
+const STOP_WORDS = new Set([
+  'a', 'an', 'the', 'and', 'or', 'but', 'of', 'on', 'in', 'with', 'by', 'to', 'for'
+]);
+
+/**
+ * Calculate similarity between two strings (0-1) with improved multi-word handling
  * @param {string} str1 - First string
  * @param {string} str2 - Second string
  * @returns {number} Similarity score between 0 and 1
@@ -37,59 +44,165 @@ function calculateStringSimilarity(str1, str2) {
   // Exact match is perfect score
   if (normalStr1 === normalStr2) return 1;
   
-  // Check if one string contains the other fully
-  if (normalStr1.includes(normalStr2)) return 0.9;
-  if (normalStr2.includes(normalStr1)) return 0.9;
+  // Split into words
+  const words1 = normalStr1.split(/\s+/).filter(w => w);
+  const words2 = normalStr2.split(/\s+/).filter(w => w);
   
-  // Calculate word match ratio
-  const words1 = normalStr1.split(/\s+/);
-  const words2 = normalStr2.split(/\s+/);
+  // Exact match after normalization is perfect score
+  const joined1 = words1.join(' ');
+  const joined2 = words2.join(' ');
+  if (joined1 === joined2) return 1;
   
-  let matchingWords = 0;
-  for (const word of words1) {
-    if (word.length > 1 && words2.includes(word)) {
-      matchingWords++;
+  // Check for complete containment (one string fully contains the other)
+  if (joined1.includes(joined2)) return 0.95;
+  if (joined2.includes(joined1)) return 0.95;
+  
+  // Generate word sets with weights (lower for stop words)
+  const getWeightedWords = (words) => {
+    return words.map(word => ({
+      word, 
+      weight: STOP_WORDS.has(word) ? 0.2 : 1
+    }));
+  };
+  
+  const weightedWords1 = getWeightedWords(words1);
+  const weightedWords2 = getWeightedWords(words2);
+  
+  // Calculate matching words score, accounting for weights
+  let totalWeight1 = weightedWords1.reduce((sum, w) => sum + w.weight, 0);
+  let totalWeight2 = weightedWords2.reduce((sum, w) => sum + w.weight, 0);
+  let matchScore = 0;
+  
+  // Check individual word matches
+  for (const { word: word1, weight: weight1 } of weightedWords1) {
+    const matchingWordObj = weightedWords2.find(w => w.word === word1);
+    if (matchingWordObj) {
+      // Add the average of the weights for this match
+      matchScore += (weight1 + matchingWordObj.weight) / 2;
     }
   }
   
-  // If we have matching words, calculate word match score
-  if (words1.length > 0 && words2.length > 0) {
-    const wordMatchRatio = (matchingWords * 2) / (words1.length + words2.length);
-    return Math.max(0.2, wordMatchRatio); // Minimum score if at least some words match
-  }
+  // Normalize by total possible match score (average of both total weights)
+  const possibleScore = (totalWeight1 + totalWeight2) / 2;
+  const wordMatchScore = matchScore / possibleScore;
   
-  // Check if strings have any significant overlap
-  const minLength = Math.min(normalStr1.length, normalStr2.length);
-  const maxLength = Math.max(normalStr1.length, normalStr2.length);
+  // Check for phrase matches (consecutive matching words)
+  let phraseMatchBonus = 0;
   
-  // Calculate Levenshtein distance (string edit distance)
-  const levenshteinDistance = (s1, s2) => {
-    if (s1.length === 0) return s2.length;
-    if (s2.length === 0) return s1.length;
-    
-    const matrix = Array(s1.length + 1).fill().map(() => Array(s2.length + 1).fill(0));
-    
-    for (let i = 0; i <= s1.length; i++) matrix[i][0] = i;
-    for (let j = 0; j <= s2.length; j++) matrix[0][j] = j;
-    
-    for (let i = 1; i <= s1.length; i++) {
-      for (let j = 1; j <= s2.length; j++) {
-        const cost = s1[i-1] === s2[j-1] ? 0 : 1;
-        matrix[i][j] = Math.min(
-          matrix[i-1][j] + 1,        // deletion
-          matrix[i][j-1] + 1,        // insertion
-          matrix[i-1][j-1] + cost    // substitution
-        );
+  // Check for each possible phrase length from both strings
+  for (let length = Math.min(words1.length, words2.length); length >= 2; length--) {
+    // Try to find phrases of this length in both strings
+    for (let i = 0; i <= words1.length - length; i++) {
+      const phrase1 = words1.slice(i, i + length).join(' ');
+      
+      for (let j = 0; j <= words2.length - length; j++) {
+        const phrase2 = words2.slice(j, j + length).join(' ');
+        
+        if (phrase1 === phrase2) {
+          // Longer matching phrases get higher bonuses
+          phraseMatchBonus = Math.max(phraseMatchBonus, 0.1 * length);
+          // Once we found a match of this length, we can break this loop
+          break;
+        }
       }
     }
     
-    return matrix[s1.length][s2.length];
-  };
+    // If we found a phrase match of this length, we can skip checking shorter lengths
+    if (phraseMatchBonus > 0) break;
+  }
   
-  const distance = levenshteinDistance(normalStr1, normalStr2);
-  const similarity = 1 - (distance / maxLength);
+  // Also check for title prefix - if the search query is the beginning of the title
+  let prefixMatchBonus = 0;
+  if (words2.length <= words1.length) {
+    const potentialPrefix = words1.slice(0, words2.length).join(' ');
+    if (potentialPrefix === joined2) {
+      prefixMatchBonus = 0.3;
+    }
+  }
   
-  return Math.max(0, similarity);
+  // Check consecutive matching words (n-gram matches)
+  let consecutiveMatchBonus = 0;
+  let currentConsecutive = 0;
+  let maxConsecutive = 0;
+  
+  // Check for consecutive matches in the second string
+  for (let i = 0; i < words2.length; i++) {
+    if (words1.includes(words2[i])) {
+      currentConsecutive++;
+      maxConsecutive = Math.max(maxConsecutive, currentConsecutive);
+    } else {
+      currentConsecutive = 0;
+    }
+  }
+  
+  if (maxConsecutive >= 2) {
+    consecutiveMatchBonus = 0.05 * maxConsecutive;
+  }
+  
+  // Check for initial word match (first word)
+  let initialWordBonus = 0;
+  if (words1.length > 0 && words2.length > 0 && words1[0] === words2[0]) {
+    initialWordBonus = words1[0].length > 3 ? 0.15 : 0.05; // Higher for non-stop words
+  }
+  
+  // If no word matches or very poor similarity, use Levenshtein
+  if (wordMatchScore < 0.2) {
+    // Calculate Levenshtein distance
+    const levenshteinDistance = (s1, s2) => {
+      if (s1.length === 0) return s2.length;
+      if (s2.length === 0) return s1.length;
+      
+      const matrix = Array(s1.length + 1).fill().map(() => Array(s2.length + 1).fill(0));
+      
+      for (let i = 0; i <= s1.length; i++) matrix[i][0] = i;
+      for (let j = 0; j <= s2.length; j++) matrix[0][j] = j;
+      
+      for (let i = 1; i <= s1.length; i++) {
+        for (let j = 1; j <= s2.length; j++) {
+          const cost = s1[i-1] === s2[j-1] ? 0 : 1;
+          matrix[i][j] = Math.min(
+            matrix[i-1][j] + 1,        // deletion
+            matrix[i][j-1] + 1,        // insertion
+            matrix[i-1][j-1] + cost    // substitution
+          );
+        }
+      }
+      
+      return matrix[s1.length][s2.length];
+    };
+    
+    const distance = levenshteinDistance(joined1, joined2);
+    const maxLength = Math.max(joined1.length, joined2.length);
+    const levSimilarity = maxLength > 0 ? 1 - (distance / maxLength) : 0;
+    
+    // Use Levenshtein similarity if it's better than word matching
+    return Math.max(0.1, levSimilarity, wordMatchScore);
+  }
+  
+  // Combine all scores with appropriate weights
+  return Math.min(1, wordMatchScore + phraseMatchBonus + prefixMatchBonus + 
+                  consecutiveMatchBonus + initialWordBonus);
+}
+
+/**
+ * Tokenize a query into important keywords with weights
+ * @param {string} query - Search query
+ * @returns {Array} - Array of {word, weight} objects
+ */
+function tokenizeQuery(query) {
+  if (!query) return [];
+  
+  // Normalize and split into words
+  const words = query.toLowerCase()
+                     .replace(/[^\w\s]/g, '')
+                     .trim()
+                     .split(/\s+/)
+                     .filter(w => w);
+  
+  return words.map(word => ({
+    word,
+    weight: STOP_WORDS.has(word) ? 0.3 : 1 // Lower weight for stop words
+  }));
 }
 
 /**
@@ -101,36 +214,84 @@ function calculateStringSimilarity(str1, str2) {
 function calculateRelevanceScore(book, query) {
   if (!book || !query) return 0;
   
-  // Normalize query for comparison
+  // Normalize query and book title for calculations
   const normalizedQuery = query.toLowerCase().trim();
+  const normalizedTitle = book.title ? book.title.toLowerCase().trim() : '';
+  const normalizedAuthor = book.author ? book.author.toLowerCase().trim() : '';
   
-  // Calculate base scores
+  // Build base relevance scores
+  
+  // 1. Title similarity - most important factor
   const titleSimilarity = calculateStringSimilarity(book.title, normalizedQuery);
-  const titleStartsWithQuery = book.title.toLowerCase().startsWith(normalizedQuery) ? 0.3 : 0;
   
-  // Title is the most important factor
-  let score = titleSimilarity * 5; // Base title score, maximum of 5 points
-  score += titleStartsWithQuery; // Bonus if title starts with query
+  // 2. Special case: Exact title match gets very high score
+  const exactTitleMatch = normalizedTitle === normalizedQuery ? 10 : 0;
   
-  // Calculate score for author if search contains author name
+  // 3. Title starts with query for shorter queries
+  const titleStartsWithQuery = normalizedTitle.startsWith(normalizedQuery) ? 
+                              Math.min(3, 10 * normalizedQuery.length / normalizedTitle.length) : 0;
+  
+  // 4. Author similarity
+  let authorSimilarity = 0;
   if (book.author) {
-    const authorSimilarity = calculateStringSimilarity(book.author, normalizedQuery);
-    score += authorSimilarity * 0.5; // Author match is worth less than title
+    authorSimilarity = calculateStringSimilarity(book.author, normalizedQuery);
   }
   
-  // Bonuses for exact matches
-  if (book.title.toLowerCase() === normalizedQuery) {
-    score += 5; // Big bonus for exact title match
+  // 5. Query words in title
+  const queryWords = tokenizeQuery(normalizedQuery);
+  let wordMatchScore = 0;
+  let totalWeight = queryWords.reduce((sum, w) => sum + w.weight, 0);
+  
+  for (const { word, weight } of queryWords) {
+    if (normalizedTitle.includes(word)) {
+      wordMatchScore += weight;
+    }
   }
   
-  // Add a small boost for books with images
+  // Normalize word match score
+  const normalizedWordMatchScore = totalWeight > 0 ? 
+                                  wordMatchScore / totalWeight : 0;
+  
+  // Build composite score with weighted components
+  let score = 0;
+  
+  // Title is most important - base score
+  score += titleSimilarity * 6;
+  
+  // Exact title match is critical - huge boost
+  score += exactTitleMatch;
+  
+  // Title starts with query - good boost
+  score += titleStartsWithQuery;
+  
+  // Words from query in title - decent boost
+  score += normalizedWordMatchScore * 2;
+  
+  // Author match - smaller boost
+  score += authorSimilarity * 0.7;
+  
+  // Quality signals to slightly boost good books
   if (book.cover) {
-    score += 0.2;
+    score += 0.2; // Has cover image
   }
   
-  // Add a bonus for highly rated books
   if (book.rating > 0) {
-    score += Math.min(0.5, book.rating / 10); // Max 0.5 for a perfect rating
+    score += Math.min(0.5, book.rating / 10); // Up to 0.5 for ratings
+  }
+  
+  // Recent books could be slightly preferred
+  if (book.year) {
+    const currentYear = new Date().getFullYear();
+    const age = currentYear - book.year;
+    // Small recency bonus, max 0.3 for current year
+    if (age <= 10) {
+      score += Math.max(0, 0.3 - (age * 0.03));
+    }
+  }
+  
+  // Log high-scoring books for debugging
+  if (score > 7) {
+    log(`High relevance score ${score.toFixed(2)} for book: "${book.title}" on query "${query}"`);
   }
   
   return score;
@@ -162,7 +323,7 @@ exports.searchBooks = async (req, res) => {
       log(`Found ${results.openLibrary.length} results from Open Library`);
     }
     
-    // Score and sort each result set independently
+    // Score and sort each result set independently with our enhanced algorithm
     if (results.google.length > 0) {
       // Score and sort Google results
       results.google = results.google.map(book => ({
@@ -187,17 +348,23 @@ exports.searchBooks = async (req, res) => {
         ...results.openLibrary.map(book => ({...book, source: 'openLibrary'}))
       ];
       
-      // Deduplicate by title and author
+      // Deduplicate by title and author with improved logic
       const seen = new Map();
       const deduplicatedResults = [];
       
       for (const book of combinedResults) {
+        // Create a key that combines title and author for deduplication
         const key = `${book.title}|${book.author}`.toLowerCase();
         
-        // If we've seen this book before and the current book has a higher score, replace it
+        // Keep track of highest scoring books for each title/author
         if (seen.has(key)) {
           const existingIndex = seen.get(key);
-          if (book.relevanceScore > deduplicatedResults[existingIndex].relevanceScore) {
+          const existingBook = deduplicatedResults[existingIndex];
+          
+          // If new book has higher score or better data, replace the existing one
+          if (book.relevanceScore > existingBook.relevanceScore || 
+              (book.cover && !existingBook.cover) ||
+              (book.year && !existingBook.year)) {
             deduplicatedResults[existingIndex] = book;
           }
         } else {
@@ -209,6 +376,13 @@ exports.searchBooks = async (req, res) => {
       
       // Final sort by relevance score
       results.combined = deduplicatedResults.sort((a, b) => b.relevanceScore - a.relevanceScore);
+      
+      // Log the most relevant results for debugging
+      if (results.combined.length > 0) {
+        const topResult = results.combined[0];
+        log(`Top result for "${query}": "${topResult.title}" by ${topResult.author} (Score: ${topResult.relevanceScore.toFixed(2)})`);
+      }
+      
       log(`Combined results: ${results.combined.length} books after deduplication and sorting`);
     }
     
@@ -229,9 +403,7 @@ exports.searchBooks = async (req, res) => {
   }
 };
 
-/**
- * Get book details from a specific source
- */
+// The rest of your controller functions remain the same
 exports.getBookDetails = async (req, res) => {
   try {
     const { id, source } = req.params;
@@ -485,49 +657,3 @@ exports.searchReadarr = async (req, res) => {
     return res.status(500).json({ success: false, message: error.message });
   }
 };
-
-/**
- * Helper function to combine and deduplicate results from multiple sources with improved relevance ranking
- * @param {Array} googleBooks - Google Books results
- * @param {Array} openLibraryBooks - Open Library results
- * @param {string} query - Original search query
- * @returns {Array} - Combined, deduplicated, and ranked results
- */
-function combineAndDeduplicate(googleBooks, openLibraryBooks, query) {
-  // Add source information and calculate relevance scores
-  const combinedBooks = [
-    ...googleBooks.map(book => ({
-      ...book, 
-      source: 'google',
-      relevanceScore: calculateRelevanceScore(book, query)
-    })),
-    ...openLibraryBooks.map(book => ({
-      ...book, 
-      source: 'openLibrary',
-      relevanceScore: calculateRelevanceScore(book, query)
-    }))
-  ];
-  
-  // Basic deduplication by title and author
-  const seen = new Map();
-  const results = [];
-  
-  for (const book of combinedBooks) {
-    const key = `${book.title}|${book.author}`.toLowerCase();
-    
-    // If we've seen this book before and the current book has a higher score, replace it
-    if (seen.has(key)) {
-      const existingIndex = seen.get(key);
-      if (book.relevanceScore > results[existingIndex].relevanceScore) {
-        results[existingIndex] = book;
-      }
-    } else {
-      // New book, add it to the results
-      seen.set(key, results.length);
-      results.push(book);
-    }
-  }
-  
-  // Final sort by relevance score
-  return results.sort((a, b) => b.relevanceScore - a.relevanceScore);
-}

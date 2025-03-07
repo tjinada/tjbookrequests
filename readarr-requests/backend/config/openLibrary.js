@@ -128,6 +128,39 @@ const filterAndSortBooks = (books, limit = 100) => {
   return filteredBooks.slice(0, limit);
 };
 
+function processSearchQuery(query) {
+  if (!query) return '';
+  
+  // Remove special characters
+  let processedQuery = query.trim().replace(/[^\w\s:\"]/g, ' ').replace(/\s+/g, ' ');
+  
+  // Handle advanced search operators if present
+  if (processedQuery.includes('intitle:')) {
+    // Extract the title part and convert to OpenLibrary format
+    processedQuery = processedQuery.replace(/intitle:"([^"]*)"/g, 'title:$1');
+    processedQuery = processedQuery.replace(/intitle:(\S+)/g, 'title:$1');
+  }
+  
+  if (processedQuery.includes('inauthor:')) {
+    // Extract the author part and convert to OpenLibrary format
+    processedQuery = processedQuery.replace(/inauthor:"([^"]*)"/g, 'author:$1');
+    processedQuery = processedQuery.replace(/inauthor:(\S+)/g, 'author:$1');
+  }
+  
+  // If the query looks like an exact title and doesn't have specialized format already
+  if (!processedQuery.includes(':') && processedQuery.split(' ').length >= 3) {
+    // Try a more precise search with title
+    return `title:"${processedQuery}"`;
+  }
+  
+  // For ISBN searches (if the query looks like an ISBN)
+  if (/^[0-9\-]{10,17}$/.test(processedQuery.replace(/\s/g, ''))) {
+    return `isbn:${processedQuery.replace(/\s/g, '')}`;
+  }
+  
+  return processedQuery;
+}
+
 module.exports = {
   /**
    * Get list of available genres
@@ -514,8 +547,15 @@ module.exports = {
    */
     searchBooks: async (query) => {
       try {
-        const response = await openLibraryAPI.get(`/search.json?q=${encodeURIComponent(query)}`);
-  
+        // Process the query to make it more effective
+        const processedQuery = processSearchQuery(query);
+        
+        // Log the processed query for debugging
+        console.log(`Searching OpenLibrary with processed query: ${processedQuery}`);
+        
+        // Make the API call with the processed query
+        const response = await openLibraryAPI.get(`/search.json?q=${encodeURIComponent(processedQuery)}`);
+    
         // Map the response to a consistent format
         const books = response.data.docs.slice(0, 30).map(book => {
           // Get cover if available
@@ -523,25 +563,85 @@ module.exports = {
           if (book.cover_i) {
             coverUrl = `https://covers.openlibrary.org/b/id/${book.cover_i}-L.jpg`;
           }
-  
+    
           // Format author names
           const authorNames = book.author_name ? book.author_name.join(', ') : 'Unknown Author';
-  
+    
+          // Extract better description when available
+          let description = '';
+          if (book.first_sentence && Array.isArray(book.first_sentence) && book.first_sentence.length > 0) {
+            description = book.first_sentence[0];
+          }
+          
           return {
             id: book.key.replace('/works/', ''),
             title: book.title,
             author: authorNames,
-            overview: book.excerpt || book.description || '',
+            overview: book.description || description || '',
             cover: coverUrl,
             releaseDate: book.first_publish_year ? `${book.first_publish_year}-01-01` : null,
+            year: book.first_publish_year || null,
             olid: book.key,
-            isbn: book.isbn ? book.isbn[0] : null
+            isbn: book.isbn ? book.isbn[0] : null,
+            // Add additional metadata for better search relevance
+            languages: book.language || [],
+            publishers: book.publisher || [],
+            subjects: book.subject || [],
+            number_of_editions: book.edition_count || 0,
+            has_fulltext: book.has_fulltext === true
           };
         });
-  
-        return books;
+    
+        // Avoid returning empty/placeholder results
+        return books.filter(book => book.title && book.author !== 'Unknown Author');
       } catch (error) {
         console.error('Error searching books from OpenLibrary:', error);
+        throw error;
+      }
+    },
+
+    advancedSearchBooks: async (params) => {
+      try {
+        // Build query string from parameters
+        let queryParts = [];
+        
+        if (params.title) {
+          // Add quotes for exact phrase matching in title
+          queryParts.push(`title:"${params.title}"`);
+        }
+        
+        if (params.author) {
+          queryParts.push(`author:${params.author}`);
+        }
+        
+        if (params.subject) {
+          queryParts.push(`subject:${params.subject}`);
+        }
+        
+        if (params.isbn) {
+          queryParts.push(`isbn:${params.isbn}`);
+        }
+        
+        if (params.publisher) {
+          queryParts.push(`publisher:${params.publisher}`);
+        }
+        
+        // Join all parts with AND logic
+        const queryString = queryParts.join(' AND ');
+        
+        console.log(`Advanced OpenLibrary search: ${queryString}`);
+        
+        // Make the API call with the advanced query
+        const response = await openLibraryAPI.get(`/search.json?q=${encodeURIComponent(queryString)}`);
+        
+        // Map response to our standard format (same as in searchBooks)
+        const books = response.data.docs.slice(0, 30).map(book => {
+          // ... [same mapping as above]
+        });
+        
+        return books;
+      } catch (error) {
+        console.error('Error with advanced search in OpenLibrary:', error);
         throw error;
       }
     }

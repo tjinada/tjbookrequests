@@ -2,6 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const searchController = require('../controllers/searchController');
+const searchSuggestionsController = require('../controllers/searchSuggestionsController');
 const auth = require('../middleware/auth');
 
 // Multi-source book search
@@ -21,5 +22,7 @@ router.post('/add', auth, searchController.addBookFromMetadata);
 
 // Direct Readarr search
 router.get('/readarr', auth, searchController.searchReadarr);
+
+router.get('/suggestions', auth, searchSuggestionsController.getSearchSuggestions);
 
 module.exports = router;

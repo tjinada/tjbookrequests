@@ -16,7 +16,7 @@ import {
   ToggleButtonGroup,
   ToggleButton
 } from '@mui/material';
-import SearchBar from '../components/books/SearchBar';
+import EnhancedSearchBar from '../components/books/EnhancedSearchBar';
 import BookCard from '../components/books/BookCard'; // Added import
 import BookRequestDialog from '../components/books/BookRequestDialog';
 import EmptyState from '../components/common/EmptyState';
@@ -84,14 +84,28 @@ const Search = () => {
   const buildSearchQuery = () => {
     if (!searchQuery.trim()) return '';
     
+    // Remove extra whitespace and normalize
+    const normalizedQuery = searchQuery.trim().replace(/\s+/g, ' ');
+    
+    // Handle exact phrase searches (if enclosed in quotes)
+    if (normalizedQuery.startsWith('"') && normalizedQuery.endsWith('"')) {
+      const exactPhrase = normalizedQuery.slice(1, -1).trim();
+      return exactPhrase; // Keep the exact phrase as is
+    }
+    
     switch(searchType) {
       case 'title':
-        return `intitle:${searchQuery}`;
+        // For titles, we want to prioritize exact matches
+        return `intitle:"${normalizedQuery}"`;
       case 'author':
-        return `inauthor:${searchQuery}`;
+        return `inauthor:"${normalizedQuery}"`;
       case 'all':
       default:
-        return searchQuery;
+        // For multi-word queries, consider them as a phrase first
+        if (normalizedQuery.includes(' ')) {
+          return `"${normalizedQuery}"`; // Quote the entire query for exact phrase matching
+        }
+        return normalizedQuery;
     }
   };
 
@@ -111,25 +125,95 @@ const Search = () => {
       // Use the formatted query based on search type
       const formattedQuery = buildSearchQuery();
       
-      const response = await api.get('/search/books', {
-        params: {
-          query: formattedQuery,
-          source: metadataSource // Only admins can change this
-        }
-      });
+      // If there's a colon in the user's query, don't add our prefixes
+      // as they may be trying to use advanced search syntax
+      const finalQuery = searchQuery.includes(':') ? searchQuery : formattedQuery;
       
-      // Set the search results
-      if (response.data && response.data.results) {
-        // Handle different result formats based on source
-        if (Array.isArray(response.data.results)) {
-          setSearchResults(response.data.results);
-        } else if (typeof response.data.results === 'object') {
-          // For admin view with 'all' source that returns an object of sources
-          const source = metadataSource === 'all' ? 'combined' : metadataSource;
-          setSearchResults(response.data.results[source] || []);
+      // For multi-word title searches without a specific search type,
+      // let's also try a more specific search
+      let combinedResults = [];
+      let hasCombinedSearch = false;
+      
+      if (searchType === 'all' && searchQuery.includes(' ') && !searchQuery.includes(':')) {
+        hasCombinedSearch = true;
+        
+        // First do a regular search
+        const regularResponse = await api.get('/search/books', {
+          params: {
+            query: finalQuery,
+            source: metadataSource
+          }
+        });
+        
+        // Then do a title-specific search
+        const titleResponse = await api.get('/search/books', {
+          params: {
+            query: `intitle:"${searchQuery}"`,
+            source: metadataSource
+          }
+        });
+        
+        // Get the results from both searches
+        let regularResults = [];
+        let titleResults = [];
+        
+        if (regularResponse.data && regularResponse.data.results) {
+          if (Array.isArray(regularResponse.data.results)) {
+            regularResults = regularResponse.data.results;
+          } else if (typeof regularResponse.data.results === 'object') {
+            const source = metadataSource === 'all' ? 'combined' : metadataSource;
+            regularResults = regularResponse.data.results[source] || [];
+          }
         }
+        
+        if (titleResponse.data && titleResponse.data.results) {
+          if (Array.isArray(titleResponse.data.results)) {
+            titleResults = titleResponse.data.results;
+          } else if (typeof titleResponse.data.results === 'object') {
+            const source = metadataSource === 'all' ? 'combined' : metadataSource;
+            titleResults = titleResponse.data.results[source] || [];
+          }
+        }
+        
+        // Combine and deduplicate results
+        const seenIds = new Set();
+        
+        // Add title-specific results first (higher priority)
+        titleResults.forEach(book => {
+          combinedResults.push(book);
+          seenIds.add(book.id);
+        });
+        
+        // Add regular results that aren't duplicates
+        regularResults.forEach(book => {
+          if (!seenIds.has(book.id)) {
+            combinedResults.push(book);
+          }
+        });
+        
+        setSearchResults(combinedResults);
       } else {
-        setSearchResults([]);
+        // Regular search for single words or specific search types
+        const response = await api.get('/search/books', {
+          params: {
+            query: finalQuery,
+            source: metadataSource
+          }
+        });
+        
+        // Set the search results
+        if (response.data && response.data.results) {
+          // Handle different result formats based on source
+          if (Array.isArray(response.data.results)) {
+            setSearchResults(response.data.results);
+          } else if (typeof response.data.results === 'object') {
+            // For admin view with 'all' source that returns an object of sources
+            const source = metadataSource === 'all' ? 'combined' : metadataSource;
+            setSearchResults(response.data.results[source] || []);
+          }
+        } else {
+          setSearchResults([]);
+        }
       }
     } catch (err) {
       console.error('Error searching books:', err);
@@ -216,17 +300,21 @@ const Search = () => {
             
             {/* Search Bar */}
             <Grid item xs={12} sm={isAdmin ? 6 : 9} md={isAdmin ? 7 : 10}>
-              <SearchBar
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onSubmit={handleSearch}
-                onClear={handleClearSearch}
-                placeholder={
-                  searchType === 'title' ? 'Search by book title...' :
-                  searchType === 'author' ? 'Search by author name...' :
-                  'Search for books...'
-                }
-              />
+            <EnhancedSearchBar
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onSubmit={handleSearch}
+              onClear={handleClearSearch}
+              placeholder={
+                searchType === 'title' ? 'Search by book title...' :
+                searchType === 'author' ? 'Search by author name...' :
+                'Search for books...'
+              }
+              onSearchTermSelected={(term) => {
+                setSearchQuery(term);
+                setTimeout(() => handleSearch(), 0);
+              }}
+            />
             </Grid>
             
             {/* Only show source selector to admins */}
