@@ -11,20 +11,24 @@ const ScrollContainer = ({ children }) => {
         overflowX: 'hidden',
         WebkitOverflowScrolling: 'touch',
         '::-webkit-scrollbar': {
-          width: '8px',
+          width: '4px', // Thinner scrollbar
         },
         '::-webkit-scrollbar-track': {
-          background: 'rgba(0,0,0,0.05)',
+          background: 'rgba(0,0,0,0.03)',
         },
         '::-webkit-scrollbar-thumb': {
-          background: 'rgba(0,0,0,0.2)',
+          background: 'rgba(0,0,0,0.15)',
           borderRadius: '4px',
         },
         scrollbarWidth: 'thin',
-        touchAction: 'pan-y',
+        /* Critical to let native touch scrolling work */
+        touchAction: 'pan-y', 
         position: 'relative',
-        pb: { xs: 8, sm: 2 } // Extra padding at the bottom
+        pb: { xs: 8, sm: 2 }, // Extra padding at the bottom for bottom nav
+        mx: 0,
+        px: 0
       }}
+      className="main-scroll-container"
     >
       {children}
     </Box>

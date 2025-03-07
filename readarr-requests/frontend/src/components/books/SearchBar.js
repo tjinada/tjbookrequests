@@ -6,7 +6,7 @@ import IconButton from '@mui/material/IconButton';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 
-const SearchBar = ({ value, onChange, onSubmit, onClear }) => {
+const SearchBar = ({ value, onChange, onSubmit, onClear, placeholder = "Search for books..." }) => {
   return (
     <Paper
       component="form"
@@ -19,15 +19,15 @@ const SearchBar = ({ value, onChange, onSubmit, onClear }) => {
         display: 'flex',
         alignItems: 'center',
         width: '100%',
-        // ... other styles
       }}
+      elevation={1}
     >
       <IconButton type="submit" sx={{ p: '10px' }} aria-label="search">
         <SearchIcon />
       </IconButton>
       <InputBase
         sx={{ ml: 1, flex: 1 }}
-        placeholder="Search for books..."
+        placeholder={placeholder}
         inputProps={{ 'aria-label': 'search books' }}
         value={value}
         onChange={onChange}

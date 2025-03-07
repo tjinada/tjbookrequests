@@ -8,7 +8,7 @@ import { AuthProvider } from './context/AuthContext';
 import { AppProvider } from './context/AppContext';
 import InstallPrompt from './components/common/InstallPrompt';
 import { ThemeProvider } from './context/ThemeContext';
-
+import { SearchProvider } from './context/SearchContext';
 import PrivateRoute from './components/routing/PrivateRoute';
 import Layout from './components/layout/Layout';
 import AdminRoute from './components/routing/AdminRoute';
@@ -40,6 +40,7 @@ function App() {
       <CssBaseline />
       <AuthProvider>
         <AppProvider>
+        <SearchProvider>
           <Router>
             <Suspense fallback={<LoadingFallback />}>
               <Routes>
@@ -62,6 +63,7 @@ function App() {
               <InstallPrompt />
             </Suspense>
           </Router>
+          </SearchProvider>
         </AppProvider>
       </AuthProvider>
     </ThemeProvider>

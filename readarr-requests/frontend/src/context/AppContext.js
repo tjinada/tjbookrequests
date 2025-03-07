@@ -1,16 +1,20 @@
 // src/context/AppContext.js
-import React, { createContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useState, useCallback, useEffect, useContext } from 'react';
+import AuthContext from './AuthContext';
 import api from '../utils/api';
 
 const AppContext = createContext();
 
 export const AppProvider = ({ children }) => {
+  const { isAuthenticated, user } = useContext(AuthContext);
+  
   // Books data
   const [trendingBooks, setTrendingBooks] = useState([]);
   const [popularBooks, setPopularBooks] = useState([]);
   const [nytBooks, setNytBooks] = useState([]);
   const [awardBooks, setAwardBooks] = useState([]);
   const [recentBooks, setRecentBooks] = useState([]);
+  const [personalizedBooks, setPersonalizedBooks] = useState([]);
   const [genreBooks, setGenreBooks] = useState({});
 
   // Additional state
@@ -19,11 +23,13 @@ export const AppProvider = ({ children }) => {
   const [loading, setLoading] = useState({
     home: false,
     genres: false,
+    personalized: false,
     genre: {}
   });
   const [error, setError] = useState({
     home: null,
     genres: null,
+    personalized: null,
     genre: {}
   });
 
@@ -58,6 +64,25 @@ export const AppProvider = ({ children }) => {
       setLoading(prev => ({ ...prev, home: false }));
     }
   }, []);
+
+  // Function to fetch personalized recommendations
+  const fetchPersonalizedRecommendations = useCallback(async () => {
+    // Only fetch if user is authenticated
+    if (!isAuthenticated) return;
+    
+    setLoading(prev => ({ ...prev, personalized: true }));
+    setError(prev => ({ ...prev, personalized: null }));
+
+    try {
+      const response = await api.get('/books/personalized');
+      setPersonalizedBooks(response.data);
+    } catch (err) {
+      console.error('Error fetching personalized recommendations:', err);
+      setError(prev => ({ ...prev, personalized: 'Failed to load personalized recommendations' }));
+    } finally {
+      setLoading(prev => ({ ...prev, personalized: false }));
+    }
+  }, [isAuthenticated]);
 
   // Function to fetch available genres
   const fetchGenres = useCallback(async () => {
@@ -156,6 +181,13 @@ export const AppProvider = ({ children }) => {
     fetchGenres();
   }, [fetchHomeData, fetchGenres]);
 
+  // Load personalized recommendations when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchPersonalizedRecommendations();
+    }
+  }, [isAuthenticated, fetchPersonalizedRecommendations]);
+
   // Provide the context value
   return (
     <AppContext.Provider
@@ -166,6 +198,7 @@ export const AppProvider = ({ children }) => {
         nytBooks,
         awardBooks,
         recentBooks,
+        personalizedBooks,
         genres,
         genreBooks,
         currentGenre,
@@ -183,6 +216,7 @@ export const AppProvider = ({ children }) => {
 
         // Actions
         fetchHomeData,
+        fetchPersonalizedRecommendations,
         fetchGenres,
         fetchGenreBooks,
         selectGenre
