@@ -1,4 +1,4 @@
-// src/pages/Search.js
+// src/pages/Search.js - Complete implementation with improved book cards
 import React, { useState, useEffect, useContext } from 'react';
 import { 
   Box,
@@ -9,24 +9,28 @@ import {
   Alert,
   Paper,
   TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   InputAdornment,
-  IconButton
+  IconButton,
+  Divider,
+  useMediaQuery,
+  useTheme
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 import BookIcon from '@mui/icons-material/Book';
 import PersonIcon from '@mui/icons-material/Person';
-import BookRequestDialog from '../components/books/BookRequestDialog';
+import FilterListIcon from '@mui/icons-material/FilterList';
+import SortIcon from '@mui/icons-material/Sort';
 import EmptyState from '../components/common/EmptyState';
-import BookCard from '../components/books/BookCard';
+import ImprovedBookCard from '../components/books/ImprovedBookCard';
+import BookRequestDialog from '../components/books/BookRequestDialog';
+import SearchBar from '../components/books/SearchBar';
 import AuthContext from '../context/AuthContext';
 import api from '../utils/api';
 
 const Search = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { user } = useContext(AuthContext);
   
   // Search form state
@@ -41,6 +45,10 @@ const Search = () => {
   const [hasSearched, setHasSearched] = useState(false);
   const [selectedBook, setSelectedBook] = useState(null);
   const [requestDialogOpen, setRequestDialogOpen] = useState(false);
+  
+  // Sorting and filtering
+  const [sortBy, setSortBy] = useState('relevance');
+  const [yearFilter, setYearFilter] = useState('all');
 
   const isAdmin = user && user.role === 'admin';
 
@@ -60,20 +68,6 @@ const Search = () => {
     }
     
     return query;
-  };
-
-  // Process books to use thumbnail from imageLinks when available
-  const processBooks = (books) => {
-    return books.map(book => {
-      // If book has imageLinks.thumbnail, use it for cover
-      if (book.imageLinks && book.imageLinks.thumbnail) {
-        return {
-          ...book,
-          cover: book.imageLinks.thumbnail
-        };
-      }
-      return book;
-    });
   };
 
   // Handle search submission
@@ -106,12 +100,22 @@ const Search = () => {
         
         // Handle different result formats based on source
         if (Array.isArray(response.data.results)) {
-          processedResults = processBooks(response.data.results);
+          processedResults = response.data.results;
         } else if (typeof response.data.results === 'object') {
           // For admin view with 'all' source that returns an object of sources
           const source = metadataSource === 'all' ? 'combined' : metadataSource;
-          const sourceResults = response.data.results[source] || [];
-          processedResults = processBooks(sourceResults);
+          processedResults = response.data.results[source] || [];
+        }
+        
+        // Apply sorting if needed
+        if (sortBy === 'year') {
+          processedResults.sort((a, b) => {
+            const yearA = a.year || (a.releaseDate ? new Date(a.releaseDate).getFullYear() : 0);
+            const yearB = b.year || (b.releaseDate ? new Date(b.releaseDate).getFullYear() : 0);
+            return yearB - yearA; // Newest first
+          });
+        } else if (sortBy === 'rating') {
+          processedResults.sort((a, b) => (b.rating || 0) - (a.rating || 0));
         }
         
         setSearchResults(processedResults);
@@ -127,8 +131,8 @@ const Search = () => {
     }
   };
 
-  // Handle book selection for request
-  const handleRequestBook = (book) => {
+  // Open request dialog when book is selected
+  const handleBookSelect = (book) => {
     setSelectedBook(book);
     setRequestDialogOpen(true);
   };
@@ -141,143 +145,55 @@ const Search = () => {
     setHasSearched(false);
   };
 
-  // Handle changes to the metadata source (for admins)
-  const handleSourceChange = (e) => {
-    setMetadataSource(e.target.value);
-    
-    // Rerun search if there's an active search
-    if ((title.trim() || author.trim()) && hasSearched) {
-      // Use setTimeout to allow the state update to complete
-      setTimeout(() => handleSearch(), 0);
-    }
+  // Update search title
+  const handleTitleChange = (e) => {
+    setTitle(e.target.value);
   };
 
-  // Clear a specific field
-  const clearField = (field) => {
-    if (field === 'title') {
-      setTitle('');
-    } else if (field === 'author') {
-      setAuthor('');
-    }
+  // Update search author
+  const handleAuthorChange = (e) => {
+    setAuthor(e.target.value);
   };
 
   return (
     <Box sx={{ p: 2 }}>
-      <Typography variant="h4" gutterBottom>
+      <Typography variant="h4" component="h1" gutterBottom>
         Search Books
       </Typography>
 
+      {/* Search Form */}
       <Paper sx={{ p: 3, mb: 4 }}>
         <form onSubmit={handleSearch}>
           <Grid container spacing={2}>
-            {/* Book Title Field */}
-            <Grid item xs={12} sm={isAdmin ? 6 : 6} md={isAdmin ? 5 : 6}>
-              <TextField
-                fullWidth
-                label="Book Title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Enter book title"
-                variant="outlined"
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <BookIcon color="action" />
-                    </InputAdornment>
-                  ),
-                  endAdornment: title && (
-                    <InputAdornment position="end">
-                      <IconButton
-                        edge="end"
-                        onClick={() => clearField('title')}
-                        size="small"
-                      >
-                        <ClearIcon />
-                      </IconButton>
-                    </InputAdornment>
-                  )
-                }}
+            <Grid item xs={12}>
+              <SearchBar
+                titleValue={title}
+                authorValue={author}
+                onTitleChange={handleTitleChange}
+                onAuthorChange={handleAuthorChange}
+                onSubmit={handleSearch}
+                onClear={handleClearSearch}
+                disabled={loading}
               />
-            </Grid>
-            
-            {/* Author Field */}
-            <Grid item xs={12} sm={isAdmin ? 6 : 6} md={isAdmin ? 5 : 6}>
-              <TextField
-                fullWidth
-                label="Author"
-                value={author}
-                onChange={(e) => setAuthor(e.target.value)}
-                placeholder="Enter author name"
-                variant="outlined"
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <PersonIcon color="action" />
-                    </InputAdornment>
-                  ),
-                  endAdornment: author && (
-                    <InputAdornment position="end">
-                      <IconButton
-                        edge="end"
-                        onClick={() => clearField('author')}
-                        size="small"
-                      >
-                        <ClearIcon />
-                      </IconButton>
-                    </InputAdornment>
-                  )
-                }}
-              />
-            </Grid>
-            
-            {/* Source Selector (Admin only) */}
-            {isAdmin && (
-              <Grid item xs={12} sm={6} md={2}>
-                <FormControl fullWidth>
-                  <InputLabel>Source</InputLabel>
-                  <Select
-                    value={metadataSource}
-                    label="Source"
-                    onChange={handleSourceChange}
-                  >
-                    <MenuItem value="google">Google Books</MenuItem>
-                    <MenuItem value="openLibrary">Open Library</MenuItem>
-                    <MenuItem value="all">All Sources</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-            )}
-            
-            {/* Search Button */}
-            <Grid item xs={12} sm={6} md={isAdmin ? 12 : 12}>
-              <Box sx={{ display: 'flex', gap: 2 }}>
-                <Button
-                  fullWidth
-                  variant="contained"
-                  type="submit"
-                  startIcon={<SearchIcon />}
-                  disabled={!title.trim() && !author.trim() || loading}
-                  sx={{ py: 1.5 }}
-                >
-                  {loading ? 'Searching...' : 'Search Books'}
-                </Button>
-                
-                {(title || author) && (
-                  <Button 
-                    variant="outlined"
-                    onClick={handleClearSearch}
-                    disabled={loading}
-                    sx={{ py: 1.5 }}
-                  >
-                    Clear
-                  </Button>
-                )}
-              </Box>
               
               {/* Helper text for search requirements */}
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
                 Enter at least a book title or author name to search
               </Typography>
+            </Grid>
+            
+            {/* Search Button */}
+            <Grid item xs={12}>
+              <Button
+                fullWidth
+                variant="contained"
+                type="submit"
+                startIcon={<SearchIcon />}
+                disabled={!title.trim() && !author.trim() || loading}
+                sx={{ py: 1.5 }}
+              >
+                {loading ? 'Searching...' : 'Search Books'}
+              </Button>
             </Grid>
           </Grid>
         </form>
@@ -311,22 +227,44 @@ const Search = () => {
         />
       ) : (
         <Box>
-          <Typography variant="h6" gutterBottom>
-            Search Results ({searchResults.length})
-          </Typography>
+          {/* Results header with count and sort options */}
+          <Box sx={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center',
+            mb: 2
+          }}>
+            <Typography variant="h6" component="h2">
+              Search Results ({searchResults.length})
+            </Typography>
+            
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button 
+                size="small" 
+                startIcon={<SortIcon />}
+                onClick={() => setSortBy(sortBy === 'relevance' ? 'rating' : 'relevance')}
+              >
+                {sortBy === 'relevance' ? 'Sort by Relevance' : 'Sort by Rating'}
+              </Button>
+            </Box>
+          </Box>
           
-          <Grid container spacing={3}>
+          {/* Results grid */}
+          <Grid container spacing={2}>
             {searchResults.map((book) => (
-              <Grid item xs={12} sm={6} md={4} lg={3} key={book.id}>
-                <Box 
-                  sx={{ 
-                    height: '100%',
-                    cursor: 'pointer'
-                  }}
-                  onClick={() => handleRequestBook(book)}
-                >
-                  <BookCard book={{...book, source: metadataSource}} />
-                </Box>
+              <Grid 
+                item 
+                xs={12} 
+                sm={isMobile ? 12 : 6} 
+                md={6} 
+                lg={4} 
+                key={book.id}
+                sx={{ height: isMobile ? 'auto' : 180 }}
+              >
+                <ImprovedBookCard 
+                  book={{...book, source: metadataSource}} 
+                  onClick={handleBookSelect}
+                />
               </Grid>
             ))}
           </Grid>
