@@ -31,9 +31,9 @@ const optimizeBookCover = (coverUrl) => {
     
     // Set zoom to 0 (best quality)
     if (optimizedUrl.includes('zoom=')) {
-      optimizedUrl = optimizedUrl.replace(/zoom=\d/, 'zoom=0');
+      optimizedUrl = optimizedUrl.replace(/zoom=\d/, 'zoom=1');
     } else {
-      optimizedUrl = optimizedUrl + '&zoom=0';
+      optimizedUrl = optimizedUrl + '&zoom=1';
     }
     
     return optimizedUrl;

@@ -61,7 +61,7 @@ exports.sendTestNotification = async (req, res) => {
   try {
     const notification = {
       title: 'Test Notification',
-      body: 'This is a test notification from Readarr Requests',
+      body: 'This is a test notification from TJ Book Requests',
       icon: '/icon-192x192.png',
       badge: '/badge-72x72.png',
       data: {

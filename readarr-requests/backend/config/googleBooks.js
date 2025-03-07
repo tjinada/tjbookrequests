@@ -80,16 +80,16 @@ const processGoogleBook = (book) => {
     
     // Remove any zoom parameters that might reduce quality
     if (coverImage) {
-      coverImage = coverImage.replace('&zoom=1', '&zoom=0')
+      coverImage = coverImage.replace('&zoom=1', '&zoom=1')
                             .replace('&edge=curl', '');
                             
       // For Google Books API, try to get higher resolution by replacing zoom level
       if (coverImage.includes('books.google.com')) {
         // Replace any existing zoom parameter or add a new one for max quality
         if (coverImage.includes('zoom=')) {
-          coverImage = coverImage.replace(/zoom=\d/, 'zoom=0');
+          coverImage = coverImage.replace(/zoom=\d/, 'zoom=1');
         } else {
-          coverImage = coverImage + '&zoom=0';
+          coverImage = coverImage + '&zoom=1';
         }
       }
     }

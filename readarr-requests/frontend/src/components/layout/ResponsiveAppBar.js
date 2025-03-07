@@ -42,7 +42,7 @@ const ResponsiveAppBar = ({ toggleSidebar }) => {
     if (path.startsWith('/admin/requests')) return 'Manage Requests';
     if (path.startsWith('/calibre-manager')) return 'Calibre Manager';
     if (path.startsWith('/profile')) return 'Profile';
-    return 'Readarr Requests';
+    return 'TJ Book Requests';
   };
 
   // Navigation items
@@ -144,7 +144,7 @@ const ResponsiveAppBar = ({ toggleSidebar }) => {
               textDecoration: 'none',
             }}
           >
-            READARR REQUESTS
+            TJ Book REQUESTS
           </Typography>
 
           {/* Mobile Navigation Menu */}

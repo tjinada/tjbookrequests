@@ -1,6 +1,5 @@
 // src/pages/Search.js
 import React, { useState, useEffect, useContext } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
 import { 
   Box,
   Button,
@@ -8,126 +7,114 @@ import {
   Grid, 
   CircularProgress, 
   Alert,
+  Paper,
+  TextField,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
-  Paper,
-  ToggleButtonGroup,
-  ToggleButton
+  InputAdornment,
+  IconButton
 } from '@mui/material';
-import SearchBar from '../components/books/SearchBar';
-import BookCard from '../components/books/BookCard'; // Added import
-import BookRequestDialog from '../components/books/BookRequestDialog';
-import EmptyState from '../components/common/EmptyState';
 import SearchIcon from '@mui/icons-material/Search';
+import ClearIcon from '@mui/icons-material/Clear';
 import BookIcon from '@mui/icons-material/Book';
 import PersonIcon from '@mui/icons-material/Person';
-import MenuBookIcon from '@mui/icons-material/MenuBook';
+import BookRequestDialog from '../components/books/BookRequestDialog';
+import EmptyState from '../components/common/EmptyState';
+import BookCard from '../components/books/BookCard';
 import AuthContext from '../context/AuthContext';
 import api from '../utils/api';
 
-// Create a session storage key for caching search results
-const SEARCH_CACHE_KEY = 'readarr_search_state';
-
 const Search = () => {
   const { user } = useContext(AuthContext);
-  const location = useLocation();
-  const navigate = useNavigate();
   
-  // Initialize state from session storage if available
-  const loadCachedState = () => {
-    try {
-      const cachedState = sessionStorage.getItem(SEARCH_CACHE_KEY);
-      if (cachedState) {
-        return JSON.parse(cachedState);
-      }
-    } catch (err) {
-      console.error('Error loading cached search state:', err);
-    }
-    return null;
-  };
+  // Search form state
+  const [title, setTitle] = useState('');
+  const [author, setAuthor] = useState('');
+  const [metadataSource, setMetadataSource] = useState('google');
   
-  const cachedState = loadCachedState();
-  
+  // Results and UI state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [searchQuery, setSearchQuery] = useState(cachedState?.searchQuery || '');
-  const [searchResults, setSearchResults] = useState(cachedState?.searchResults || []);
+  const [searchResults, setSearchResults] = useState([]);
+  const [hasSearched, setHasSearched] = useState(false);
   const [selectedBook, setSelectedBook] = useState(null);
   const [requestDialogOpen, setRequestDialogOpen] = useState(false);
-  const [metadataSource, setMetadataSource] = useState(cachedState?.metadataSource || 'google');
-  const [hasSearched, setHasSearched] = useState(cachedState?.hasSearched || false);
-  // Add search type state
-  const [searchType, setSearchType] = useState(cachedState?.searchType || 'all');
 
   const isAdmin = user && user.role === 'admin';
 
-  // Save search state to session storage whenever it changes
-  useEffect(() => {
-    const stateToCache = {
-      searchQuery,
-      searchResults,
-      metadataSource,
-      hasSearched,
-      searchType
-    };
-    
-    try {
-      sessionStorage.setItem(SEARCH_CACHE_KEY, JSON.stringify(stateToCache));
-    } catch (err) {
-      console.error('Error caching search state:', err);
-    }
-  }, [searchQuery, searchResults, metadataSource, hasSearched, searchType]);
-
-  // Build the search query with prefix based on search type
+  // Build search query based on title and author inputs
   const buildSearchQuery = () => {
-    if (!searchQuery.trim()) return '';
+    let query = '';
     
-    switch(searchType) {
-      case 'title':
-        return `intitle:${searchQuery}`;
-      case 'author':
-        return `inauthor:${searchQuery}`;
-      case 'all':
-      default:
-        return searchQuery;
+    if (title && author) {
+      // Both title and author are provided
+      query = `intitle:${title} inauthor:${author}`;
+    } else if (title) {
+      // Only title is provided
+      query = `intitle:${title}`;
+    } else if (author) {
+      // Only author is provided
+      query = `inauthor:${author}`;
     }
+    
+    return query;
   };
 
-  // Handle search
+  // Process books to use thumbnail from imageLinks when available
+  const processBooks = (books) => {
+    return books.map(book => {
+      // If book has imageLinks.thumbnail, use it for cover
+      if (book.imageLinks && book.imageLinks.thumbnail) {
+        return {
+          ...book,
+          cover: book.imageLinks.thumbnail
+        };
+      }
+      return book;
+    });
+  };
+
+  // Handle search submission
   const handleSearch = async (e) => {
     if (e) {
       e.preventDefault();
     }
     
-    if (!searchQuery.trim()) return;
+    // Require at least one search field
+    if (!title.trim() && !author.trim()) return;
     
     setLoading(true);
     setError(null);
     setHasSearched(true);
     
     try {
-      // Use the formatted query based on search type
-      const formattedQuery = buildSearchQuery();
+      // Build the search query
+      const query = buildSearchQuery();
       
       const response = await api.get('/search/books', {
         params: {
-          query: formattedQuery,
-          source: metadataSource // Only admins can change this
+          query,
+          source: metadataSource
         }
       });
       
-      // Set the search results
+      // Process search results
       if (response.data && response.data.results) {
+        let processedResults = [];
+        
         // Handle different result formats based on source
         if (Array.isArray(response.data.results)) {
-          setSearchResults(response.data.results);
+          processedResults = processBooks(response.data.results);
         } else if (typeof response.data.results === 'object') {
           // For admin view with 'all' source that returns an object of sources
           const source = metadataSource === 'all' ? 'combined' : metadataSource;
-          setSearchResults(response.data.results[source] || []);
+          const sourceResults = response.data.results[source] || [];
+          processedResults = processBooks(sourceResults);
         }
+        
+        setSearchResults(processedResults);
       } else {
         setSearchResults([]);
       }
@@ -146,35 +133,31 @@ const Search = () => {
     setRequestDialogOpen(true);
   };
 
-  // Handle clear search
+  // Clear all search fields
   const handleClearSearch = () => {
-    setSearchQuery('');
+    setTitle('');
+    setAuthor('');
     setSearchResults([]);
     setHasSearched(false);
-    
-    // Also clear the cache
-    try {
-      sessionStorage.removeItem(SEARCH_CACHE_KEY);
-    } catch (err) {
-      console.error('Error clearing search cache:', err);
-    }
   };
 
-  // Handle search type change
-  const handleSearchTypeChange = (event, newType) => {
-    if (newType !== null) {
-      setSearchType(newType);
-    }
-  };
-
-  // Handle metadata source change (for admins only)
+  // Handle changes to the metadata source (for admins)
   const handleSourceChange = (e) => {
     setMetadataSource(e.target.value);
     
-    // If we have an active search, re-run it with the new source
-    if (searchQuery.trim() && hasSearched) {
+    // Rerun search if there's an active search
+    if ((title.trim() || author.trim()) && hasSearched) {
       // Use setTimeout to allow the state update to complete
       setTimeout(() => handleSearch(), 0);
+    }
+  };
+
+  // Clear a specific field
+  const clearField = (field) => {
+    if (field === 'title') {
+      setTitle('');
+    } else if (field === 'author') {
+      setAuthor('');
     }
   };
 
@@ -184,55 +167,73 @@ const Search = () => {
         Search Books
       </Typography>
 
-      <Paper sx={{ p: 2, mb: 4 }}>
+      <Paper sx={{ p: 3, mb: 4 }}>
         <form onSubmit={handleSearch}>
-          <Grid container spacing={2} alignItems="center">
-            {/* Search Type Toggle */}
-            <Grid item xs={12} sm={12} md={12}>
-              <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
-                <ToggleButtonGroup
-                  value={searchType}
-                  exclusive
-                  onChange={handleSearchTypeChange}
-                  aria-label="search type"
-                  size="small"
-                  color="primary"
-                >
-                  <ToggleButton value="all" aria-label="search all">
-                    <MenuBookIcon sx={{ mr: 1 }} />
-                    All
-                  </ToggleButton>
-                  <ToggleButton value="title" aria-label="search by title">
-                    <BookIcon sx={{ mr: 1 }} />
-                    Title
-                  </ToggleButton>
-                  <ToggleButton value="author" aria-label="search by author">
-                    <PersonIcon sx={{ mr: 1 }} />
-                    Author
-                  </ToggleButton>
-                </ToggleButtonGroup>
-              </Box>
-            </Grid>
-            
-            {/* Search Bar */}
-            <Grid item xs={12} sm={isAdmin ? 6 : 9} md={isAdmin ? 7 : 10}>
-              <SearchBar
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onSubmit={handleSearch}
-                onClear={handleClearSearch}
-                placeholder={
-                  searchType === 'title' ? 'Search by book title...' :
-                  searchType === 'author' ? 'Search by author name...' :
-                  'Search for books...'
-                }
+          <Grid container spacing={2}>
+            {/* Book Title Field */}
+            <Grid item xs={12} sm={isAdmin ? 6 : 6} md={isAdmin ? 5 : 6}>
+              <TextField
+                fullWidth
+                label="Book Title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Enter book title"
+                variant="outlined"
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <BookIcon color="action" />
+                    </InputAdornment>
+                  ),
+                  endAdornment: title && (
+                    <InputAdornment position="end">
+                      <IconButton
+                        edge="end"
+                        onClick={() => clearField('title')}
+                        size="small"
+                      >
+                        <ClearIcon />
+                      </IconButton>
+                    </InputAdornment>
+                  )
+                }}
               />
             </Grid>
             
-            {/* Only show source selector to admins */}
+            {/* Author Field */}
+            <Grid item xs={12} sm={isAdmin ? 6 : 6} md={isAdmin ? 5 : 6}>
+              <TextField
+                fullWidth
+                label="Author"
+                value={author}
+                onChange={(e) => setAuthor(e.target.value)}
+                placeholder="Enter author name"
+                variant="outlined"
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <PersonIcon color="action" />
+                    </InputAdornment>
+                  ),
+                  endAdornment: author && (
+                    <InputAdornment position="end">
+                      <IconButton
+                        edge="end"
+                        onClick={() => clearField('author')}
+                        size="small"
+                      >
+                        <ClearIcon />
+                      </IconButton>
+                    </InputAdornment>
+                  )
+                }}
+              />
+            </Grid>
+            
+            {/* Source Selector (Admin only) */}
             {isAdmin && (
-              <Grid item xs={12} sm={3} md={3}>
-                <FormControl fullWidth size="small">
+              <Grid item xs={12} sm={6} md={2}>
+                <FormControl fullWidth>
                   <InputLabel>Source</InputLabel>
                   <Select
                     value={metadataSource}
@@ -247,27 +248,49 @@ const Search = () => {
               </Grid>
             )}
             
-            <Grid item xs={12} sm={3} md={2}>
-              <Button
-                fullWidth
-                variant="contained"
-                type="submit"
-                startIcon={<SearchIcon />}
-                disabled={!searchQuery.trim() || loading}
-              >
-                {loading ? 'Searching...' : 'Search'}
-              </Button>
+            {/* Search Button */}
+            <Grid item xs={12} sm={6} md={isAdmin ? 12 : 12}>
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <Button
+                  fullWidth
+                  variant="contained"
+                  type="submit"
+                  startIcon={<SearchIcon />}
+                  disabled={!title.trim() && !author.trim() || loading}
+                  sx={{ py: 1.5 }}
+                >
+                  {loading ? 'Searching...' : 'Search Books'}
+                </Button>
+                
+                {(title || author) && (
+                  <Button 
+                    variant="outlined"
+                    onClick={handleClearSearch}
+                    disabled={loading}
+                    sx={{ py: 1.5 }}
+                  >
+                    Clear
+                  </Button>
+                )}
+              </Box>
+              
+              {/* Helper text for search requirements */}
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                Enter at least a book title or author name to search
+              </Typography>
             </Grid>
           </Grid>
         </form>
       </Paper>
 
+      {/* Error Alert */}
       {error && (
         <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
           {error}
         </Alert>
       )}
 
+      {/* Results Section */}
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', my: 5 }}>
           <CircularProgress />
@@ -276,31 +299,31 @@ const Search = () => {
         <EmptyState
           icon={SearchIcon}
           title="Search for Books"
-          description={
-            searchType === 'title' ? 'Enter a book title to find books you want to request.' :
-            searchType === 'author' ? 'Enter an author name to find their books.' :
-            'Enter a search term to find books you want to request.'
-          }
+          description="Enter a book title, author name, or both to find books you want to request."
         />
       ) : searchResults.length === 0 ? (
         <EmptyState
           icon={BookIcon}
           title="No Results Found"
-          description={`No books found matching "${searchQuery}". Try a different search term.`}
+          description={`No books found matching your search. Try different search terms.`}
           actionText="Try Different Search"
-          onAction={() => setSearchQuery('')}
+          onAction={handleClearSearch}
         />
       ) : (
         <Box>
+          <Typography variant="h6" gutterBottom>
+            Search Results ({searchResults.length})
+          </Typography>
+          
           <Grid container spacing={3}>
             {searchResults.map((book) => (
               <Grid item xs={12} sm={6} md={4} lg={3} key={book.id}>
                 <Box 
                   sx={{ 
-                    position: 'relative',
+                    height: '100%',
                     cursor: 'pointer'
                   }}
-                  onClick={() => navigate(`/book/${book.id}`)}
+                  onClick={() => handleRequestBook(book)}
                 >
                   <BookCard book={{...book, source: metadataSource}} />
                 </Box>
@@ -310,6 +333,7 @@ const Search = () => {
         </Box>
       )}
 
+      {/* Book Request Dialog */}
       <BookRequestDialog
         open={requestDialogOpen}
         onClose={() => setRequestDialogOpen(false)}

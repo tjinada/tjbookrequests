@@ -11,12 +11,30 @@ import StarIcon from '@mui/icons-material/Star';
 import CalendarTodayOutlinedIcon from '@mui/icons-material/CalendarTodayOutlined';
 import noImage from '../../assets/no-image.png';
 
+// Function to get the best available image from a book object
+const getBestCoverImage = (book) => {
+  if (!book) return null;
+  
+  // First check if imageLinks exists and has thumbnails (Google Books API)
+  if (book.imageLinks) {
+    // Try to get the largest available image in descending order of quality
+    return book.imageLinks.extraLarge || 
+           book.imageLinks.large || 
+           book.imageLinks.medium || 
+           book.imageLinks.small || 
+           book.imageLinks.thumbnail;
+  }
+  
+  // Fallback to cover property if imageLinks is not available
+  return book.cover || null;
+};
+
 // Function to optimize image URL for better quality
 const getOptimizedImageUrl = (url) => {
   if (!url) return null;
   
   // Handle Google Books URLs
-  if (url && url.includes('books.google.com')) {
+  if (url.includes('books.google.com')) {
     let optimizedUrl = url;
     
     // Ensure HTTPS
@@ -29,16 +47,16 @@ const getOptimizedImageUrl = (url) => {
     
     // Set zoom to 0 (best quality)
     if (optimizedUrl.includes('zoom=')) {
-      optimizedUrl = optimizedUrl.replace(/zoom=\d/, 'zoom=0');
+      optimizedUrl = optimizedUrl.replace(/zoom=\d/, 'zoom=1');
     } else {
-      optimizedUrl = optimizedUrl + '&zoom=0';
+      optimizedUrl = optimizedUrl + '&zoom=1';
     }
     
     return optimizedUrl;
   }
   
   // Handle OpenLibrary URLs
-  if (url && url.includes('openlibrary.org')) {
+  if (url.includes('openlibrary.org')) {
     // Use largest available image size
     return url.replace('-M.jpg', '-L.jpg');
   }
@@ -55,8 +73,9 @@ const BookCard = ({ book, showRating = true }) => {
     ? new Date(book.releaseDate).getFullYear() 
     : (book.year || null);
 
-  // Get optimized cover image
-  const optimizedCover = getOptimizedImageUrl(book.cover);
+  // Get the best available cover image and optimize it
+  const bestCoverImage = getBestCoverImage(book);
+  const optimizedCover = getOptimizedImageUrl(bestCoverImage);
 
   return (
     <Card
@@ -206,9 +225,9 @@ const BookCard = ({ book, showRating = true }) => {
         {/* Genres (if available) */}
         {book.genres && book.genres.length > 0 && (
           <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 'auto', pt: 0.5 }}>
-            {book.genres.slice(0, 2).map((genre) => (
+            {book.genres.slice(0, 2).map((genre, index) => (
               <Chip
-                key={genre}
+                key={`${genre}-${index}`}
                 label={genre}
                 size="small"
                 sx={{
