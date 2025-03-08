@@ -8,6 +8,7 @@ import HomeIcon from '@mui/icons-material/Home';
 import SearchIcon from '@mui/icons-material/Search';
 import BookmarkIcon from '@mui/icons-material/Bookmark';
 import PersonIcon from '@mui/icons-material/Person';
+import LibraryBooksIcon from '@mui/icons-material/LibraryBooks';
 import { useTheme } from '@mui/material/styles';
 
 const BottomNav = () => {
@@ -19,8 +20,9 @@ const BottomNav = () => {
     const path = location.pathname;
     if (path === '/') return 0;
     if (path.startsWith('/search')) return 1;
-    if (path.startsWith('/requests')) return 2;
-    if (path.startsWith('/profile')) return 3;
+    if (path.startsWith('/library')) return 2; // New library tab
+    if (path.startsWith('/requests')) return 3;
+    if (path.startsWith('/profile')) return 4;
     return 0;
   };
 
@@ -50,8 +52,9 @@ const BottomNav = () => {
           switch (newValue) {
             case 0: navigate('/'); break;
             case 1: navigate('/search'); break;
-            case 2: navigate('/requests'); break;
-            case 3: navigate('/profile'); break;
+            case 2: navigate('/library'); break;
+            case 3: navigate('/requests'); break;
+            case 4: navigate('/profile'); break;
             default: navigate('/');
           }
         }}
@@ -75,6 +78,10 @@ const BottomNav = () => {
         <BottomNavigationAction 
           label="Search" 
           icon={<SearchIcon />} 
+        />
+        <BottomNavigationAction 
+          label="Library" 
+          icon={<LibraryBooksIcon />} 
         />
         <BottomNavigationAction 
           label="Requests" 

@@ -12,7 +12,7 @@ import { SearchProvider } from './context/SearchContext';
 import PrivateRoute from './components/routing/PrivateRoute';
 import Layout from './components/layout/Layout';
 import AdminRoute from './components/routing/AdminRoute';
-
+import UpdateNotification from './components/common/UpdateNotification';
 
 
 // Lazy-loaded components
@@ -25,6 +25,11 @@ const Requests = lazy(() => import('./pages/Requests'));
 const AdminRequests = lazy(() => import('./pages/AdminRequests'));
 const Profile = lazy(() => import('./pages/Profile'));
 const CalibreManager = lazy(() => import('./pages/CalibreManager'));
+
+// New Library components
+const MyLibrary = lazy(() => import('./pages/MyLibrary'));
+const LibraryBookDetail = lazy(() => import('./pages/LibraryBookDetail'));
+const OnlineReader = lazy(() => import('./pages/OnlineReader'));
 
 
 // Loading fallback
@@ -56,11 +61,17 @@ function App() {
                   <Route path="/profile" element={<Profile />} />
                   <Route path="/book/google/:id" element={<BookDetail source="google" />} />
                   <Route path="calibre-manager" element={<AdminRoute><CalibreManager /></AdminRoute>} />
+                  
+                  {/* New Library Routes */}
+                  <Route path="/library" element={<MyLibrary />} />
+                  <Route path="/library/:id" element={<LibraryBookDetail />} />
+                  <Route path="/library/:id/read" element={<OnlineReader />} />
                 </Route>
 
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
               <InstallPrompt />
+              <UpdateNotification />
             </Suspense>
           </Router>
           </SearchProvider>

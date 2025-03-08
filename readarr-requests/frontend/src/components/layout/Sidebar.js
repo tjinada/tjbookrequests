@@ -26,15 +26,22 @@ const Sidebar = ({ open, drawerWidth }) => {
 
   const menuItems = [
     { text: 'Home', icon: <HomeIcon />, path: '/' },
-    { text: 'Search Books', icon: <SearchIcon />, path: '/search' },
+    { text: 'Search', icon: <SearchIcon />, path: '/search' },
+    { text: 'My Library', icon: <LibraryBooksIcon />, path: '/library' },
     { text: 'My Requests', icon: <HistoryIcon />, path: '/requests' },
-    { text: 'Profile', icon: <PersonIcon />, path: '/profile' },
+    { text: 'Profile', icon: <PersonIcon />, path: '/profile' }
   ];
 
-  const adminItems = [
-    { text: 'Manage Requests', icon: <AdminPanelSettingsIcon />, path: '/admin/requests' },
-    { text: 'Calibre Manager', icon: <LocalLibraryIcon />, path: '/calibre-manager' },
-  ];
+  // Admin pages
+  const adminItems = user && user.role === 'admin' 
+    ? [
+        { text: 'Manage Requests', icon: <AdminPanelSettingsIcon />, path: '/admin/requests' },
+        { text: 'Calibre Manager', icon: <LocalLibraryIcon />, path: '/calibre-manager' }
+      ] 
+    : [];
+
+  // All navigation pages combined
+  const allPages = [...menuItems, ...adminItems];
 
   return (
     <Drawer
