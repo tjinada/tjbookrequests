@@ -1,8 +1,11 @@
 // public/service-worker.js
 
-// Cache version
+// Cache version - change this on each deployment
 const CACHE_VERSION = 'v1';
-const CACHE_NAME = `readarr-requests-${CACHE_VERSION}`;
+// Add a build timestamp that will change with each build
+const BUILD_TIMESTAMP = new Date().toISOString();
+// Combined cache name will be unique for each deployment
+const CACHE_NAME = `readarr-requests-${CACHE_VERSION}-${BUILD_TIMESTAMP.substring(0, 10)}`;
 
 // App shell files to cache
 const appShellFiles = [
@@ -20,12 +23,17 @@ const appShellFiles = [
 // Install event - cache app shell files
 self.addEventListener('install', (event) => {
   console.log('[Service Worker] Installing Service Worker...', event);
+  console.log('[Service Worker] Cache version:', CACHE_VERSION, 'Build:', BUILD_TIMESTAMP);
+  
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       console.log('[Service Worker] Caching App Shell');
       return cache.addAll(appShellFiles);
     })
   );
+  
+  // Force the waiting service worker to become active
+  self.skipWaiting();
 });
 
 // Activate event - clean up old caches
@@ -35,7 +43,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keyList) => {
       return Promise.all(
         keyList.map((key) => {
-          if (key !== CACHE_NAME) {
+          if (key !== CACHE_NAME && key.startsWith('readarr-requests-')) {
             console.log('[Service Worker] Removing old cache:', key);
             return caches.delete(key);
           }
@@ -43,6 +51,7 @@ self.addEventListener('activate', (event) => {
       );
     })
   );
+  // Take control of all clients immediately
   return self.clients.claim();
 });
 
@@ -143,6 +152,14 @@ self.addEventListener('notificationclick', (event) => {
       // Default fallback - open app
       openUrl('/');
     }
+  }
+});
+
+// Add message event handler for SKIP_WAITING
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    console.log('[Service Worker] Skip waiting and activate immediately');
+    self.skipWaiting();
   }
 });
 

@@ -14,7 +14,21 @@ root.render(
 );
 
 // Register service worker for PWA support
-serviceWorker.register();
+// Register service worker with update handling
+serviceWorker.register({
+  onUpdate: registration => {
+    console.log('New service worker update available', registration);
+    
+    // Dispatch an update event for the UpdateNotification component
+    const updateEvent = new CustomEvent('serviceWorkerUpdate', { 
+      detail: { registration: registration }
+    });
+    window.dispatchEvent(updateEvent);
+  },
+  onSuccess: registration => {
+    console.log('Service worker registered successfully');
+  }
+});
 
 // If you want to start measuring performance in your app, pass a function
 // to log results (for example: reportWebVitals(console.log))
