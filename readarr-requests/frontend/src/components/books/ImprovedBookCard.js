@@ -1,5 +1,5 @@
 // src/components/books/ImprovedBookCard.js
-import React from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
@@ -7,10 +7,14 @@ import CardMedia from '@mui/material/CardMedia';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
+import Badge from '@mui/material/Badge';
 import StarIcon from '@mui/icons-material/Star';
 import CalendarTodayOutlinedIcon from '@mui/icons-material/CalendarTodayOutlined';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { styled } from '@mui/material/styles';
 import noImage from '../../assets/no-image.png';
+import AuthContext from '../../context/AuthContext';
+import api from '../../utils/api';
 
 // Styled card component for consistent hover effects
 const StyledCard = styled(Card)(({ theme }) => ({
@@ -27,12 +31,35 @@ const StyledCard = styled(Card)(({ theme }) => ({
 
 const ImprovedBookCard = ({ book, onClick }) => {
   const navigate = useNavigate();
+  const { isAuthenticated } = useContext(AuthContext);
+  const [isRequested, setIsRequested] = useState(false);
   
   // Get the best available cover image
   const bookCover = book.cover || noImage;
   
   // Extract year from releaseDate or use provided year
   const year = book.year || (book.releaseDate ? new Date(book.releaseDate).getFullYear() : null);
+
+  // Check if the book has been requested by the user
+  useEffect(() => {
+    if (isAuthenticated && book.id) {
+      // Fetch user's requests to check if this book is among them
+      const checkIfRequested = async () => {
+        try {
+          const response = await api.get('/requests/me');
+          const requests = response.data;
+          
+          // Check if this book ID exists in the user's requests
+          const bookRequested = requests.some(request => request.bookId === book.id);
+          setIsRequested(bookRequested);
+        } catch (error) {
+          console.error('Error checking if book is requested:', error);
+        }
+      };
+      
+      checkIfRequested();
+    }
+  }, [isAuthenticated, book.id]);
   
   // Handle book click - Navigate to details page or use custom handler
   const handleBookClick = () => {
@@ -46,18 +73,41 @@ const ImprovedBookCard = ({ book, onClick }) => {
   return (
     <StyledCard onClick={handleBookClick}>
       {/* Book Cover on the left */}
-      <CardMedia
-        component="img"
-        sx={{ 
-          width: 100,
-          minWidth: 100, 
-          height: '100%',
-          objectFit: 'cover',
-          objectPosition: 'center top'
-        }}
-        image={bookCover}
-        alt={book.title}
-      />
+      <Box sx={{ position: 'relative', minWidth: 100 }}>
+        <CardMedia
+          component="img"
+          sx={{ 
+            width: 100,
+            minWidth: 100, 
+            height: '100%',
+            objectFit: 'cover',
+            objectPosition: 'center top'
+          }}
+          image={bookCover}
+          alt={book.title}
+        />
+        
+        {/* Show requested badge if applicable */}
+        {isRequested && (
+          <Box
+            sx={{
+              position: 'absolute',
+              bottom: 5,
+              right: 5,
+              width: 24,
+              height: 24,
+              borderRadius: '50%',
+              bgcolor: 'success.main',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+            }}
+          >
+            <CheckCircleIcon sx={{ fontSize: 16, color: 'white' }} />
+          </Box>
+        )}
+      </Box>
       
       {/* Book Details on the right */}
       <Box sx={{ 

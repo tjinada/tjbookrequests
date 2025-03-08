@@ -1,5 +1,5 @@
 // src/components/books/EnhancedBookCard.js
-import React from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { useTheme } from '@mui/material/styles';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
@@ -11,7 +11,10 @@ import Chip from '@mui/material/Chip';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import StarIcon from '@mui/icons-material/Star';
 import CalendarTodayOutlinedIcon from '@mui/icons-material/CalendarTodayOutlined';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import noImage from '../../assets/no-image.png';
+import AuthContext from '../../context/AuthContext';
+import api from '../../utils/api';
 
 // Helper function to ensure high-quality cover URLs
 const optimizeBookCover = (coverUrl) => {
@@ -92,6 +95,8 @@ const extractYear = (book) => {
 const EnhancedBookCard = ({ book, showRating = true }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const { isAuthenticated } = useContext(AuthContext);
+  const [isRequested, setIsRequested] = useState(false);
 
   // Optimize cover URL
   const optimizedCover = optimizeBookCover(book.cover);
@@ -101,6 +106,27 @@ const EnhancedBookCard = ({ book, showRating = true }) => {
   
   // Extract publication year
   const year = extractYear(book);
+
+  // Check if the book has been requested by the user
+  useEffect(() => {
+    if (isAuthenticated && book.id) {
+      // Fetch user's requests to check if this book is among them
+      const checkIfRequested = async () => {
+        try {
+          const response = await api.get('/requests/me');
+          const requests = response.data;
+          
+          // Check if this book ID exists in the user's requests
+          const bookRequested = requests.some(request => request.bookId === book.id);
+          setIsRequested(bookRequested);
+        } catch (error) {
+          console.error('Error checking if book is requested:', error);
+        }
+      };
+      
+      checkIfRequested();
+    }
+  }, [isAuthenticated, book.id]);
 
   return (
     <Card
@@ -202,6 +228,29 @@ const EnhancedBookCard = ({ book, showRating = true }) => {
         </Box>
       )}
 
+      {/* Requested Checkmark Badge */}
+      {isRequested && (
+        <Box
+          sx={{
+            position: 'absolute',
+            bottom: 16,
+            right: 16,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            bgcolor: 'success.main',
+            color: 'white',
+            borderRadius: '50%',
+            width: 36,
+            height: 36,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+            zIndex: 2
+          }}
+        >
+          <CheckCircleIcon />
+        </Box>
+      )}
+
       {/* Book Info Overlay (appears on hover) */}
       <Box
         className="bookCardOverlay"
@@ -229,7 +278,9 @@ const EnhancedBookCard = ({ book, showRating = true }) => {
             lineHeight: 1.2,
             mb: 1,
             textShadow: '0 2px 4px rgba(0,0,0,0.5)',
-            fontSize: isMobile ? '1rem' : '1.1rem'
+            fontSize: isMobile ? '1rem' : '1.1rem',
+            // Add right padding if requested to avoid text overlap with checkmark
+            pr: isRequested ? 5 : 0
           }}
         >
           {book.title}

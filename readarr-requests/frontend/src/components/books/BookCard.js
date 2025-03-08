@@ -1,5 +1,5 @@
-// src/components/books/BookCard.js
-import React from 'react';
+// src/components/books/BookCard.js - with Request Status Indicator
+import React, { useContext, useEffect, useState } from 'react';
 import { useTheme } from '@mui/material/styles';
 import Card from '@mui/material/Card';
 import CardMedia from '@mui/material/CardMedia';
@@ -9,7 +9,10 @@ import Chip from '@mui/material/Chip';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import StarIcon from '@mui/icons-material/Star';
 import CalendarTodayOutlinedIcon from '@mui/icons-material/CalendarTodayOutlined';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import noImage from '../../assets/no-image.png';
+import AuthContext from '../../context/AuthContext';
+import api from '../../utils/api';
 
 // Function to get the best available image from a book object
 const getBestCoverImage = (book) => {
@@ -67,6 +70,8 @@ const getOptimizedImageUrl = (url) => {
 const BookCard = ({ book, showRating = true }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const { isAuthenticated } = useContext(AuthContext);
+  const [isRequested, setIsRequested] = useState(false);
 
   // Format the year from the release date
   const year = book.releaseDate 
@@ -76,6 +81,27 @@ const BookCard = ({ book, showRating = true }) => {
   // Get the best available cover image and optimize it
   const bestCoverImage = getBestCoverImage(book);
   const optimizedCover = getOptimizedImageUrl(bestCoverImage);
+
+  // Check if the book has been requested by the user
+  useEffect(() => {
+    if (isAuthenticated && book.id) {
+      // Fetch user's requests to check if this book is among them
+      const checkIfRequested = async () => {
+        try {
+          const response = await api.get('/requests/me');
+          const requests = response.data;
+          
+          // Check if this book ID exists in the user's requests
+          const bookRequested = requests.some(request => request.bookId === book.id);
+          setIsRequested(bookRequested);
+        } catch (error) {
+          console.error('Error checking if book is requested:', error);
+        }
+      };
+      
+      checkIfRequested();
+    }
+  }, [isAuthenticated, book.id]);
 
   return (
     <Card
@@ -168,6 +194,29 @@ const BookCard = ({ book, showRating = true }) => {
         </Box>
       )}
 
+      {/* Requested Checkmark Badge */}
+      {isRequested && (
+        <Box
+          sx={{
+            position: 'absolute',
+            bottom: 12,
+            right: 12,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            bgcolor: 'success.main',
+            color: 'white',
+            borderRadius: '50%',
+            width: 32,
+            height: 32,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+            zIndex: 2
+          }}
+        >
+          <CheckCircleIcon fontSize="small" />
+        </Box>
+      )}
+
       {/* Book Info Overlay - Enhanced gradient and positioning */}
       <Box
         className="bookCardOverlay"
@@ -201,6 +250,8 @@ const BookCard = ({ book, showRating = true }) => {
             WebkitBoxOrient: 'vertical',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
+            // Add right padding if requested to avoid text overlap with checkmark
+            pr: isRequested ? 4 : 0
           }}
         >
           {book.title}
