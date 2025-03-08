@@ -33,7 +33,7 @@ const Requests = () => {
       setLoading(false);
     } catch (err) {
       console.error('Error fetching requests:', err); // Add detailed error logging
-      setError('Failed to load your requests. Please try again.');
+      setError('Unable to load your requests. Please try again later.');
       setLoading(false);
     }
   }, []);
@@ -151,10 +151,10 @@ const Requests = () => {
             Request Status Legend:
           </Typography>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-            <Chip size="small" label="Pending Approval" color="warning" />
-            <Chip size="small" label="Approved - Processing" color="info" />
+            <Chip size="small" label="In Progress" color="warning" />
+            <Chip size="small" label="Processing" color="info" />
             <Chip size="small" label="Available in Library" color="success" />
-            <Chip size="small" label="Request Denied" color="error" />
+            <Chip size="small" label="Request Failed" color="error" />
           </Box>
         </Paper>
       </Box>

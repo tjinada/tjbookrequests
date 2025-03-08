@@ -16,12 +16,12 @@ const statusColors = {
 };
 
 const RequestCard = ({ request }) => {
-  // Define status messages
+  // Define user-friendly status messages
   const statusMessages = {
-    pending: 'Awaiting approval',
-    approved: request.readarrStatus === 'added' ? 'Added to Readarr - Searching' : 'Approved',
-    denied: 'Request denied',
-    available: 'Available in library'
+    pending: 'In Progress',
+    approved: request.readarrStatus === 'added' ? 'Processing - Book Search in Progress' : 'Processing',
+    denied: 'Request Failed',
+    available: 'Available in Library'
   };
 
   // Determine if there's a Readarr error to show
@@ -55,16 +55,6 @@ const RequestCard = ({ request }) => {
               {new Date(request.createdAt).toLocaleDateString()}
             </Typography>
           </Box>
-
-          {hasReadarrError && (
-            <Typography 
-              variant="caption" 
-              color="error" 
-              sx={{ display: 'block', mt: 1 }}
-            >
-              {request.readarrMessage}
-            </Typography>
-          )}
 
           {request.status === 'available' && (
             <Typography 
