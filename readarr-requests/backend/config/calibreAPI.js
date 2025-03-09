@@ -447,32 +447,41 @@ module.exports = {
       // Normalize format to uppercase
       const formatUpper = format.toUpperCase();
       
+      // First, get the book details to find available formats
+      const bookDetails = await module.exports.getBookDetails(bookId);
+      log(`Available formats for book ${bookId}: ${JSON.stringify(bookDetails.formats || [])}`);
+      
       if (useCliOnly) {
         // When using CLI only, we need to construct a local URL or direct file path
-        // First, get the book details to find the file path
-        const bookDetails = await module.exports.getBookDetails(bookId);
-        
-        if (!bookDetails || !bookDetails.path) {
-          throw new Error(`Book details or path not found for ID: ${bookId}`);
+        // First, check if the book has the requested format
+        if (!bookDetails || !bookDetails.formats || !bookDetails.formats.length) {
+          log(`No formats available for book ${bookId}`);
+          return null;
         }
         
         // Check for the requested format
         const formatFiles = bookDetails.formats || [];
-        const formatFile = formatFiles.find(f => f.toUpperCase().endsWith(`.${formatUpper}`));
+        const formatMatches = formatFiles.filter(f => 
+          f.toUpperCase().includes(`.${formatUpper}`)
+        );
         
-        if (!formatFile) {
-          log(`Format ${format} not available for book ${bookId}`);
+        log(`Format matches for ${format}: ${JSON.stringify(formatMatches)}`);
+        
+        if (!formatMatches.length) {
+          log(`Format ${format} not found in available formats for book ${bookId}`);
           return null;
         }
         
+        const formatFile = formatMatches[0];
+        
         // Return the full path to the file
-        // In a real-world scenario, this path would need to be translated to a URL
-        // that the frontend can access, or the backend would need to serve the file
+        log(`Returning file path: ${formatFile}`);
         return formatFile;
       } else {
         // When using the Calibre content server
         // The URL format is typically /get/{book_id}/{format}
         const downloadUrl = `${calibreServerUrl}/get/${bookId}/${formatUpper.toLowerCase()}`;
+        log(`Attempting to access URL: ${downloadUrl}`);
         
         // Check if the format exists by making a HEAD request
         try {
@@ -484,10 +493,32 @@ module.exports = {
           });
           
           if (response.status === 200) {
+            log(`Format ${format} verified available at URL: ${downloadUrl}`);
             return downloadUrl;
           }
         } catch (error) {
           log(`Format ${format} not available for book ${bookId}: ${error.message}`);
+          
+          // Let's try a different URL format (may vary based on Calibre server configuration)
+          const alternateUrl = `${calibreServerUrl}/book/${bookId}/format/${formatUpper.toLowerCase()}`;
+          log(`Trying alternate URL: ${alternateUrl}`);
+          
+          try {
+            const altResponse = await axios.head(alternateUrl, {
+              auth: calibreUsername && calibrePassword ? {
+                username: calibreUsername,
+                password: calibrePassword
+              } : undefined
+            });
+            
+            if (altResponse.status === 200) {
+              log(`Format ${format} available at alternate URL: ${alternateUrl}`);
+              return alternateUrl;
+            }
+          } catch (altError) {
+            log(`Format ${format} not available at alternate URL: ${altError.message}`);
+          }
+          
           return null;
         }
         
