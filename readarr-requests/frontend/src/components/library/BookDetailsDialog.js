@@ -105,23 +105,20 @@ const BookDetailsDialog = ({ open, onClose, book }) => {
       // Extract format type (e.g., "EPUB" from "book.epub")
       const formatType = selectedFormat.split('.').pop().toUpperCase();
       
-      // Get download link
-      const response = await api.get(`/library/book/${book.id}/download/${formatType}`);
+      // Generate the direct download URL to our backend endpoint
+      const downloadUrl = `/api/library/book/${book.id}/download/${formatType}`;
       
-      if (response.data.downloadUrl) {
-        // Create a temporary anchor element to trigger download
-        const link = document.createElement('a');
-        link.href = response.data.downloadUrl;
-        link.setAttribute('download', `${book.title}.${formatType.toLowerCase()}`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        setSuccess(`${formatType} download started`);
-        setTimeout(() => setSuccess(null), 3000);
-      } else {
-        setError('Download link not available');
-      }
+      // Create a hidden link and click it to start the download
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.setAttribute('download', `${book.title}.${formatType.toLowerCase()}`);
+      link.setAttribute('target', '_blank'); // Optional: open in new tab
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      setSuccess(`${formatType} download started`);
+      setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       console.error('Error downloading book:', err);
       setError('Failed to download book');

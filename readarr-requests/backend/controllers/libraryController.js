@@ -88,39 +88,93 @@ exports.getBookDownloadLink = async (req, res) => {
   
       log(`Generating download for book ID: ${bookId}, format: ${format}, user: ${username}`);
   
-      // Verify book belongs to user
+      // First, verify the book belongs to the user's library
       const bookDetails = await calibreAPI.getBookDetails(bookId);
+      
+      // Check if the book's tags include the user's username
       const hasUserTag = bookDetails.tags && bookDetails.tags.includes(username);
       
       if (!hasUserTag) {
+        log(`Access denied: Book ${bookId} does not belong to user ${username}`);
         return res.status(403).json({ message: 'This book is not in your library' });
       }
       
-      // Format URL
+      // Normalize format
       const formatUpper = format.toUpperCase();
-      const fileUrl = `${process.env.CALIBRE_SERVER_URL}/get/${formatUpper}/${bookId}/calibre`;
       
-      // Proxy the file through our server
-      const response = await axios.get(fileUrl, {
-        auth: {
-          username: process.env.CALIBRE_USERNAME,
-          password: process.env.CALIBRE_PASSWORD
-        },
-        responseType: 'stream'
-      });
+      // Format URL for Calibre server
+      const calibreServerUrl = process.env.CALIBRE_SERVER_URL;
+      const calibreUsername = process.env.CALIBRE_USERNAME;
+      const calibrePassword = process.env.CALIBRE_PASSWORD;
       
-      // Set appropriate headers
-      res.setHeader('Content-Type', 'application/octet-stream');
-      res.setHeader('Content-Disposition', `attachment; filename="${bookDetails.title}.${format.toLowerCase()}"`);
+      const fileUrl = `${calibreServerUrl}/get/${formatUpper}/${bookId}/calibre`;
       
-      // Pipe the file stream to the response
-      response.data.pipe(res);
+      log(`Proxying download from Calibre URL: ${fileUrl}`);
+      
+      try {
+        // Fetch the file from Calibre
+        const response = await axios({
+          method: 'get',
+          url: fileUrl,
+          auth: {
+            username: calibreUsername,
+            password: calibrePassword
+          },
+          responseType: 'stream'
+        });
+        
+        // Get filename from content-disposition header if available
+        let filename = `${bookDetails.title.replace(/[/\\?%*:|"<>]/g, '-')}.${format.toLowerCase()}`;
+        const contentDisposition = response.headers['content-disposition'];
+        if (contentDisposition) {
+          const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+          if (filenameMatch && filenameMatch[1]) {
+            filename = filenameMatch[1];
+          }
+        }
+        
+        // Set appropriate headers
+        res.setHeader('Content-Type', response.headers['content-type'] || 'application/octet-stream');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        
+        if (response.headers['content-length']) {
+          res.setHeader('Content-Length', response.headers['content-length']);
+        }
+        
+        // Pipe the file stream directly to the response
+        response.data.pipe(res);
+        
+        // Log success after the stream completes
+        response.data.on('end', () => {
+          log(`Download completed for book ${bookId}, format ${format}, user ${username}`);
+        });
+        
+        // Handle errors in the stream
+        response.data.on('error', (err) => {
+          log(`Error in download stream for book ${bookId}: ${err.message}`);
+          // The response might have already started, so we can't send an error status now
+        });
+      } catch (requestError) {
+        log(`Error requesting file from Calibre: ${requestError.message}`);
+        
+        // If we haven't sent headers yet, we can send an error response
+        if (!res.headersSent) {
+          return res.status(404).json({ 
+            message: `Format ${format} not available for this book`,
+            error: requestError.message
+          });
+        }
+      }
     } catch (error) {
-      log(`Error downloading book: ${error.message}`);
-      res.status(500).json({ 
-        message: 'Error downloading book', 
-        error: error.message 
-      });
+      log(`Error generating download: ${error.message}`);
+      
+      // Only send error response if headers haven't been sent yet
+      if (!res.headersSent) {
+        res.status(500).json({ 
+          message: 'Error downloading book', 
+          error: error.message 
+        });
+      }
     }
   };
 

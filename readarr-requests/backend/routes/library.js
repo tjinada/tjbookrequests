@@ -24,4 +24,9 @@ router.get('/book/:bookId/download/:format', auth, libraryController.getBookDown
 // @access  Private
 router.post('/book/:bookId/send-to-ereader', auth, libraryController.sendToEreader);
 
+// @route   GET api/library/book/:bookId/download/:format
+// @desc    Download a book in a specific format
+// @access  Private
+router.get('/book/:bookId/download/:format', auth, libraryController.getBookDownloadLink);
+
 module.exports = router;
