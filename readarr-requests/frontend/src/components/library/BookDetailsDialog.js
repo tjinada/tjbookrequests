@@ -1,5 +1,5 @@
 // src/components/library/BookDetailsDialog.js
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -12,13 +12,11 @@ import {
   Divider,
   IconButton,
   TextField,
-  MenuItem,
   FormControl,
   InputLabel,
   Select,
+  MenuItem,
   CircularProgress,
-  Tooltip,
-  Rating,
   Alert,
   Paper,
   useMediaQuery
@@ -28,7 +26,6 @@ import CloseIcon from '@mui/icons-material/Close';
 import DownloadIcon from '@mui/icons-material/Download';
 import SendIcon from '@mui/icons-material/Send';
 import DevicesIcon from '@mui/icons-material/Devices';
-import ImportContactsIcon from '@mui/icons-material/ImportContacts';
 import noImage from '../../assets/no-image.png';
 import AuthContext from '../../context/AuthContext';
 import api from '../../utils/api';
@@ -53,7 +50,7 @@ const BookDetailsDialog = ({ open, onClose, book }) => {
   const [sendSuccess, setSendSuccess] = useState(false);
   
   // Load available formats when dialog opens
-  React.useEffect(() => {
+  useEffect(() => {
     if (open && book?.id) {
       fetchFormats();
     }
@@ -105,14 +102,13 @@ const BookDetailsDialog = ({ open, onClose, book }) => {
       // Extract format type (e.g., "EPUB" from "book.epub")
       const formatType = selectedFormat.split('.').pop().toUpperCase();
       
-      // Generate the direct download URL to our backend endpoint
+      // Create a direct download URL to our backend endpoint
       const downloadUrl = `/api/library/book/${book.id}/download/${formatType}`;
       
       // Create a hidden link and click it to start the download
       const link = document.createElement('a');
       link.href = downloadUrl;
       link.setAttribute('download', `${book.title}.${formatType.toLowerCase()}`);
-      link.setAttribute('target', '_blank'); // Optional: open in new tab
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
