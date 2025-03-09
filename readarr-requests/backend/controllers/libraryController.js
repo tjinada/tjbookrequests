@@ -310,7 +310,7 @@ exports.downloadBook = async (req, res) => {
     }
     
     // Determine if we should use API or direct download from Calibre Content Server
-    const useContentServer = process.env.CALIBRE_SERVER_URL && !process.env.CALIBRE_USE_CLI_ONLY;
+    const useContentServer = process.env.CALIBRE_SERVER_URL;
     
     if (useContentServer) {
       // Create authentication header for Calibre Content Server
@@ -328,7 +328,7 @@ exports.downloadBook = async (req, res) => {
           url: downloadUrl,
           responseType: 'stream',
           headers: {
-            'Authorization': `${auth}`
+            'Authorization': `Basic ${auth}`
           }
         });
         
