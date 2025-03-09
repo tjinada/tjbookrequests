@@ -103,32 +103,171 @@ exports.getBookFormats = async (req, res) => {
 };
 
 exports.getBookCover = async (req, res) => {
-    const { id } = req.params;
-    
     try {
+      const { id } = req.params;
+      log(`Proxying cover image for book ID: ${id}`);
+      
+      // First validate that the user has access to this book
+      // This step is important to prevent unauthorized access
+      const book = await calibreAPI.getBookDetails(id);
+      
+      if (!book) {
+        return res.status(404).json({ message: 'Book not found' });
+      }
+      
+      // Check user has access to this book (username is in tags)
+      if (!book.tags || !book.tags.some(tag => tag.toLowerCase() === req.user.username.toLowerCase())) {
+        return res.status(403).json({ message: 'You do not have access to this book' });
+      }
+      
       // Create the full URL to the Calibre cover
       const coverUrl = `${process.env.CALIBRE_SERVER_URL}/get/cover/${id}/calibre`;
       
-      // Use axios to proxy the request with proper authentication
+      // Create authentication header for Calibre Content Server
       const auth = Buffer.from(`${process.env.CALIBRE_USERNAME}:${process.env.CALIBRE_PASSWORD}`).toString('base64');
       
-      const response = await axios({
-        method: 'get',
-        url: coverUrl,
-        responseType: 'stream',
-        headers: {
-          'Authorization': `Basic ${auth}`
-        }
-      });
-      
-      // Set proper content type
-      res.setHeader('Content-Type', response.headers['content-type']);
-      
-      // Pipe the response to the client
-      response.data.pipe(res);
+      try {
+        // Use axios to proxy the request
+        const response = await axios({
+          method: 'get',
+          url: coverUrl,
+          responseType: 'stream',
+          headers: {
+            'Authorization': `Basic ${auth}`
+          }
+        });
+        
+        // Set content type and other headers
+        res.setHeader('Content-Type', response.headers['content-type']);
+        res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
+        
+        // Pipe the response to the client
+        response.data.pipe(res);
+      } catch (err) {
+        log(`Error proxying cover image: ${err.message}`);
+        return res.status(500).json({ message: 'Error fetching cover image' });
+      }
     } catch (error) {
-      console.error('Error proxying cover image:', error);
-      res.status(500).json({ message: 'Error fetching cover image' });
+      log(`Error in cover proxy: ${error.message}`);
+      res.status(500).json({ message: 'Error proxying cover image', error: error.message });
+    }
+  };
+  
+  /**
+   * Proxy for book thumbnail images
+   */
+  exports.getBookThumbnail = async (req, res) => {
+    try {
+      const { id } = req.params;
+      log(`Proxying thumbnail image for book ID: ${id}`);
+      
+      // First validate that the user has access to this book
+      const book = await calibreAPI.getBookDetails(id);
+      
+      if (!book) {
+        return res.status(404).json({ message: 'Book not found' });
+      }
+      
+      // Check user has access to this book (username is in tags)
+      if (!book.tags || !book.tags.some(tag => tag.toLowerCase() === req.user.username.toLowerCase())) {
+        return res.status(403).json({ message: 'You do not have access to this book' });
+      }
+      
+      // Create the full URL to the Calibre thumbnail
+      const thumbnailUrl = `${process.env.CALIBRE_SERVER_URL}/get/thumb/${id}/calibre`;
+      
+      // Create authentication header for Calibre Content Server
+      const auth = Buffer.from(`${process.env.CALIBRE_USERNAME}:${process.env.CALIBRE_PASSWORD}`).toString('base64');
+      
+      try {
+        // Use axios to proxy the request
+        const response = await axios({
+          method: 'get',
+          url: thumbnailUrl,
+          responseType: 'stream',
+          headers: {
+            'Authorization': `Basic ${auth}`
+          }
+        });
+        
+        // Set content type and other headers
+        res.setHeader('Content-Type', response.headers['content-type']);
+        res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
+        
+        // Pipe the response to the client
+        response.data.pipe(res);
+      } catch (err) {
+        log(`Error proxying thumbnail image: ${err.message}`);
+        return res.status(500).json({ message: 'Error fetching thumbnail image' });
+      }
+    } catch (error) {
+      log(`Error in thumbnail proxy: ${error.message}`);
+      res.status(500).json({ message: 'Error proxying thumbnail image', error: error.message });
+    }
+  };
+  
+  /**
+   * Generic proxy for any Calibre asset
+   */
+  exports.getCalibreAsset = async (req, res) => {
+    try {
+      const { type, id } = req.params;
+      log(`Proxying Calibre asset type: ${type}, ID: ${id}`);
+      
+      // Validate asset type for security
+      const validAssetTypes = ['cover', 'thumb', 'opf', 'json', 'static'];
+      if (!validAssetTypes.includes(type)) {
+        return res.status(400).json({ message: 'Invalid asset type' });
+      }
+      
+      // For book-related assets, validate user access first
+      if (['cover', 'thumb', 'opf', 'json'].includes(type)) {
+        const book = await calibreAPI.getBookDetails(id);
+        
+        if (!book) {
+          return res.status(404).json({ message: 'Book not found' });
+        }
+        
+        // Check user has access to this book (username is in tags)
+        if (!book.tags || !book.tags.some(tag => tag.toLowerCase() === req.user.username.toLowerCase())) {
+          return res.status(403).json({ message: 'You do not have access to this book' });
+        }
+      }
+      
+      // Create the full URL to the Calibre asset
+      const assetUrl = `${process.env.CALIBRE_SERVER_URL}/get/${type}/${id}/calibre`;
+      
+      // Create authentication header for Calibre Content Server
+      const auth = Buffer.from(`${process.env.CALIBRE_USERNAME}:${process.env.CALIBRE_PASSWORD}`).toString('base64');
+      
+      try {
+        // Use axios to proxy the request
+        const response = await axios({
+          method: 'get',
+          url: assetUrl,
+          responseType: 'stream',
+          headers: {
+            'Authorization': `Basic ${auth}`
+          }
+        });
+        
+        // Set content type and other headers
+        res.setHeader('Content-Type', response.headers['content-type']);
+        
+        // Cache for 24 hours, except for dynamic content
+        if (['cover', 'thumb', 'static'].includes(type)) {
+          res.setHeader('Cache-Control', 'public, max-age=86400');
+        }
+        
+        // Pipe the response to the client
+        response.data.pipe(res);
+      } catch (err) {
+        log(`Error proxying Calibre asset: ${err.message}`);
+        return res.status(500).json({ message: 'Error fetching Calibre asset' });
+      }
+    } catch (error) {
+      log(`Error in asset proxy: ${error.message}`);
+      res.status(500).json({ message: 'Error proxying Calibre asset', error: error.message });
     }
   };
 

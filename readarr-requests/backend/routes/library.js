@@ -29,4 +29,21 @@ router.get('/reading/:id/:format', auth, libraryController.getBookForReading);
 // @access  Private
 router.get('/formats/:id', auth, libraryController.getBookFormats);
 
+// NEW PROXY ROUTES
+
+// @route   GET api/library/cover/:id
+// @desc    Proxy for book cover images
+// @access  Private
+router.get('/cover/:id', auth, libraryController.getBookCover);
+
+// @route   GET api/library/thumbnail/:id
+// @desc    Proxy for book thumbnail images
+// @access  Private
+router.get('/thumbnail/:id', auth, libraryController.getBookThumbnail);
+
+// @route   GET api/library/asset/:type/:id
+// @desc    Generic proxy for any Calibre asset
+// @access  Private
+router.get('/asset/:type/:id', auth, libraryController.getCalibreAsset);
+
 module.exports = router;
