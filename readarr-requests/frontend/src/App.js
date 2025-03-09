@@ -12,6 +12,9 @@ import { SearchProvider } from './context/SearchContext';
 import PrivateRoute from './components/routing/PrivateRoute';
 import Layout from './components/layout/Layout';
 import AdminRoute from './components/routing/AdminRoute';
+import { LibraryProvider } from './context/LibraryContext';
+const MyLibrary = lazy(() => import('./pages/MyLibrary'));
+const BookReader = lazy(() => import('./components/library/BookReader'));
 
 
 
@@ -41,6 +44,7 @@ function App() {
       <AuthProvider>
         <AppProvider>
         <SearchProvider>
+        <LibraryProvider>
           <Router>
             <Suspense fallback={<LoadingFallback />}>
               <Routes>
@@ -56,6 +60,8 @@ function App() {
                   <Route path="/profile" element={<Profile />} />
                   <Route path="/book/google/:id" element={<BookDetail source="google" />} />
                   <Route path="calibre-manager" element={<AdminRoute><CalibreManager /></AdminRoute>} />
+                  <Route path="/library" element={<MyLibrary />} />
+                  <Route path="/read/:id/:format" element={<BookReader />} />
                 </Route>
 
                 <Route path="*" element={<Navigate to="/" replace />} />
@@ -63,6 +69,7 @@ function App() {
               <InstallPrompt />
             </Suspense>
           </Router>
+          </LibraryProvider>
           </SearchProvider>
         </AppProvider>
       </AuthProvider>

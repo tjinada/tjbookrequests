@@ -1,4 +1,4 @@
-// config/calibreAPI.js
+// config/calibreAPI.js - Enhanced version with library-specific functions
 const axios = require('axios');
 const path = require('path');
 const { exec } = require('child_process');
@@ -69,7 +69,85 @@ async function getLoadedBookIds() {
   }
 }
 
+// Function to get books for a specific user
+async function getBooksForUser(username) {
+  try {
+    log(`Getting books for user: ${username}`);
+    
+    if (useCliOnly) {
+      // Use Calibre CLI to search for books with user tag
+      const { stdout } = await execAsync(`calibredb search "tags:${username}" --with-library="${calibreLibraryPath}" --for-machine`);
+      const books = JSON.parse(stdout);
+      return books;
+    } else {
+      // Use Calibre API to search for books with user tag
+      // First get all books then filter by tag
+      const allBooks = await module.exports.searchBooks('*');
+      return allBooks.filter(book => 
+        book.tags && book.tags.some(tag => tag.toLowerCase() === username.toLowerCase())
+      );
+    }
+  } catch (error) {
+    log(`Error getting books for user ${username}: ${error.message}`);
+    throw error;
+  }
+}
+
+// Helper function to check if a book is available in a specific format
+async function isFormatAvailable(bookId, format) {
+  try {
+    if (useCliOnly) {
+      // Check if format file exists in Calibre library
+      const bookDetails = await module.exports.getBookDetails(bookId);
+      
+      if (!bookDetails || !bookDetails.path) {
+        return false;
+      }
+      
+      const formatPath = path.join(bookDetails.path, `${bookDetails.title}.${format.toLowerCase()}`);
+      return fs.existsSync(formatPath);
+    } else {
+      // Use Calibre API to check formats
+      const bookDetails = await module.exports.getBookDetails(bookId);
+      
+      return bookDetails && 
+             bookDetails.formats && 
+             bookDetails.formats.includes(format.toUpperCase());
+    }
+  } catch (error) {
+    log(`Error checking format availability: ${error.message}`);
+    return false;
+  }
+}
+
+// Export the module with enhanced functions
 module.exports = {
+  /**
+   * Get books by user tag
+   * @param {string} username - Username to search for in tags
+   * @returns {array} - Books with user tag
+   */
+  getBooksForUser,
+  
+  /**
+   * Check if a format is available for a book
+   * @param {string} bookId - Calibre book ID
+   * @param {string} format - Format to check (EPUB, PDF, etc.)
+   * @returns {boolean} - True if format is available
+   */
+  isFormatAvailable,
+  
+  /**
+   * Get direct download URL for Calibre Content Server
+   * @param {string} bookId - Calibre book ID
+   * @param {string} format - Format to download
+   * @returns {string} - Download URL
+   */
+  getDownloadUrl: (bookId, format) => {
+    if (!calibreServerUrl) return null;
+    return `${calibreServerUrl}/get/${format}/${bookId}/calibre`;
+  },
+  
   /**
    * Update book metadata in Calibre
    * @param {string} filePath - Path to the book file
@@ -304,19 +382,26 @@ module.exports = {
         const bookResponse = await calibreAPI.get(`/ajax/book/${bookId}/calibre`);
         const book = bookResponse.data;
         
+        // Get available formats
+        let formats = [];
+        if (book.format_metadata) {
+          formats = Object.keys(book.format_metadata);
+        }
+        
         return {
           id: bookId,
           title: book.title || 'Unknown Title',
           author: book.authors?.join(', ') || 'Unknown Author',
           tags: book.tags || [],
-          formats: book.formats || [],
+          formats: formats,
           path: book.format_metadata ? Object.values(book.format_metadata)[0]?.path || '' : '',
           uuid: book.uuid || '',
           added: book.timestamp || '',
           cover: `${calibreServerUrl}${book.cover}` || null,
           thumbnail: book.thumbnail ? `${calibreServerUrl}${book.thumbnail}` : null,
           comments: book.comments || '',
-          customFields: book.user_metadata || {}
+          customFields: book.user_metadata || {},
+          formatMetadata: book.format_metadata || {}
         };
       }
     } catch (error) {
@@ -324,9 +409,9 @@ module.exports = {
       throw error;
     }
   },
-  
+
   /**
-   * Search for books in Calibre
+   * Search books in Calibre
    * @param {string} query - Search query
    * @returns {array} - List of books
    */
@@ -342,7 +427,24 @@ module.exports = {
         
         // Parse the JSON response
         const books = JSON.parse(stdout);
-        return books;
+        
+        // Enhance the books with additional properties
+        const enhancedBooks = books.map(book => {
+          // Process formats to ensure they're in a consistent format
+          const formats = Array.isArray(book.formats) ? book.formats : [];
+          
+          return {
+            ...book,
+            formats: formats,
+            // If there's no cover in CLI output, we might need to construct a URL
+            cover: book.cover || null,
+            path: book.path || null,
+            downloadable: formats.length > 0,
+            id: book.id.toString()
+          };
+        });
+        
+        return enhancedBooks;
       } else {
         // Use Calibre Content Server API
         const response = await calibreAPI.get('/ajax/search', {
@@ -362,20 +464,31 @@ module.exports = {
         for (const id of response.data.book_ids) {
           try {
             const bookResponse = await calibreAPI.get(`/ajax/book/${id}/calibre`);
+            const bookData = bookResponse.data;
             
+            // Extract available formats
+            let formats = [];
+            if (bookData.format_metadata) {
+              formats = Object.keys(bookData.format_metadata);
+            }
+            
+            // Construct book object with enhanced properties
             books.push({
-              id,
-              title: bookResponse.data.title || 'Unknown Title',
-              author: bookResponse.data.authors?.join(', ') || 'Unknown Author',
-              tags: bookResponse.data.tags || [],
-              formats: bookResponse.data.formats || [],
-              added: bookResponse.data.timestamp || '',
-              cover: bookResponse.data.cover ? `${calibreServerUrl}${bookResponse.data.cover}` : null,
-              thumbnail: bookResponse.data.thumbnail ? `${calibreServerUrl}${bookResponse.data.thumbnail}` : null,
-              uuid: bookResponse.data.uuid || '',
-              publisher: bookResponse.data.publisher || '',
-              rating: bookResponse.data.rating || 0,
-              comments: bookResponse.data.comments || ''
+              id: id.toString(),
+              title: bookData.title || 'Unknown Title',
+              author: bookData.authors?.join(', ') || 'Unknown Author',
+              tags: bookData.tags || [],
+              formats: formats,
+              added: bookData.timestamp || '',
+              cover: bookData.cover ? `${calibreServerUrl}${bookData.cover}` : null,
+              thumbnail: bookData.thumbnail ? `${calibreServerUrl}${bookData.thumbnail}` : null,
+              uuid: bookData.uuid || '',
+              publisher: bookData.publisher || '',
+              rating: bookData.rating || 0,
+              comments: bookData.comments || '',
+              path: bookData.format_metadata ? Object.values(bookData.format_metadata)[0]?.path || '' : '',
+              downloadable: formats.length > 0,
+              formatMetadata: bookData.format_metadata || {}
             });
           } catch (err) {
             log(`Error fetching details for book ${id}: ${err.message}`);
@@ -433,5 +546,79 @@ module.exports = {
       log(`Error updating tags: ${error.message}`);
       throw error;
     }
+  },
+  
+  /**
+   * Convert a book to a different format
+   * @param {string} bookId - Calibre book ID
+   * @param {string} fromFormat - Source format
+   * @param {string} toFormat - Target format
+   * @returns {object} - Result with success flag and path to converted file
+   */
+  convertBookFormat: async (bookId, fromFormat, toFormat) => {
+    try {
+      log(`Converting book ID ${bookId} from ${fromFormat} to ${toFormat}`);
+      
+      if (!useCliOnly) {
+        return { 
+          success: false, 
+          message: 'Format conversion requires CLI access to Calibre' 
+        };
+      }
+      
+      // Get book details to find the file
+      const bookDetails = await module.exports.getBookDetails(bookId);
+      if (!bookDetails) {
+        throw new Error(`Book not found with ID: ${bookId}`);
+      }
+      
+      // Find the source format file
+      const fromFormatLower = fromFormat.toLowerCase();
+      let sourceFile = '';
+      
+      if (bookDetails.path) {
+        // Try to construct source file path
+        sourceFile = path.join(bookDetails.path, `${bookDetails.title}.${fromFormatLower}`);
+        if (!fs.existsSync(sourceFile)) {
+          // If file not found, try with book ID in filename
+          sourceFile = path.join(bookDetails.path, `${bookId}.${fromFormatLower}`);
+          if (!fs.existsSync(sourceFile)) {
+            throw new Error(`Source file not found for format: ${fromFormat}`);
+          }
+        }
+      } else {
+        throw new Error('Book path not available');
+      }
+      
+      // Create output file path
+      const outputDir = path.join(__dirname, '../temp');
+      if (!fs.existsSync(outputDir)) {
+        fs.mkdirSync(outputDir, { recursive: true });
+      }
+      
+      const outputFile = path.join(outputDir, `${bookDetails.title}.${toFormat.toLowerCase()}`);
+      
+      // Execute ebook-convert command
+      const convertCmd = `ebook-convert "${sourceFile}" "${outputFile}"`;
+      await execAsync(convertCmd);
+      
+      log(`Successfully converted ${fromFormat} to ${toFormat} for book ID: ${bookId}`);
+      
+      return {
+        success: true,
+        outputPath: outputFile,
+        bookId: bookId
+      };
+    } catch (error) {
+      log(`Error converting book format: ${error.message}`);
+      throw error;
+    }
   }
+};
+
+// Export a function to purge the cache
+module.exports.purgeCache = function() {
+  log('Purging Calibre cache...');
+  // Reset any cache you might have
+  return true;
 };
