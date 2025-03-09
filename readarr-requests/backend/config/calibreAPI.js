@@ -452,35 +452,39 @@ module.exports = {
       } else {
         // When using the Calibre content server
         // The URL format is: /get/{format}/{book_id}/calibre
-        const downloadUrl = `${calibreServerUrl}/get/${formatUpper}/${bookId}/calibre`;
-        log(`Attempting to access URL: ${downloadUrl}`);
-        
-        // Check if the format exists by making a HEAD request
-        try {
-          const response = await axios.head(downloadUrl, {
-            auth: calibreUsername && calibrePassword ? {
-              username: calibreUsername,
-              password: calibrePassword
-            } : undefined
-          });
-          
-          if (response.status === 200) {
-            log(`Format ${format} verified available at URL: ${downloadUrl}`);
-            return downloadUrl;
+  
+        // 1. Check if we have calibreUsername and calibrePassword defined
+        if (!calibreUsername || !calibrePassword) {
+          log('Warning: Calibre credentials not properly configured');
+        }
+  
+        // 2. Generate a download URL that includes credentials in the URL itself
+        // This approach will work if the Calibre server accepts credentials in the URL
+        let downloadUrl;
+        if (calibreUsername && calibrePassword) {
+          // URL with embedded credentials
+          const baseUrlParts = calibreServerUrl.split('://');
+          if (baseUrlParts.length === 2) {
+            const protocol = baseUrlParts[0];
+            const host = baseUrlParts[1];
+            downloadUrl = `${protocol}://${encodeURIComponent(calibreUsername)}:${encodeURIComponent(calibrePassword)}@${host}/get/${formatUpper}/${bookId}/calibre`;
+          } else {
+            downloadUrl = `${calibreServerUrl}/get/${formatUpper}/${bookId}/calibre`;
           }
-        } catch (error) {
-          log(`Format ${format} not available for book ${bookId}: ${error.message}`);
-          return null;
+        } else {
+          downloadUrl = `${calibreServerUrl}/get/${formatUpper}/${bookId}/calibre`;
         }
         
-        return null;
+        log(`Generated download URL: ${downloadUrl.replace(/\/\/.*?:.*?@/, '//<credentials>@')}`); // Log URL without showing credentials
+        
+        // Return the URL with embedded credentials
+        return downloadUrl;
       }
     } catch (error) {
       log(`Error generating download URL: ${error.message}`);
       throw error;
     }
   },
-
   /**
    * Send a book to a Kindle device via email
    * @param {string} bookId - Calibre book ID
