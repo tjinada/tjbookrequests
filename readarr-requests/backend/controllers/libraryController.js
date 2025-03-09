@@ -114,9 +114,18 @@ exports.getBookCover = async (req, res) => {
       if (!book) {
         return res.status(404).json({ message: 'Book not found' });
       }
+
+        // Fetch the complete user data from the database
+        const userDoc = await User.findById(userId);
+        
+        if (!userDoc) {
+        return res.status(404).json({ message: 'User not found' });
+        }
+        
+        const username = userDoc.username;
       
       // Check user has access to this book (username is in tags)
-      if (!book.tags || !book.tags.some(tag => tag.toLowerCase() === req.user.username.toLowerCase())) {
+      if (!book.tags || !book.tags.some(tag => tag.toLowerCase() === username.toLowerCase())) {
         return res.status(403).json({ message: 'You do not have access to this book' });
       }
       
@@ -167,9 +176,18 @@ exports.getBookCover = async (req, res) => {
       if (!book) {
         return res.status(404).json({ message: 'Book not found' });
       }
-      
+
+        // Fetch the complete user data from the database
+        const userDoc = await User.findById(userId);
+
+        if (!userDoc) {
+        return res.status(404).json({ message: 'User not found' });
+        }
+        
+        const username = userDoc.username;
+
       // Check user has access to this book (username is in tags)
-      if (!book.tags || !book.tags.some(tag => tag.toLowerCase() === req.user.username.toLowerCase())) {
+      if (!book.tags || !book.tags.some(tag => tag.toLowerCase() === username.toLowerCase())) {
         return res.status(403).json({ message: 'You do not have access to this book' });
       }
       
@@ -219,6 +237,15 @@ exports.getBookCover = async (req, res) => {
       if (!validAssetTypes.includes(type)) {
         return res.status(400).json({ message: 'Invalid asset type' });
       }
+
+        // Fetch the complete user data from the database
+        const userDoc = await User.findById(userId);
+
+        if (!userDoc) {
+        return res.status(404).json({ message: 'User not found' });
+        }
+        
+        const username = userDoc.username;
       
       // For book-related assets, validate user access first
       if (['cover', 'thumb', 'opf', 'json'].includes(type)) {
@@ -229,7 +256,7 @@ exports.getBookCover = async (req, res) => {
         }
         
         // Check user has access to this book (username is in tags)
-        if (!book.tags || !book.tags.some(tag => tag.toLowerCase() === req.user.username.toLowerCase())) {
+        if (!book.tags || !book.tags.some(tag => tag.toLowerCase() === username.toLowerCase())) {
           return res.status(403).json({ message: 'You do not have access to this book' });
         }
       }
