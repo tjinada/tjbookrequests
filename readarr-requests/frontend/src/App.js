@@ -25,6 +25,7 @@ const Requests = lazy(() => import('./pages/Requests'));
 const AdminRequests = lazy(() => import('./pages/AdminRequests'));
 const Profile = lazy(() => import('./pages/Profile'));
 const CalibreManager = lazy(() => import('./pages/CalibreManager'));
+const MyLibrary = lazy(() => import('./pages/MyLibrary'));
 
 
 // Loading fallback
@@ -52,6 +53,7 @@ function App() {
                   <Route path="/search" element={<Search />} />
                   <Route path="/book/:id" element={<BookDetail />} />
                   <Route path="/requests" element={<Requests />} />
+                  <Route path="/library" element={<MyLibrary />} />
                   <Route path="/admin/requests" element={<AdminRequests />} />
                   <Route path="/profile" element={<Profile />} />
                   <Route path="/book/google/:id" element={<BookDetail source="google" />} />

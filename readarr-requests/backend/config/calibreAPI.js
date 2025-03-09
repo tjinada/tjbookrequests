@@ -433,5 +433,172 @@ module.exports = {
       log(`Error updating tags: ${error.message}`);
       throw error;
     }
+  },
+  /**
+ * Get a download URL for a specific book format
+ * @param {string} bookId - Calibre book ID
+ * @param {string} format - Format type (e.g., 'EPUB', 'PDF', 'MOBI')
+ * @returns {string|null} - Download URL or null if format not available
+ */
+  getBookDownloadUrl: async (bookId, format) => {
+    try {
+      log(`Generating download URL for book ${bookId}, format: ${format}`);
+      
+      // Normalize format to uppercase
+      const formatUpper = format.toUpperCase();
+      
+      if (useCliOnly) {
+        // When using CLI only, we need to construct a local URL or direct file path
+        // First, get the book details to find the file path
+        const bookDetails = await module.exports.getBookDetails(bookId);
+        
+        if (!bookDetails || !bookDetails.path) {
+          throw new Error(`Book details or path not found for ID: ${bookId}`);
+        }
+        
+        // Check for the requested format
+        const formatFiles = bookDetails.formats || [];
+        const formatFile = formatFiles.find(f => f.toUpperCase().endsWith(`.${formatUpper}`));
+        
+        if (!formatFile) {
+          log(`Format ${format} not available for book ${bookId}`);
+          return null;
+        }
+        
+        // Return the full path to the file
+        // In a real-world scenario, this path would need to be translated to a URL
+        // that the frontend can access, or the backend would need to serve the file
+        return formatFile;
+      } else {
+        // When using the Calibre content server
+        // The URL format is typically /get/{book_id}/{format}
+        const downloadUrl = `${calibreServerUrl}/get/${bookId}/${formatUpper.toLowerCase()}`;
+        
+        // Check if the format exists by making a HEAD request
+        try {
+          const response = await axios.head(downloadUrl, {
+            auth: calibreUsername && calibrePassword ? {
+              username: calibreUsername,
+              password: calibrePassword
+            } : undefined
+          });
+          
+          if (response.status === 200) {
+            return downloadUrl;
+          }
+        } catch (error) {
+          log(`Format ${format} not available for book ${bookId}: ${error.message}`);
+          return null;
+        }
+        
+        return null;
+      }
+    } catch (error) {
+      log(`Error generating download URL: ${error.message}`);
+      throw error;
+    }
+  },
+
+  /**
+   * Send a book to a Kindle device via email
+   * @param {string} bookId - Calibre book ID
+   * @param {string} email - Kindle email address
+   * @returns {object} - Result of the operation
+   */
+  sendToKindle: async (bookId, email) => {
+    try {
+      log(`Sending book ${bookId} to Kindle email: ${email}`);
+      
+      if (useCliOnly) {
+        // Use Calibre CLI tool to send to Kindle
+        const command = `calibre-smtp --attachment-from-library ${bookId} --attachment-format MOBI --relay your-smtp-server --port 587 --username your-email --password your-password your-email@example.com ${email} "Your requested book" "Here is your book from the library."`
+        
+        // This is a placeholder - you'll need to configure real SMTP settings
+        // and implement proper error handling
+        try {
+          const { stdout } = await execAsync(command);
+          log(`Successfully sent book ${bookId} to Kindle: ${stdout}`);
+          return { success: true, message: "Book sent to Kindle successfully" };
+        } catch (execError) {
+          log(`Error sending to Kindle via CLI: ${execError.message}`);
+          throw new Error(`Failed to send to Kindle: ${execError.message}`);
+        }
+      } else {
+        // If you're using Calibre Content Server and it offers an API for this
+        // Otherwise, you may need to implement email sending functionality in your app
+        // This is a placeholder for the API call
+        const response = await axios.post(`${calibreServerUrl}/cdb/send-to-device/${bookId}/calibre`, {
+          email: email,
+          format: 'MOBI', // Kindle typically uses MOBI format
+          device_type: 'kindle'
+        }, {
+          auth: calibreUsername && calibrePassword ? {
+            username: calibreUsername,
+            password: calibrePassword
+          } : undefined
+        });
+        
+        if (response.data && response.data.success) {
+          return { success: true, message: "Book sent to Kindle successfully" };
+        } else {
+          throw new Error('Failed to send book to Kindle');
+        }
+      }
+    } catch (error) {
+      log(`Error sending book to Kindle: ${error.message}`);
+      throw error;
+    }
+  },
+
+  /**
+   * Send a book to a Kobo device
+   * @param {string} bookId - Calibre book ID
+   * @param {string} email - User's email for identification
+   * @returns {object} - Result of the operation
+   */
+  sendToKobo: async (bookId, email) => {
+    try {
+      log(`Sending book ${bookId} to Kobo for user: ${email}`);
+      
+      // Note: Direct Kobo integration is complex and depends on your setup
+      // This is a simplified approach using email as with Kindle
+      
+      if (useCliOnly) {
+        // Use Calibre CLI to export in EPUB format (preferred for Kobo)
+        // and then email it
+        const command = `calibre-smtp --attachment-from-library ${bookId} --attachment-format EPUB --relay your-smtp-server --port 587 --username your-email --password your-password your-email@example.com ${email} "Your requested book" "Here is your book from the library in EPUB format for your Kobo device."`
+        
+        try {
+          const { stdout } = await execAsync(command);
+          log(`Successfully sent book ${bookId} to Kobo user: ${stdout}`);
+          return { success: true, message: "Book sent to your email for Kobo" };
+        } catch (execError) {
+          log(`Error sending to Kobo via CLI: ${execError.message}`);
+          throw new Error(`Failed to send to Kobo: ${execError.message}`);
+        }
+      } else {
+        // If using Calibre Content Server
+        // Similar approach as Kindle but with EPUB format
+        const response = await axios.post(`${calibreServerUrl}/cdb/send-to-device/${bookId}/calibre`, {
+          email: email,
+          format: 'EPUB', // Kobo uses EPUB format
+          device_type: 'kobo'
+        }, {
+          auth: calibreUsername && calibrePassword ? {
+            username: calibreUsername,
+            password: calibrePassword
+          } : undefined
+        });
+        
+        if (response.data && response.data.success) {
+          return { success: true, message: "Book sent for your Kobo device" };
+        } else {
+          throw new Error('Failed to send book for Kobo');
+        }
+      }
+    } catch (error) {
+      log(`Error sending book to Kobo: ${error.message}`);
+      throw error;
+    }
   }
 };
