@@ -23,44 +23,52 @@ const log = (message) => {
  * Get all books in the user's library (books tagged with their username)
  */
 exports.getUserLibrary = async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const username = req.user.username;
-
-    log(`Fetching library books for user: ${username} (${userId})`);
-
-    // Fetch books from Calibre where one of the tags matches the username
-    const books = await calibreAPI.searchBooks(`tag:${username}`);
-    
-    log(`Found ${books.length} books in library for user: ${username}`);
-    
-    // Return the books as a formatted response
-    res.json({
-      count: books.length,
-      books: books.map(book => ({
-        id: book.id,
-        title: book.title || 'Unknown Title',
-        author: book.author || 'Unknown Author',
-        cover: book.cover || null,
-        thumbnail: book.thumbnail || null,
-        formats: book.formats || [],
-        tags: book.tags || [],
-        added: book.added || '',
-        uuid: book.uuid || '',
-        path: book.path || '',
-        publisher: book.publisher || '',
-        rating: book.rating || 0,
-        comments: book.comments || ''
-      }))
-    });
-  } catch (error) {
-    log(`Error fetching user library: ${error.message}`);
-    res.status(500).json({ 
-      message: 'Error fetching your library books', 
-      error: error.message 
-    });
-  }
-};
+    try {
+      const userId = req.user.id;
+      
+      // Fetch the complete user data from the database
+      const userDoc = await User.findById(userId);
+      
+      if (!userDoc) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+      
+      const username = userDoc.username;
+      
+      log(`Fetching library books for user: ${username} (${userId})`);
+  
+      // Fetch books from Calibre where one of the tags matches the username
+      const books = await calibreAPI.searchBooks(`tag:${username}`);
+      
+      log(`Found ${books.length} books in library for user: ${username}`);
+      
+      // Return the books as a formatted response
+      res.json({
+        count: books.length,
+        books: books.map(book => ({
+          id: book.id,
+          title: book.title || 'Unknown Title',
+          author: book.author || 'Unknown Author',
+          cover: book.cover || null,
+          thumbnail: book.thumbnail || null,
+          formats: book.formats || [],
+          tags: book.tags || [],
+          added: book.added || '',
+          uuid: book.uuid || '',
+          path: book.path || '',
+          publisher: book.publisher || '',
+          rating: book.rating || 0,
+          comments: book.comments || ''
+        }))
+      });
+    } catch (error) {
+      log(`Error fetching user library: ${error.message}`);
+      res.status(500).json({ 
+        message: 'Error fetching your library books', 
+        error: error.message 
+      });
+    }
+  };
 
 /**
  * Get download link for a specific book
