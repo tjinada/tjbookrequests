@@ -7,6 +7,7 @@ const { exec } = require('child_process');
 const util = require('util');
 const execAsync = util.promisify(exec);
 const calibreAPI = require('../config/calibreAPI');
+const User = require('../models/User');
 
 // Set up logging
 const logDir = path.join(__dirname, '../logs');
@@ -28,7 +29,19 @@ const log = (message) => {
  */
 exports.getUserLibrary = async (req, res) => {
   try {
-    log(`Getting library for user: ${req.user.username}`);
+    
+    const userId = req.user.id;
+    
+    // Fetch the complete user data from the database
+    const userDoc = await User.findById(userId);
+    
+    if (!userDoc) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    const username = userDoc.username;
+    
+    log(`Getting library for user: ${username}`);
     
     // Get all books from Calibre (could be optimized with a direct search in the future)
     const allBooks = await calibreAPI.searchBooks('*');
@@ -36,10 +49,10 @@ exports.getUserLibrary = async (req, res) => {
     // Filter books that have user's username in tags
     const userBooks = allBooks.filter(book => {
       if (!book.tags || !Array.isArray(book.tags)) return false;
-      return book.tags.some(tag => tag.toLowerCase() === req.user.username.toLowerCase());
+      return book.tags.some(tag => tag.toLowerCase() === username.toLowerCase());
     });
     
-    log(`Found ${userBooks.length} books for user ${req.user.username}`);
+    log(`Found ${userBooks.length} books for user ${username}`);
     
     res.json(userBooks);
   } catch (error) {
@@ -62,9 +75,20 @@ exports.getBookFormats = async (req, res) => {
     if (!book) {
       return res.status(404).json({ message: 'Book not found' });
     }
+
+    const userId = req.user.id;
+    
+    // Fetch the complete user data from the database
+    const userDoc = await User.findById(userId);
+    
+    if (!userDoc) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    const username = userDoc.username;
     
     // Check user has access to this book (username is in tags)
-    if (!book.tags || !book.tags.some(tag => tag.toLowerCase() === req.user.username.toLowerCase())) {
+    if (!book.tags || !book.tags.some(tag => tag.toLowerCase() === username.toLowerCase())) {
       return res.status(403).json({ message: 'You do not have access to this book' });
     }
     
@@ -83,8 +107,19 @@ exports.getBookFormats = async (req, res) => {
  */
 exports.downloadBook = async (req, res) => {
   try {
+
+    const userId = req.user.id;
+    
+    // Fetch the complete user data from the database
+    const userDoc = await User.findById(userId);
+    
+    if (!userDoc) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    const username = userDoc.username;
     const { id, format } = req.params;
-    log(`Download request for book ID: ${id} in format: ${format} by user: ${req.user.username}`);
+    log(`Download request for book ID: ${id} in format: ${format} by user: ${username}`);
     
     // Validate the format (security measure)
     const validFormats = ['EPUB', 'PDF', 'MOBI', 'AZW3', 'TXT', 'KEPUB'];
@@ -100,7 +135,7 @@ exports.downloadBook = async (req, res) => {
     }
     
     // Check user has access to this book (username is in tags)
-    if (!book.tags || !book.tags.some(tag => tag.toLowerCase() === req.user.username.toLowerCase())) {
+    if (!book.tags || !book.tags.some(tag => tag.toLowerCase() === username.toLowerCase())) {
       return res.status(403).json({ message: 'You do not have access to this book' });
     }
     
@@ -168,13 +203,25 @@ exports.downloadBook = async (req, res) => {
  */
 exports.sendToDevice = async (req, res) => {
   try {
+    
+    const userId = req.user.id;
+    
+    // Fetch the complete user data from the database
+    const userDoc = await User.findById(userId);
+    
+    if (!userDoc) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    const username = userDoc.username;
+
     const { bookId, deviceType, email } = req.body;
     
     if (!bookId || !deviceType) {
       return res.status(400).json({ message: 'Book ID and device type are required' });
     }
     
-    log(`Send to device request - Book ID: ${bookId}, Device: ${deviceType}, User: ${req.user.username}`);
+    log(`Send to device request - Book ID: ${bookId}, Device: ${deviceType}, User: ${username}`);
     
     // Get book details from Calibre
     const book = await calibreAPI.getBookDetails(bookId);
@@ -184,7 +231,7 @@ exports.sendToDevice = async (req, res) => {
     }
     
     // Check user has access to this book (username is in tags)
-    if (!book.tags || !book.tags.some(tag => tag.toLowerCase() === req.user.username.toLowerCase())) {
+    if (!book.tags || !book.tags.some(tag => tag.toLowerCase() === username.toLowerCase())) {
       return res.status(403).json({ message: 'You do not have access to this book' });
     }
     
@@ -251,7 +298,18 @@ exports.sendToDevice = async (req, res) => {
 exports.getBookForReading = async (req, res) => {
   try {
     const { id, format } = req.params;
-    log(`Reading request for book ID: ${id} in format: ${format} by user: ${req.user.username}`);
+
+    const userId = req.user.id;
+    
+    // Fetch the complete user data from the database
+    const userDoc = await User.findById(userId);
+    
+    if (!userDoc) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    const username = userDoc.username;
+    log(`Reading request for book ID: ${id} in format: ${format} by user: ${username}`);
     
     // Validate the format (security measure)
     const validFormats = ['EPUB', 'PDF', 'HTML', 'TXT'];
@@ -267,7 +325,7 @@ exports.getBookForReading = async (req, res) => {
     }
     
     // Check user has access to this book (username is in tags)
-    if (!book.tags || !book.tags.some(tag => tag.toLowerCase() === req.user.username.toLowerCase())) {
+    if (!book.tags || !book.tags.some(tag => tag.toLowerCase() === username.toLowerCase())) {
       return res.status(403).json({ message: 'You do not have access to this book' });
     }
     
