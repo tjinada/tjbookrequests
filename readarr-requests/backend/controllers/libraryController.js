@@ -116,6 +116,7 @@ exports.getBookCover = async (req, res) => {
       }
 
         // Fetch the complete user data from the database
+        const userId = req.user.id;
         const userDoc = await User.findById(userId);
         
         if (!userDoc) {
@@ -178,6 +179,7 @@ exports.getBookCover = async (req, res) => {
       }
 
         // Fetch the complete user data from the database
+        const userId = req.user.id;
         const userDoc = await User.findById(userId);
 
         if (!userDoc) {
@@ -239,6 +241,7 @@ exports.getBookCover = async (req, res) => {
       }
 
         // Fetch the complete user data from the database
+        const userId = req.user.id;
         const userDoc = await User.findById(userId);
 
         if (!userDoc) {
