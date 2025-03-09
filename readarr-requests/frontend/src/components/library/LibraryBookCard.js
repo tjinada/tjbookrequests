@@ -46,6 +46,9 @@ const LibraryBookCard = ({ book, onClick }) => {
             bgcolor: 'rgba(0,0,0,0.03)',
             p: 1
           }}
+          imgProps={{
+            crossOrigin: "anonymous"
+          }}
         />
         
         {/* Available format badges */}
