@@ -373,17 +373,6 @@ exports.downloadBook = async (req, res) => {
  */
 exports.sendToDevice = async (req, res) => {
   try {
-    
-    const userId = req.user.id;
-    
-    // Fetch the complete user data from the database
-    const userDoc = await User.findById(userId);
-    
-    if (!userDoc) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-    
-    const username = userDoc.username;
 
     const { bookId, deviceType, email } = req.body;
     
@@ -391,18 +380,11 @@ exports.sendToDevice = async (req, res) => {
       return res.status(400).json({ message: 'Book ID and device type are required' });
     }
     
-    log(`Send to device request - Book ID: ${bookId}, Device: ${deviceType}, User: ${username}`);
-    
     // Get book details from Calibre
     const book = await calibreAPI.getBookDetails(bookId);
     
     if (!book) {
       return res.status(404).json({ message: 'Book not found' });
-    }
-    
-    // Check user has access to this book (username is in tags)
-    if (!book.tags || !book.tags.some(tag => tag.toLowerCase() === username.toLowerCase())) {
-      return res.status(403).json({ message: 'You do not have access to this book' });
     }
     
     // Determine the format to use based on device type
