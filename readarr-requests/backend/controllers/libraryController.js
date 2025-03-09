@@ -115,23 +115,6 @@ exports.getBookCover = async (req, res) => {
       if (!book) {
         return res.status(404).json({ message: 'Book not found' });
       }
-
-        // Fetch the complete user data from the database
-        const userId = req.user.id;
-        log(`User ID: ${userId}`);
-        const userDoc = await User.findById(userId);
-        
-        if (!userDoc) {
-        return res.status(404).json({ message: 'User not found' });
-        }
-        
-        const username = userDoc.username;
-        log(`username: ${username}`);
-      
-      // Check user has access to this book (username is in tags)
-      if (!book.tags || !book.tags.some(tag => tag.toLowerCase() === username.toLowerCase())) {
-        return res.status(403).json({ message: 'You do not have access to this book' });
-      }
       
       // Create the full URL to the Calibre cover
       const coverUrl = `${process.env.CALIBRE_SERVER_URL}/get/cover/${id}/calibre`;
