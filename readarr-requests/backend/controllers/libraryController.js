@@ -3,6 +3,7 @@ const calibreAPI = require('../config/calibreAPI');
 const User = require('../models/User');
 const fs = require('fs');
 const path = require('path');
+const axios = require('axios');
 
 // Set up logging
 const logDir = path.join(__dirname, '../logs');
