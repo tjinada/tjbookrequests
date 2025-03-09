@@ -102,71 +102,154 @@ exports.getBookDownloadLink = async (req, res) => {
       // Normalize format
       const formatUpper = format.toUpperCase();
       
-      // Format URL for Calibre server
+      // Get Calibre credentials
       const calibreServerUrl = process.env.CALIBRE_SERVER_URL;
       const calibreUsername = process.env.CALIBRE_USERNAME;
       const calibrePassword = process.env.CALIBRE_PASSWORD;
       
       const fileUrl = `${calibreServerUrl}/get/${formatUpper}/${bookId}/calibre`;
       
-      log(`Proxying download from Calibre URL: ${fileUrl}`);
+      log(`Attempting to download from Calibre URL: ${fileUrl}`);
       
       try {
-        // Fetch the file from Calibre
+        // Create a sanitized filename
+        const filename = `${bookDetails.title.replace(/[/\\?%*:|"<>]/g, '-')}.${format.toLowerCase()}`;
+        
+        // Create a cookie jar if Calibre uses cookie-based auth
+        const cookieJar = new (require('tough-cookie').CookieJar)();
+        
+        // 1. First, try logging in to Calibre (if it has a login endpoint)
+        try {
+          log('Attempting to establish auth session with Calibre server');
+          
+          // Check if login endpoint exists by making a call to the root
+          const loginCheckResponse = await axios.get(calibreServerUrl, {
+            maxRedirects: 5,
+            validateStatus: status => status < 500, // Accept any non-server error
+            jar: cookieJar
+          });
+          
+          // If redirected to login page or got a 401, we need to login
+          if (loginCheckResponse.status === 401 || 
+              loginCheckResponse.request.path.includes('login') ||
+              loginCheckResponse.data.includes('login')) {
+              
+            log('Login form detected, attempting to authenticate');
+            
+            // Try a standard login POST request
+            await axios.post(`${calibreServerUrl}/login`, 
+              `username=${encodeURIComponent(calibreUsername)}&password=${encodeURIComponent(calibrePassword)}`, 
+              {
+                headers: {
+                  'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                jar: cookieJar,
+                maxRedirects: 5,
+                validateStatus: status => status < 500
+              }
+            );
+            
+            log('Login attempt completed');
+          }
+        } catch (loginError) {
+          log(`Auth session error (non-fatal): ${loginError.message}`);
+          // Continue even if this fails - we'll try Basic Auth
+        }
+        
+        // 2. Prepare headers with multiple auth approaches
+        const headers = {
+          'Authorization': `Basic ${Buffer.from(`${calibreUsername}:${calibrePassword}`).toString('base64')}`,
+          'Cookie': cookieJar.getCookieStringSync(calibreServerUrl)
+        };
+        
+        log('Sending download request with auth headers');
+        
+        // 3. Make the actual request with both Basic Auth and cookies
         const response = await axios({
           method: 'get',
           url: fileUrl,
+          headers,
           auth: {
             username: calibreUsername,
             password: calibrePassword
           },
-          responseType: 'stream'
+          responseType: 'stream',
+          timeout: 30000, // 30 second timeout
+          maxRedirects: 5,
+          validateStatus: status => status < 500 // Accept any non-server error
         });
         
-        // Get filename from content-disposition header if available
-        let filename = `${bookDetails.title.replace(/[/\\?%*:|"<>]/g, '-')}.${format.toLowerCase()}`;
-        const contentDisposition = response.headers['content-disposition'];
-        if (contentDisposition) {
-          const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
-          if (filenameMatch && filenameMatch[1]) {
-            filename = filenameMatch[1];
-          }
+        // Check for auth error in response
+        if (response.status === 401 || response.status === 403) {
+          log(`Authentication error from Calibre server: ${response.status}`);
+          return res.status(401).json({ 
+            message: 'Unable to authenticate with Calibre server',
+          });
         }
         
-        // Set appropriate headers
-        res.setHeader('Content-Type', response.headers['content-type'] || 'application/octet-stream');
-        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        // Check for success status
+        if (response.status !== 200) {
+          log(`Unexpected response from Calibre server: ${response.status}`);
+          return res.status(response.status).json({ 
+            message: `Calibre server returned status: ${response.status}`,
+          });
+        }
+        
+        log(`Successfully authenticated with Calibre, streaming file: ${filename}`);
+        
+        // Set appropriate headers for the download
+        if (formatUpper === 'EPUB') {
+          res.setHeader('Content-Type', 'application/epub+zip');
+        } else if (formatUpper === 'PDF') {
+          res.setHeader('Content-Type', 'application/pdf');
+        } else if (formatUpper === 'MOBI') {
+          res.setHeader('Content-Type', 'application/x-mobipocket-ebook');
+        } else {
+          res.setHeader('Content-Type', 'application/octet-stream');
+        }
+        
+        res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
         
         if (response.headers['content-length']) {
           res.setHeader('Content-Length', response.headers['content-length']);
         }
         
-        // Pipe the file stream directly to the response
-        response.data.pipe(res);
+        // Additional headers to help browsers
+        res.setHeader('Cache-Control', 'no-cache');
+        
+        // Set up stream error handling
+        const responseStream = response.data;
+        
+        responseStream.on('error', (err) => {
+          log(`Stream error: ${err.message}`);
+          if (!res.headersSent) {
+            return res.status(500).json({ message: 'Error streaming file' });
+          }
+        });
+        
+        // Pipe with error handling
+        responseStream.pipe(res).on('error', (err) => {
+          log(`Pipe error: ${err.message}`);
+        });
         
         // Log success after the stream completes
-        response.data.on('end', () => {
+        responseStream.on('end', () => {
           log(`Download completed for book ${bookId}, format ${format}, user ${username}`);
         });
         
-        // Handle errors in the stream
-        response.data.on('error', (err) => {
-          log(`Error in download stream for book ${bookId}: ${err.message}`);
-          // The response might have already started, so we can't send an error status now
-        });
       } catch (requestError) {
         log(`Error requesting file from Calibre: ${requestError.message}`);
         
         // If we haven't sent headers yet, we can send an error response
         if (!res.headersSent) {
           return res.status(404).json({ 
-            message: `Format ${format} not available for this book`,
+            message: `Error downloading the book: ${requestError.message}`,
             error: requestError.message
           });
         }
       }
     } catch (error) {
-      log(`Error generating download: ${error.message}`);
+      log(`Error in download process: ${error.message}`);
       
       // Only send error response if headers haven't been sent yet
       if (!res.headersSent) {
@@ -177,7 +260,6 @@ exports.getBookDownloadLink = async (req, res) => {
       }
     }
   };
-
 /**
  * Send book directly to e-reader
  */
