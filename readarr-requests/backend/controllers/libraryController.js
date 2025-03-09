@@ -102,6 +102,36 @@ exports.getBookFormats = async (req, res) => {
   }
 };
 
+exports.getBookCover = async (req, res) => {
+    const { id } = req.params;
+    
+    try {
+      // Create the full URL to the Calibre cover
+      const coverUrl = `${process.env.CALIBRE_SERVER_URL}/get/cover/${id}/calibre`;
+      
+      // Use axios to proxy the request with proper authentication
+      const auth = Buffer.from(`${process.env.CALIBRE_USERNAME}:${process.env.CALIBRE_PASSWORD}`).toString('base64');
+      
+      const response = await axios({
+        method: 'get',
+        url: coverUrl,
+        responseType: 'stream',
+        headers: {
+          'Authorization': `Basic ${auth}`
+        }
+      });
+      
+      // Set proper content type
+      res.setHeader('Content-Type', response.headers['content-type']);
+      
+      // Pipe the response to the client
+      response.data.pipe(res);
+    } catch (error) {
+      console.error('Error proxying cover image:', error);
+      res.status(500).json({ message: 'Error fetching cover image' });
+    }
+  };
+
 /**
  * Download a book in specific format
  */

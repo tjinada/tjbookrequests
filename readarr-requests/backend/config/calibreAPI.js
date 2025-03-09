@@ -398,7 +398,7 @@ module.exports = {
           uuid: book.uuid || '',
           added: book.timestamp || '',
           cover: `${calibreServerUrl}${book.cover}` || null,
-          thumbnail: book.thumbnail ? `${calibreServerUrl}${book.thumbnail}` : null,
+          thumbnail: book.thumbnail ? `/api/library/cover/${book.id}` : null,
           comments: book.comments || '',
           customFields: book.user_metadata || {},
           formatMetadata: book.format_metadata || {}
