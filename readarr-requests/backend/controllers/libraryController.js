@@ -74,51 +74,54 @@ exports.getUserLibrary = async (req, res) => {
  * Get download link for a specific book
  */
 exports.getBookDownloadLink = async (req, res) => {
-  try {
-    const { bookId, format } = req.params;
-    const userId = req.user.id;
-    const userDoc = await User.findById(userId);
+    try {
+      const { bookId, format } = req.params;
+      const userId = req.user.id;
       
-    if (!userDoc) {
-      return res.status(404).json({ message: 'User not found' });
+      // Get user info
+      const userDoc = await User.findById(userId);
+      if (!userDoc) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+      const username = userDoc.username;
+  
+      log(`Generating download for book ID: ${bookId}, format: ${format}, user: ${username}`);
+  
+      // Verify book belongs to user
+      const bookDetails = await calibreAPI.getBookDetails(bookId);
+      const hasUserTag = bookDetails.tags && bookDetails.tags.includes(username);
+      
+      if (!hasUserTag) {
+        return res.status(403).json({ message: 'This book is not in your library' });
+      }
+      
+      // Format URL
+      const formatUpper = format.toUpperCase();
+      const fileUrl = `${process.env.CALIBRE_SERVER_URL}/get/${formatUpper}/${bookId}/calibre`;
+      
+      // Proxy the file through our server
+      const response = await axios.get(fileUrl, {
+        auth: {
+          username: process.env.CALIBRE_USERNAME,
+          password: process.env.CALIBRE_PASSWORD
+        },
+        responseType: 'stream'
+      });
+      
+      // Set appropriate headers
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Content-Disposition', `attachment; filename="${bookDetails.title}.${format.toLowerCase()}"`);
+      
+      // Pipe the file stream to the response
+      response.data.pipe(res);
+    } catch (error) {
+      log(`Error downloading book: ${error.message}`);
+      res.status(500).json({ 
+        message: 'Error downloading book', 
+        error: error.message 
+      });
     }
-    
-    const username = userDoc.username;
-
-    log(`Generating download link for book ID: ${bookId}, format: ${format}, user: ${username}`);
-
-    // First, verify the book belongs to the user's library
-    const bookDetails = await calibreAPI.getBookDetails(bookId);
-    
-    // Check if the book's tags include the user's username
-    const hasUserTag = bookDetails.tags && bookDetails.tags.includes(username);
-    
-    if (!hasUserTag) {
-      log(`Access denied: Book ${bookId} does not belong to user ${username}`);
-      return res.status(403).json({ message: 'This book is not in your library' });
-    }
-    
-    // Get the download URL based on the bookId and format
-    const downloadUrl = await calibreAPI.getBookDownloadUrl(bookId, format);
-    
-    if (!downloadUrl) {
-      return res.status(404).json({ message: `Format ${format} not available for this book` });
-    }
-    
-    // Return the download URL
-    res.json({
-      bookId,
-      format,
-      downloadUrl
-    });
-  } catch (error) {
-    log(`Error generating download link: ${error.message}`);
-    res.status(500).json({ 
-      message: 'Error generating download link', 
-      error: error.message 
-    });
-  }
-};
+  };
 
 /**
  * Send book directly to e-reader
