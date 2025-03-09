@@ -158,7 +158,7 @@ exports.downloadBook = async (req, res) => {
           url: downloadUrl,
           responseType: 'stream',
           headers: {
-            'Authorization': `Basic ${auth}`
+            'Authorization': `${auth}`
           }
         });
         
