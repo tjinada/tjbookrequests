@@ -34,12 +34,12 @@ router.get('/formats/:id', auth, libraryController.getBookFormats);
 // @route   GET api/library/cover/:id
 // @desc    Proxy for book cover images
 // @access  Private
-router.get('/cover/:id', auth, libraryController.getBookCover);
+router.get('/cover/:id', libraryController.getBookCover);
 
 // @route   GET api/library/thumbnail/:id
 // @desc    Proxy for book thumbnail images
 // @access  Private
-router.get('/thumbnail/:id', auth, libraryController.getBookThumbnail);
+router.get('/thumbnail/:id', libraryController.getBookThumbnail);
 
 // @route   GET api/library/asset/:type/:id
 // @desc    Generic proxy for any Calibre asset
