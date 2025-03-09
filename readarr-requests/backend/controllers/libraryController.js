@@ -292,7 +292,10 @@ exports.getBookCover = async (req, res) => {
  */
 exports.downloadBook = async (req, res) => {
   try {
-    
+
+    const { id, format } = req.params;
+    log(`Download request for book ID: ${id} in format: ${format}`);
+
     // Validate the format (security measure)
     const validFormats = ['EPUB', 'PDF', 'MOBI', 'AZW3', 'TXT', 'KEPUB'];
     if (!validFormats.includes(format.toUpperCase())) {
