@@ -396,7 +396,7 @@ exports.sendToDevice = async (req, res) => {
     }
     
     // Option 1: Use Calibre's email sending capability if available
-    if (process.env.CALIBRE_USE_CLI_ONLY === 'true' && process.env.CALIBRE_LIBRARY_PATH) {
+    if (process.env.CALIBRE_LIBRARY_PATH) {
       try {
         log(`Attempting to send via Calibre CLI to ${email}`);
         
