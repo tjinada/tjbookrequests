@@ -77,6 +77,7 @@ exports.getBookFormats = async (req, res) => {
     }
 
     const userId = req.user.id;
+    log(`User ID: ${userId}`);
     
     // Fetch the complete user data from the database
     const userDoc = await User.findById(userId);
@@ -117,6 +118,7 @@ exports.getBookCover = async (req, res) => {
 
         // Fetch the complete user data from the database
         const userId = req.user.id;
+        log(`User ID: ${userId}`);
         const userDoc = await User.findById(userId);
         
         if (!userDoc) {
@@ -124,6 +126,7 @@ exports.getBookCover = async (req, res) => {
         }
         
         const username = userDoc.username;
+        log(`username: ${username}`);
       
       // Check user has access to this book (username is in tags)
       if (!book.tags || !book.tags.some(tag => tag.toLowerCase() === username.toLowerCase())) {
