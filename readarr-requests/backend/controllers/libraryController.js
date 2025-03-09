@@ -292,19 +292,6 @@ exports.getBookCover = async (req, res) => {
  */
 exports.downloadBook = async (req, res) => {
   try {
-
-    const userId = req.user.id;
-    
-    // Fetch the complete user data from the database
-    const userDoc = await User.findById(userId);
-    
-    if (!userDoc) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-    
-    const username = userDoc.username;
-    const { id, format } = req.params;
-    log(`Download request for book ID: ${id} in format: ${format} by user: ${username}`);
     
     // Validate the format (security measure)
     const validFormats = ['EPUB', 'PDF', 'MOBI', 'AZW3', 'TXT', 'KEPUB'];
@@ -317,11 +304,6 @@ exports.downloadBook = async (req, res) => {
     
     if (!book) {
       return res.status(404).json({ message: 'Book not found' });
-    }
-    
-    // Check user has access to this book (username is in tags)
-    if (!book.tags || !book.tags.some(tag => tag.toLowerCase() === username.toLowerCase())) {
-      return res.status(403).json({ message: 'You do not have access to this book' });
     }
     
     // Determine if we should use API or direct download from Calibre Content Server
