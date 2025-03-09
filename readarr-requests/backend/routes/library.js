@@ -12,17 +12,17 @@ router.get('/', auth, libraryController.getUserLibrary);
 // @route   GET api/library/download/:id/:format
 // @desc    Download a book in specific format
 // @access  Private
-router.get('/download/:id/:format', auth, libraryController.downloadBook);
+router.get('/download/:id/:format', libraryController.downloadBook);
 
 // @route   POST api/library/send-to-device
 // @desc    Send book to e-reader device
 // @access  Private
-router.post('/send-to-device', auth, libraryController.sendToDevice);
+router.post('/send-to-device', libraryController.sendToDevice);
 
 // @route   GET api/library/reading/:id/:format
 // @desc    Get book content for in-app reading
 // @access  Private
-router.get('/reading/:id/:format', auth, libraryController.getBookForReading);
+router.get('/reading/:id/:format', libraryController.getBookForReading);
 
 // @route   GET api/library/formats/:id
 // @desc    Get available formats for a book
