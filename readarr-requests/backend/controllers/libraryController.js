@@ -77,7 +77,13 @@ exports.getBookDownloadLink = async (req, res) => {
   try {
     const { bookId, format } = req.params;
     const userId = req.user.id;
-    const username = req.user.username;
+    const userDoc = await User.findById(userId);
+      
+    if (!userDoc) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    const username = userDoc.username;
 
     log(`Generating download link for book ID: ${bookId}, format: ${format}, user: ${username}`);
 
@@ -122,7 +128,13 @@ exports.sendToEreader = async (req, res) => {
     const { bookId } = req.params;
     const { email, deviceType } = req.body;
     const userId = req.user.id;
-    const username = req.user.username;
+    const userDoc = await User.findById(userId);
+      
+    if (!userDoc) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    const username = userDoc.username;
 
     log(`Sending book ${bookId} to e-reader for user: ${username}, device: ${deviceType}`);
 
@@ -176,37 +188,46 @@ exports.sendToEreader = async (req, res) => {
  * Get available formats for a book
  */
 exports.getBookFormats = async (req, res) => {
-  try {
-    const { bookId } = req.params;
-    const userId = req.user.id;
-    const username = req.user.username;
-
-    log(`Fetching available formats for book ID: ${bookId}, user: ${username}`);
-
-    // First, verify the book belongs to the user's library
-    const bookDetails = await calibreAPI.getBookDetails(bookId);
-    
-    // Check if the book's tags include the user's username
-    const hasUserTag = bookDetails.tags && bookDetails.tags.includes(username);
-    
-    if (!hasUserTag) {
-      log(`Access denied: Book ${bookId} does not belong to user ${username}`);
-      return res.status(403).json({ message: 'This book is not in your library' });
+    try {
+      const { bookId } = req.params;
+      const userId = req.user.id;
+      
+      // Fetch the complete user data from the database 
+      // just like we did in getUserLibrary method
+      const userDoc = await User.findById(userId);
+      
+      if (!userDoc) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+      
+      const username = userDoc.username;
+  
+      log(`Fetching available formats for book ID: ${bookId}, user: ${username}`);
+  
+      // First, verify the book belongs to the user's library
+      const bookDetails = await calibreAPI.getBookDetails(bookId);
+      
+      // Check if the book's tags include the user's username
+      const hasUserTag = bookDetails.tags && bookDetails.tags.includes(username);
+      
+      if (!hasUserTag) {
+        log(`Access denied: Book ${bookId} does not belong to user ${username}`);
+        return res.status(403).json({ message: 'This book is not in your library' });
+      }
+      
+      // Get available formats
+      const formats = bookDetails.formats || [];
+      
+      // Return the formats information
+      res.json({
+        bookId,
+        availableFormats: formats
+      });
+    } catch (error) {
+      log(`Error fetching book formats: ${error.message}`);
+      res.status(500).json({ 
+        message: 'Error fetching book formats', 
+        error: error.message 
+      });
     }
-    
-    // Get available formats
-    const formats = bookDetails.formats || [];
-    
-    // Return the formats information
-    res.json({
-      bookId,
-      availableFormats: formats
-    });
-  } catch (error) {
-    log(`Error fetching book formats: ${error.message}`);
-    res.status(500).json({ 
-      message: 'Error fetching book formats', 
-      error: error.message 
-    });
-  }
-};
+  };
