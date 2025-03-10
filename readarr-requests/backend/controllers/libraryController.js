@@ -431,8 +431,8 @@ exports.sendToDevice = async (req, res) => {
             format = 'MOBI';
           } else if (book.formats.includes('AZW3')) {
             format = 'AZW3';
-          } else if (book.formats.includes('EPUB')) {
-            format = 'EPUB';
+          } else if (book.formats.includes('epub')) {
+            format = 'epub';
             needsConversion = true; // We'll need to convert EPUB to MOBI
             log('EPUB format found for Kindle - will convert to MOBI');
           } else if (book.formats.includes('PDF')) {
@@ -451,8 +451,8 @@ exports.sendToDevice = async (req, res) => {
               format = 'MOBI';
             } else if (availableFormats.includes('AZW3')) {
               format = 'AZW3';
-            } else if (availableFormats.includes('EPUB')) {
-              format = 'EPUB';
+            } else if (availableFormats.includes('epub')) {
+              form';
               needsConversion = true;
             } else if (availableFormats.includes('PDF')) {
               format = 'PDF';
