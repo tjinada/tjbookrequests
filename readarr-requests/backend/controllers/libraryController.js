@@ -430,7 +430,7 @@ exports.sendToDevice = async (req, res) => {
           format = 'AZW3';
         } else if (book.formats.includes('PDF')) {
           format = 'PDF'; // Fallback to PDF
-        } else if (book.formats.includes('EPUB')) {
+        } else if (book.formats.includes('epub')) {
           // We'll need to convert EPUB to MOBI for Kindle
           format = 'EPUB';
           log('Need to convert EPUB to MOBI for Kindle');
@@ -450,8 +450,8 @@ exports.sendToDevice = async (req, res) => {
         }
       } else {
         // Other device type - default to EPUB
-        if (book.formats.includes('EPUB')) {
-          format = 'EPUB';
+        if (book.formats.includes('epub')) {
+          format = 'epub';
         } else if (book.formats.includes('PDF')) {
           format = 'PDF';
         } else if (book.formats.length > 0) {
@@ -546,9 +546,9 @@ exports.sendToDevice = async (req, res) => {
       let sourceFormat = format;
       let targetFormat = format;
       
-      if (deviceType === 'kindle' && format === 'EPUB') {
+      if (deviceType === 'kindle' && format === 'epub') {
         needsConversion = true;
-        sourceFormat = 'EPUB';
+        sourceFormat = 'epub';
         targetFormat = 'MOBI';
         fileName = fileName.replace('.epub', '.mobi');
         mimeType = 'application/x-mobipocket-ebook';
