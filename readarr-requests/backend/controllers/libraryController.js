@@ -422,42 +422,111 @@ exports.sendToDevice = async (req, res) => {
       
       // Determine the format to use based on device type
       let format;
+      let needsConversion = false;
+      
       if (deviceType === 'kindle') {
         // Check if MOBI or AZW3 is available
-        if (book.formats.includes('MOBI')) {
-          format = 'MOBI';
-        } else if (book.formats.includes('AZW3')) {
-          format = 'AZW3';
-        } else if (book.formats.includes('PDF')) {
-          format = 'PDF'; // Fallback to PDF
-        } else if (book.formats.includes('EPUB')) {
-          // We'll need to convert EPUB to MOBI for Kindle
-          format = 'EPUB';
-          log('Need to convert EPUB to MOBI for Kindle');
+        if (book.formats && Array.isArray(book.formats)) {
+          if (book.formats.includes('MOBI')) {
+            format = 'MOBI';
+          } else if (book.formats.includes('AZW3')) {
+            format = 'AZW3';
+          } else if (book.formats.includes('EPUB')) {
+            format = 'EPUB';
+            needsConversion = true; // We'll need to convert EPUB to MOBI
+            log('EPUB format found for Kindle - will convert to MOBI');
+          } else if (book.formats.includes('PDF')) {
+            format = 'PDF'; // Fallback to PDF
+          } else if (book.formats.length > 0) {
+            format = book.formats[0]; // Just use the first available format
+            log(`No ideal format for Kindle, using ${format}`);
+          } else {
+            return res.status(400).json({ message: 'No formats available for this book' });
+          }
         } else {
-          return res.status(400).json({ message: 'No compatible format available for Kindle' });
+          // If book.formats is not properly defined, check if we can guess from format metadata
+          if (book.formatMetadata) {
+            const availableFormats = Object.keys(book.formatMetadata);
+            if (availableFormats.includes('MOBI')) {
+              format = 'MOBI';
+            } else if (availableFormats.includes('AZW3')) {
+              format = 'AZW3';
+            } else if (availableFormats.includes('EPUB')) {
+              format = 'EPUB';
+              needsConversion = true;
+            } else if (availableFormats.includes('PDF')) {
+              format = 'PDF';
+            } else if (availableFormats.length > 0) {
+              format = availableFormats[0];
+            } else {
+              return res.status(400).json({ message: 'No compatible format available for Kindle' });
+            }
+          } else {
+            return res.status(400).json({ message: 'No format information available for this book' });
+          }
         }
       } else if (deviceType === 'kobo') {
         // Check if KEPUB or EPUB is available
-        if (book.formats.includes('KEPUB')) {
-          format = 'KEPUB';
-        } else if (book.formats.includes('EPUB')) {
-          format = 'EPUB';
-        } else if (book.formats.includes('PDF')) {
-          format = 'PDF'; // Fallback to PDF
+        if (book.formats && Array.isArray(book.formats)) {
+          if (book.formats.includes('KEPUB')) {
+            format = 'KEPUB';
+          } else if (book.formats.includes('EPUB')) {
+            format = 'EPUB';
+          } else if (book.formats.includes('PDF')) {
+            format = 'PDF'; // Fallback to PDF
+          } else if (book.formats.length > 0) {
+            format = book.formats[0]; // Just use the first available format
+            log(`No ideal format for Kobo, using ${format}`);
+          } else {
+            return res.status(400).json({ message: 'No formats available for this book' });
+          }
         } else {
-          return res.status(400).json({ message: 'No compatible format available for Kobo' });
+          // If book.formats is not properly defined, check if we can guess from format metadata
+          if (book.formatMetadata) {
+            const availableFormats = Object.keys(book.formatMetadata);
+            if (availableFormats.includes('KEPUB')) {
+              format = 'KEPUB';
+            } else if (availableFormats.includes('EPUB')) {
+              format = 'EPUB';
+            } else if (availableFormats.includes('PDF')) {
+              format = 'PDF';
+            } else if (availableFormats.length > 0) {
+              format = availableFormats[0];
+            } else {
+              return res.status(400).json({ message: 'No compatible format available for Kobo' });
+            }
+          } else {
+            return res.status(400).json({ message: 'No format information available for this book' });
+          }
         }
       } else {
         // Other device type - default to EPUB
-        if (book.formats.includes('EPUB')) {
-          format = 'EPUB';
-        } else if (book.formats.includes('PDF')) {
-          format = 'PDF';
-        } else if (book.formats.length > 0) {
-          format = book.formats[0]; // Use first available format
+        if (book.formats && Array.isArray(book.formats)) {
+          if (book.formats.includes('EPUB')) {
+            format = 'EPUB';
+          } else if (book.formats.includes('PDF')) {
+            format = 'PDF';
+          } else if (book.formats.length > 0) {
+            format = book.formats[0]; // Use first available format
+          } else {
+            return res.status(400).json({ message: 'No formats available for this book' });
+          }
         } else {
-          return res.status(400).json({ message: 'No formats available for this book' });
+          // If book.formats is not properly defined, check if we can guess from format metadata
+          if (book.formatMetadata) {
+            const availableFormats = Object.keys(book.formatMetadata);
+            if (availableFormats.includes('EPUB')) {
+              format = 'EPUB';
+            } else if (availableFormats.includes('PDF')) {
+              format = 'PDF';
+            } else if (availableFormats.length > 0) {
+              format = availableFormats[0];
+            } else {
+              return res.status(400).json({ message: 'No compatible format available' });
+            }
+          } else {
+            return res.status(400).json({ message: 'No format information available for this book' });
+          }
         }
       }
       
@@ -542,60 +611,97 @@ exports.sendToDevice = async (req, res) => {
       const tempFilePath = path.join(tempDir, fileName);
       
       // Format conversion if needed (e.g., EPUB to MOBI for Kindle)
-      let needsConversion = false;
-      let sourceFormat = format;
-      let targetFormat = format;
-      
-      if (deviceType === 'kindle' && format === 'EPUB') {
-        needsConversion = true;
-        sourceFormat = 'EPUB';
-        targetFormat = 'MOBI';
-        fileName = fileName.replace('.epub', '.mobi');
-        mimeType = 'application/x-mobipocket-ebook';
-        log(`Will convert from ${sourceFormat} to ${targetFormat} for Kindle`);
+      if (needsConversion) {
+        if (deviceType === 'kindle' && format === 'EPUB') {
+          log(`Converting from EPUB to MOBI for Kindle`);
+          const convertedFilePath = tempFilePath.replace(`.${format.toLowerCase()}`, '.mobi');
+          
+          try {
+            // Check if Calibre's ebook-convert is available
+            let convertCommand;
+            
+            // Check if we can locate the ebook-convert command
+            try {
+              if (process.env.CALIBRE_LIBRARY_PATH) {
+                // We have Calibre installed, use ebook-convert
+                convertCommand = `ebook-convert "${tempFilePath}" "${convertedFilePath}"`;
+                
+                log(`Executing conversion command: ${convertCommand}`);
+                await execAsync(convertCommand);
+                log(`Conversion successful: ${convertedFilePath}`);
+                
+                // Update file information
+                format = 'MOBI';
+                fileName = fileName.replace('.epub', '.mobi');
+                mimeType = 'application/x-mobipocket-ebook';
+                tempFilePath = convertedFilePath;
+              } else {
+                throw new Error('Calibre path not configured for conversion');
+              }
+            } catch (convErr) {
+              log(`Error during conversion: ${convErr.message}`);
+              log('Will attempt to send the EPUB anyway, but it may not work on Kindle');
+              // Continue with EPUB format - some newer Kindles can handle it
+            }
+          } catch (convertError) {
+            log(`Conversion failed: ${convertError.message}, will try to send original format`);
+            // Continue with original format as a fallback
+          }
+        }
       }
       
       try {
         // Download the book from Calibre Content Server
         if (process.env.CALIBRE_SERVER_URL) {
-          log(`Downloading book from Calibre Content Server: ${process.env.CALIBRE_SERVER_URL}/get/${sourceFormat}/${bookId}/calibre`);
+          log(`Downloading book from Calibre Content Server: ${process.env.CALIBRE_SERVER_URL}/get/${format}/${bookId}/calibre`);
           
           // Create auth header for Calibre
           const auth = Buffer.from(`${process.env.CALIBRE_USERNAME}:${process.env.CALIBRE_PASSWORD}`).toString('base64');
           
           // Download the file
-          const response = await axios({
-            method: 'get',
-            url: `${process.env.CALIBRE_SERVER_URL}/get/${sourceFormat}/${bookId}/calibre`,
-            responseType: 'arraybuffer',
-            headers: {
-              'Authorization': `Basic ${auth}`
-            }
-          });
-          
-          // Save to temp file
-          fs.writeFileSync(tempFilePath, Buffer.from(response.data));
-          log(`Book saved to temporary file: ${tempFilePath}`);
-          
-          // Convert if needed
-          if (needsConversion) {
-            log(`Converting from ${sourceFormat} to ${targetFormat}`);
+          try {
+            const response = await axios({
+              method: 'get',
+              url: `${process.env.CALIBRE_SERVER_URL}/get/${format}/${bookId}/calibre`,
+              responseType: 'arraybuffer',
+              headers: {
+                'Authorization': `Basic ${auth}`
+              }
+            });
             
-            const convertedFilePath = tempFilePath.replace(`.${sourceFormat.toLowerCase()}`, `.${targetFormat.toLowerCase()}`);
+            // Save to temp file
+            fs.writeFileSync(tempFilePath, Buffer.from(response.data));
+            log(`Book saved to temporary file: ${tempFilePath}`);
             
-            // Use Calibre's ebook-convert tool if available
-            if (process.env.CALIBRE_LIBRARY_PATH) {
-              const convertCommand = `ebook-convert "${tempFilePath}" "${convertedFilePath}"`;
-              
-              await execAsync(convertCommand);
-              log(`Conversion successful: ${convertedFilePath}`);
-              
-              // Update the file path to the converted file
-              tempFilePath = convertedFilePath;
-            } else {
-              throw new Error(`Format conversion required but Calibre ebook-convert not available`);
+            // Convert if needed
+            if (needsConversion) {
+              if (deviceType === 'kindle' && format === 'EPUB') {
+                log(`Converting from EPUB to MOBI for Kindle`);
+                const convertedFilePath = tempFilePath.replace('.epub', '.mobi');
+                
+                // Use Calibre's ebook-convert tool if available
+                if (process.env.CALIBRE_LIBRARY_PATH) {
+                  const convertCommand = `ebook-convert "${tempFilePath}" "${convertedFilePath}"`;
+                  
+                  try {
+                    await execAsync(convertCommand);
+                    log(`Conversion successful: ${convertedFilePath}`);
+                    
+                    // Update the file path to the converted file
+                    tempFilePath = convertedFilePath;
+                    format = 'MOBI';
+                    fileName = fileName.replace('.epub', '.mobi');
+                    mimeType = 'application/x-mobipocket-ebook';
+                  } catch (convError) {
+                    log(`Conversion error: ${convError.message}`);
+                    log('Will try to send the original EPUB file');
+                    // Continue with the original file
+                  }
+                } else {
+                  log('Calibre ebook-convert not available - sending original EPUB format');
+                }
+              }
             }
-          }
           
           // Now set up nodemailer and send the email
           const transporter = nodemailer.createTransport({
