@@ -1,7 +1,6 @@
 // src/components/library/BookDetailDrawer.js
 import React, { useState, useEffect, useContext } from 'react';
 import {
-  Drawer,
   Box,
   Typography,
   IconButton,
@@ -27,7 +26,8 @@ import {
   Tooltip,
   Alert,
   Card,
-  CardMedia
+  CardMedia,
+  Drawer
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import DownloadIcon from '@mui/icons-material/Download';
@@ -110,11 +110,23 @@ const BookDetailDrawer = ({ book, open, onClose }) => {
     }
   };
   
+  // Validate email format
+  const validateEmail = (email) => {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(String(email).toLowerCase());
+  };
+  
   // Open send to device dialog
   const handleOpenSendDialog = () => {
     setSendDialogOpen(true);
     // Reset previous results
     setSendResult(null);
+    
+    // Try to load previously saved email for the current device type
+    const savedEmail = localStorage.getItem(`${deviceType}Email`);
+    if (savedEmail) {
+      setEmail(savedEmail);
+    }
   };
   
   // Close send to device dialog
@@ -122,9 +134,30 @@ const BookDetailDrawer = ({ book, open, onClose }) => {
     setSendDialogOpen(false);
   };
   
+  // Handle device type change - load saved email for that device type
+  const handleDeviceTypeChange = (e) => {
+    const newDeviceType = e.target.value;
+    setDeviceType(newDeviceType);
+    
+    // Try to load previously saved email for this device type
+    const savedEmail = localStorage.getItem(`${newDeviceType}Email`);
+    if (savedEmail) {
+      setEmail(savedEmail);
+    }
+  };
+  
   // Send to device
   const handleSendToDevice = async () => {
     if (!book || !book.id || !deviceType || !email) return;
+    
+    // Validate email format
+    if (!validateEmail(email)) {
+      setSendResult({
+        success: false,
+        message: 'Please enter a valid email address'
+      });
+      return;
+    }
     
     setSendingToDevice(true);
     setSendResult(null);
@@ -133,7 +166,10 @@ const BookDetailDrawer = ({ book, open, onClose }) => {
       const result = await sendToDevice(book.id, deviceType, email);
       setSendResult(result);
       
+      // Save email in localStorage for convenience (if successful)
       if (result.success) {
+        localStorage.setItem(`${deviceType}Email`, email);
+        
         // Close dialog after successful send with a short delay
         setTimeout(() => {
           setSendDialogOpen(false);
@@ -142,7 +178,7 @@ const BookDetailDrawer = ({ book, open, onClose }) => {
     } catch (err) {
       setSendResult({
         success: false,
-        message: 'Failed to send book to device'
+        message: err.response?.data?.message || 'Failed to send book to device'
       });
     } finally {
       setSendingToDevice(false);
@@ -352,11 +388,56 @@ const BookDetailDrawer = ({ book, open, onClose }) => {
       <Dialog open={sendDialogOpen} onClose={handleCloseSendDialog}>
         <DialogTitle>Send "{book.title}" to Device</DialogTitle>
         <DialogContent>
+          {/* Book cover and basic info */}
+          <Box sx={{ display: 'flex', mb: 2, mt: 1 }}>
+            <Box
+              component="img"
+              src={book.cover || noImage}
+              alt={book.title}
+              sx={{ 
+                width: 60, 
+                height: 90, 
+                objectFit: 'contain', 
+                borderRadius: 1,
+                mr: 2
+              }}
+            />
+            <Box>
+              <Typography variant="subtitle1">{book.title}</Typography>
+              <Typography variant="body2" color="text.secondary">{book.author}</Typography>
+              
+              {/* Format badges */}
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 1 }}>
+                {book.formats && book.formats.map(fmt => (
+                  <Chip 
+                    key={fmt} 
+                    label={fmt} 
+                    size="small" 
+                    variant={
+                      (deviceType === 'kindle' && (fmt === 'MOBI' || fmt === 'AZW3')) ||
+                      (deviceType === 'kobo' && (fmt === 'EPUB' || fmt === 'KEPUB')) ||
+                      (deviceType === 'other' && fmt === 'EPUB')
+                        ? 'filled' : 'outlined'
+                    }
+                    color={
+                      (deviceType === 'kindle' && (fmt === 'MOBI' || fmt === 'AZW3')) ||
+                      (deviceType === 'kobo' && (fmt === 'EPUB' || fmt === 'KEPUB')) ||
+                      (deviceType === 'other' && fmt === 'EPUB')
+                        ? 'primary' : 'default'
+                    }
+                  />
+                ))}
+              </Box>
+            </Box>
+          </Box>
+          
+          <Divider sx={{ my: 2 }} />
+          
           <TextField
             select
             label="Device Type"
             value={deviceType}
-            onChange={(e) => setDeviceType(e.target.value)}
+            onChange={handleDeviceTypeChange}
             fullWidth
             margin="normal"
           >
@@ -372,6 +453,12 @@ const BookDetailDrawer = ({ book, open, onClose }) => {
                 Kobo
               </Box>
             </MenuItem>
+            <MenuItem value="other">
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <TabletIcon sx={{ mr: 1 }} />
+                Other E-Reader
+              </Box>
+            </MenuItem>
           </TextField>
           
           <TextField
@@ -381,8 +468,67 @@ const BookDetailDrawer = ({ book, open, onClose }) => {
             onChange={(e) => setEmail(e.target.value)}
             fullWidth
             margin="normal"
-            helperText={`This will send the book to your ${deviceType === 'kindle' ? 'Kindle' : 'Kobo'} device`}
+            required
+            error={email && !validateEmail(email)}
+            helperText={
+              email && !validateEmail(email) 
+                ? "Please enter a valid email address" 
+                : deviceType === 'kindle' 
+                  ? "Enter your Kindle email (ends with @kindle.com)" 
+                  : deviceType === 'kobo' 
+                    ? "Enter your email associated with Kobo"
+                    : "Enter the email address to send the ebook to"
+            }
           />
+          
+          {/* Format information */}
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="subtitle2" gutterBottom>
+              Format Information:
+            </Typography>
+            {deviceType === 'kindle' && (
+              <Typography variant="body2" color="text.secondary">
+                {book.formats?.includes('MOBI') 
+                  ? "MOBI format will be used for your Kindle." 
+                  : book.formats?.includes('AZW3')
+                    ? "AZW3 format will be used for your Kindle."
+                    : book.formats?.includes('EPUB')
+                      ? "EPUB format will be converted to MOBI for your Kindle."
+                      : book.formats?.includes('PDF')
+                        ? "PDF format will be sent to your Kindle."
+                        : "No compatible format is available for Kindle."}
+              </Typography>
+            )}
+            {deviceType === 'kobo' && (
+              <Typography variant="body2" color="text.secondary">
+                {book.formats?.includes('KEPUB') 
+                  ? "KEPUB format will be used for your Kobo." 
+                  : book.formats?.includes('EPUB')
+                    ? "EPUB format will be used for your Kobo."
+                    : book.formats?.includes('PDF')
+                      ? "PDF format will be sent to your Kobo."
+                      : "No compatible format is available for Kobo."}
+              </Typography>
+            )}
+            {deviceType === 'other' && (
+              <Typography variant="body2" color="text.secondary">
+                {book.formats?.includes('EPUB') 
+                  ? "EPUB format will be used for your device." 
+                  : book.formats?.includes('PDF')
+                    ? "PDF format will be used for your device."
+                    : book.formats?.length > 0
+                      ? `${book.formats[0]} format will be used for your device.`
+                      : "No formats are available for this book."}
+              </Typography>
+            )}
+          </Box>
+          
+          {deviceType === 'kindle' && (
+            <Alert severity="info" sx={{ mt: 2, mb: 1 }}>
+              Make sure to add {process.env.REACT_APP_SMTP_FROM || 'our email address'} to your 
+              approved senders list in your Amazon account settings.
+            </Alert>
+          )}
           
           {sendResult && (
             <Alert 
@@ -394,15 +540,29 @@ const BookDetailDrawer = ({ book, open, onClose }) => {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseSendDialog}>Cancel</Button>
           <Button 
-            variant="contained" 
-            onClick={handleSendToDevice}
-            disabled={sendingToDevice || !email}
-            startIcon={sendingToDevice ? <CircularProgress size={16} /> : <SendIcon />}
+            onClick={handleCloseSendDialog}
+            disabled={sendingToDevice}
           >
-            {sendingToDevice ? 'Sending...' : 'Send'}
+            {sendResult?.success ? 'Close' : 'Cancel'}
           </Button>
+          
+          {!sendResult?.success && (
+            <Button 
+              variant="contained" 
+              onClick={handleSendToDevice}
+              disabled={sendingToDevice || !email || (email && !validateEmail(email)) || 
+                // Disable if no compatible format is available
+                (deviceType === 'kindle' && !book.formats?.some(f => ['MOBI', 'AZW3', 'EPUB', 'PDF'].includes(f))) ||
+                (deviceType === 'kobo' && !book.formats?.some(f => ['KEPUB', 'EPUB', 'PDF'].includes(f))) ||
+                (deviceType === 'other' && book.formats?.length === 0)
+              }
+              startIcon={sendingToDevice ? <CircularProgress size={16} /> : <SendIcon />}
+              color="primary"
+            >
+              {sendingToDevice ? 'Sending...' : 'Send to Device'}
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
     </>

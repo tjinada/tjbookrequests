@@ -372,77 +372,301 @@ exports.downloadBook = async (req, res) => {
  * Send book to e-reader device (Kindle or Kobo)
  */
 exports.sendToDevice = async (req, res) => {
-  try {
-
-    const { bookId, deviceType, email } = req.body;
-    
-    if (!bookId || !deviceType) {
-      return res.status(400).json({ message: 'Book ID and device type are required' });
-    }
-    
-    // Get book details from Calibre
-    const book = await calibreAPI.getBookDetails(bookId);
-    
-    if (!book) {
-      return res.status(404).json({ message: 'Book not found' });
-    }
-    
-    // Determine the format to use based on device type
-    let format = 'EPUB';
-    if (deviceType === 'kindle') {
-      format = 'MOBI'; // Kindle prefers MOBI or AZW3
-    } else if (deviceType === 'kobo') {
-      format = 'KEPUB'; // Kobo prefers KEPUB
-    }
-    
-    // Option 1: Use Calibre's email sending capability if available
-    if (process.env.CALIBRE_LIBRARY_PATH) {
-      try {
-        log(`Attempting to send via Calibre CLI to ${email}`);
-        
-        // Use Calibre CLI to send book via email
-        const command = `calibre-smtp --attachment "${book.path}/${format}" --relay ${process.env.SMTP_HOST} --port ${process.env.SMTP_PORT} --username ${process.env.SMTP_USER} --password ${process.env.SMTP_PASS} ${process.env.SMTP_FROM} ${email} "Your book: ${book.title}" "Attached is your requested book: ${book.title} by ${book.author}."`;
-        
-        await execAsync(command);
-        
-        return res.json({ success: true, message: `Book "${book.title}" sent to ${email}` });
-      } catch (cmdError) {
-        log(`Error with Calibre email sending: ${cmdError.message}`);
-        // Fall back to our own email implementation
-      }
-    }
-    
-    // Option 2: Use our own email sending implementation
-    if (email) {
-      // For Kobo, check if format conversion is needed
-      if (deviceType === 'kobo' && !book.formats.includes('KEPUB')) {
-        log('Converting to KEPUB format for Kobo');
-        
-        // This would need Calibre's ebook-convert utility
-        // For now, return an error message
-        return res.status(400).json({ message: 'KEPUB format not available and conversion not implemented yet' });
+    try {
+      const { bookId, deviceType, email } = req.body;
+      const userId = req.user ? req.user.id : null;
+      
+      if (!bookId || !deviceType || !email) {
+        return res.status(400).json({ message: 'Book ID, device type, and email are required' });
       }
       
-      // Download the book file to a temporary location
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({ message: 'Invalid email format' });
+      }
+      
+      log(`Processing send request - Book: ${bookId}, Device: ${deviceType}, Email: ${email}`);
+      
+      // Get user info if available
+      let username = 'User';
+      if (userId) {
+        try {
+          const userDoc = await User.findById(userId);
+          if (userDoc) {
+            username = userDoc.username;
+            
+            // Check if user has access to this book
+            // This would use the same logic as your other endpoints that check access
+          }
+        } catch (userErr) {
+          log(`Error getting user info: ${userErr.message}`);
+        }
+      }
+      
+      // Get book details from Calibre
+      const book = await calibreAPI.getBookDetails(bookId);
+      
+      if (!book) {
+        return res.status(404).json({ message: 'Book not found' });
+      }
+      
+      // Check if user has access to this book
+      if (userId) {
+        // Check if book has user's tag
+        const userDoc = await User.findById(userId);
+        if (userDoc && (!book.tags || !book.tags.some(tag => tag.toLowerCase() === userDoc.username.toLowerCase()))) {
+          return res.status(403).json({ message: 'You do not have access to this book' });
+        }
+      }
+      
+      // Determine the format to use based on device type
+      let format;
+      if (deviceType === 'kindle') {
+        // Check if MOBI or AZW3 is available
+        if (book.formats.includes('MOBI')) {
+          format = 'MOBI';
+        } else if (book.formats.includes('AZW3')) {
+          format = 'AZW3';
+        } else if (book.formats.includes('PDF')) {
+          format = 'PDF'; // Fallback to PDF
+        } else if (book.formats.includes('EPUB')) {
+          // We'll need to convert EPUB to MOBI for Kindle
+          format = 'EPUB';
+          log('Need to convert EPUB to MOBI for Kindle');
+        } else {
+          return res.status(400).json({ message: 'No compatible format available for Kindle' });
+        }
+      } else if (deviceType === 'kobo') {
+        // Check if KEPUB or EPUB is available
+        if (book.formats.includes('KEPUB')) {
+          format = 'KEPUB';
+        } else if (book.formats.includes('EPUB')) {
+          format = 'EPUB';
+        } else if (book.formats.includes('PDF')) {
+          format = 'PDF'; // Fallback to PDF
+        } else {
+          return res.status(400).json({ message: 'No compatible format available for Kobo' });
+        }
+      } else {
+        // Other device type - default to EPUB
+        if (book.formats.includes('EPUB')) {
+          format = 'EPUB';
+        } else if (book.formats.includes('PDF')) {
+          format = 'PDF';
+        } else if (book.formats.length > 0) {
+          format = book.formats[0]; // Use first available format
+        } else {
+          return res.status(400).json({ message: 'No formats available for this book' });
+        }
+      }
+      
+      log(`Selected format for ${deviceType}: ${format}`);
+      
+      // Option 1: Use Calibre's email sending capability if available
+      if (process.env.CALIBRE_LIBRARY_PATH && !process.env.CALIBRE_USE_CLI_ONLY === 'true') {
+        try {
+          log(`Attempting to send via Calibre CLI to ${email}`);
+          
+          // Find the book file path
+          let bookFilePath = '';
+          if (book.formatMetadata && book.formatMetadata[format]) {
+            bookFilePath = book.formatMetadata[format].path;
+          } else if (book.path) {
+            // Try to construct the path
+            const possibleFilename = `${book.title.replace(/[/\\?%*:|"<>]/g, '_')}.${format.toLowerCase()}`;
+            bookFilePath = path.join(book.path, possibleFilename);
+            
+            // Check if file exists
+            if (!fs.existsSync(bookFilePath)) {
+              log(`File not found at ${bookFilePath}`);
+              // Try alternate path format
+              bookFilePath = path.join(book.path, format);
+              if (!fs.existsSync(bookFilePath)) {
+                throw new Error(`Could not find book file for format ${format}`);
+              }
+            }
+          } else {
+            throw new Error('Book path information not available');
+          }
+          
+          // Use Calibre CLI to send book via email
+          const command = `calibre-smtp --attachment "${bookFilePath}" --relay ${process.env.SMTP_HOST} --port ${process.env.SMTP_PORT} --username ${process.env.SMTP_USER} --password ${process.env.SMTP_PASS} ${process.env.SMTP_FROM} ${email} "Your book: ${book.title}" "Attached is your requested book: ${book.title} by ${book.author}."`;
+          
+          await execAsync(command);
+          
+          log(`Book sent successfully via Calibre CLI to ${email}`);
+          return res.json({ success: true, message: `Book "${book.title}" sent to ${email}` });
+        } catch (cmdError) {
+          log(`Error with Calibre email sending: ${cmdError.message}`);
+          // Fall back to our own email implementation
+        }
+      }
+      
+      // Option 2: Use our own email sending implementation
+      log(`Using our own email implementation to send to ${email}`);
+      
+      // First, get the book content
+      let bookContent = null;
+      let fileName = `${book.title.replace(/[/\\?%*:|"<>]/g, '_')}.${format.toLowerCase()}`;
+      let mimeType = '';
+      
+      // Set MIME type based on format
+      switch (format.toUpperCase()) {
+        case 'EPUB':
+          mimeType = 'application/epub+zip';
+          break;
+        case 'MOBI':
+          mimeType = 'application/x-mobipocket-ebook';
+          break;
+        case 'AZW3':
+          mimeType = 'application/vnd.amazon.ebook';
+          break;
+        case 'PDF':
+          mimeType = 'application/pdf';
+          break;
+        case 'KEPUB':
+          mimeType = 'application/epub+zip';
+          fileName = `${book.title.replace(/[/\\?%*:|"<>]/g, '_')}.kepub.epub`;
+          break;
+        default:
+          mimeType = 'application/octet-stream';
+      }
+      
+      // Temporary directory for downloaded files
       const tempDir = path.join(__dirname, '../temp');
       if (!fs.existsSync(tempDir)) {
         fs.mkdirSync(tempDir, { recursive: true });
       }
       
-      const tempFilePath = path.join(tempDir, `${book.title.replace(/[/\\?%*:|"<>]/g, '_')}.${format.toLowerCase()}`);
+      const tempFilePath = path.join(tempDir, fileName);
       
-      // This is a placeholder - actual implementation would need to download the file from Calibre
-      // For now, return a message about the feature not being fully implemented
-      return res.status(501).json({ message: 'Email sending from backend not fully implemented yet' });
+      // Format conversion if needed (e.g., EPUB to MOBI for Kindle)
+      let needsConversion = false;
+      let sourceFormat = format;
+      let targetFormat = format;
+      
+      if (deviceType === 'kindle' && format === 'EPUB') {
+        needsConversion = true;
+        sourceFormat = 'EPUB';
+        targetFormat = 'MOBI';
+        fileName = fileName.replace('.epub', '.mobi');
+        mimeType = 'application/x-mobipocket-ebook';
+        log(`Will convert from ${sourceFormat} to ${targetFormat} for Kindle`);
+      }
+      
+      try {
+        // Download the book from Calibre Content Server
+        if (process.env.CALIBRE_SERVER_URL) {
+          log(`Downloading book from Calibre Content Server: ${process.env.CALIBRE_SERVER_URL}/get/${sourceFormat}/${bookId}/calibre`);
+          
+          // Create auth header for Calibre
+          const auth = Buffer.from(`${process.env.CALIBRE_USERNAME}:${process.env.CALIBRE_PASSWORD}`).toString('base64');
+          
+          // Download the file
+          const response = await axios({
+            method: 'get',
+            url: `${process.env.CALIBRE_SERVER_URL}/get/${sourceFormat}/${bookId}/calibre`,
+            responseType: 'arraybuffer',
+            headers: {
+              'Authorization': `Basic ${auth}`
+            }
+          });
+          
+          // Save to temp file
+          fs.writeFileSync(tempFilePath, Buffer.from(response.data));
+          log(`Book saved to temporary file: ${tempFilePath}`);
+          
+          // Convert if needed
+          if (needsConversion) {
+            log(`Converting from ${sourceFormat} to ${targetFormat}`);
+            
+            const convertedFilePath = tempFilePath.replace(`.${sourceFormat.toLowerCase()}`, `.${targetFormat.toLowerCase()}`);
+            
+            // Use Calibre's ebook-convert tool if available
+            if (process.env.CALIBRE_LIBRARY_PATH) {
+              const convertCommand = `ebook-convert "${tempFilePath}" "${convertedFilePath}"`;
+              
+              await execAsync(convertCommand);
+              log(`Conversion successful: ${convertedFilePath}`);
+              
+              // Update the file path to the converted file
+              tempFilePath = convertedFilePath;
+            } else {
+              throw new Error(`Format conversion required but Calibre ebook-convert not available`);
+            }
+          }
+          
+          // Now set up nodemailer and send the email
+          const transporter = nodemailer.createTransport({
+            host: process.env.SMTP_HOST,
+            port: process.env.SMTP_PORT,
+            secure: process.env.SMTP_SECURE === 'true',
+            auth: {
+              user: process.env.SMTP_USER,
+              pass: process.env.SMTP_PASS
+            }
+          });
+          
+          // Prepare the email
+          const mailOptions = {
+            from: process.env.SMTP_FROM,
+            to: email,
+            subject: `Your book: ${book.title}`,
+            text: `Hello from TJ Book Requests!
+  
+  Attached is your requested book: "${book.title}" by ${book.author}.
+  
+  Enjoy reading!
+  
+  This email was sent by the TJ Book Requests system on behalf of ${username}.`,
+            attachments: [
+              {
+                filename: fileName,
+                path: tempFilePath,
+                contentType: mimeType
+              }
+            ]
+          };
+          
+          // Send the email
+          await transporter.sendMail(mailOptions);
+          
+          log(`Book successfully sent via email to ${email}`);
+          
+          // Clean up temporary file
+          fs.unlinkSync(tempFilePath);
+          
+          return res.json({ 
+            success: true, 
+            message: `Book "${book.title}" sent to ${email} successfully!`,
+            format: targetFormat
+          });
+        } else {
+          throw new Error('Calibre Content Server URL not configured');
+        }
+      } catch (emailError) {
+        log(`Error sending email: ${emailError.message}`);
+        
+        // Clean up any temporary files
+        if (fs.existsSync(tempFilePath)) {
+          fs.unlinkSync(tempFilePath);
+        }
+        
+        return res.status(500).json({ 
+          success: false, 
+          message: `Error sending book to ${email}: ${emailError.message}` 
+        });
+      }
+    } catch (error) {
+      log(`Error sending book to device: ${error.message}`);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Error sending book to device', 
+        error: error.message 
+      });
     }
-    
-    // If we got here, we don't have a valid way to send
-    return res.status(400).json({ message: 'Unable to send book to device' });
-  } catch (error) {
-    log(`Error sending book to device: ${error.message}`);
-    res.status(500).json({ message: 'Error sending book to device', error: error.message });
-  }
-};
+  };
 
 /**
  * Get book content for in-app reading
