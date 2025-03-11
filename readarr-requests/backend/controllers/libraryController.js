@@ -423,14 +423,17 @@ exports.sendToDevice = async (req, res) => {
       // Determine the format to use based on device type
       let format;
       if (deviceType === 'kindle') {
+        // Convert formats to uppercase for case-insensitive comparison
+        const formatsUpperCase = book.formats.map(f => f.toUpperCase());
+        
         // Check if MOBI or AZW3 is available
-        if (book.formats.includes('MOBI')) {
+        if (formatsUpperCase.includes('MOBI')) {
           format = 'MOBI';
-        } else if (book.formats.includes('AZW3')) {
-          format = 'AZW3';
-        } else if (book.formats.includes('PDF')) {
+        } else if (formatsUpperCase.includes('AZW3')) {
+          format = 'AZW3');
+        } else if (formatsUpperCase.includes('PDF')) {
           format = 'PDF'; // Fallback to PDF
-        } else if (book.formats.includes('epub')) {
+        } else if (formatsUpperCase.includes('EPUB')) {
           // We'll need to convert EPUB to MOBI for Kindle
           format = 'EPUB';
           log('Need to convert EPUB to MOBI for Kindle');
@@ -438,7 +441,7 @@ exports.sendToDevice = async (req, res) => {
           return res.status(400).json({ message: 'No compatible format available for Kindle' });
         }
       } else if (deviceType === 'kobo') {
-        // Check if KEPUB or EPUB is available
+              // Check if KEPUB or EPUB is available
         if (book.formats.includes('KEPUB')) {
           format = 'KEPUB';
         } else if (book.formats.includes('EPUB')) {
@@ -450,8 +453,8 @@ exports.sendToDevice = async (req, res) => {
         }
       } else {
         // Other device type - default to EPUB
-        if (book.formats.includes('epub')) {
-          format = 'epub';
+        if (book.formats.includes('EPUB')) {
+          format = 'EPUB';
         } else if (book.formats.includes('PDF')) {
           format = 'PDF';
         } else if (book.formats.length > 0) {
@@ -546,9 +549,9 @@ exports.sendToDevice = async (req, res) => {
       let sourceFormat = format;
       let targetFormat = format;
       
-      if (deviceType === 'kindle' && format === 'epub') {
+      if (deviceType === 'kindle' && format === 'EPUB') {
         needsConversion = true;
-        sourceFormat = 'epub';
+        sourceFormat = 'EPUB';
         targetFormat = 'MOBI';
         fileName = fileName.replace('.epub', '.mobi');
         mimeType = 'application/x-mobipocket-ebook';

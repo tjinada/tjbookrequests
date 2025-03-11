@@ -488,13 +488,13 @@ const BookDetailDrawer = ({ book, open, onClose }) => {
             </Typography>
             {deviceType === 'kindle' && (
               <Typography variant="body2" color="text.secondary">
-                {book.formats?.includes('MOBI') 
+                {book.formats?.some(f => f.toUpperCase() === 'MOBI') 
                   ? "MOBI format will be used for your Kindle." 
-                  : book.formats?.includes('AZW3')
+                  : book.formats?.some(f => f.toUpperCase() === 'AZW3')
                     ? "AZW3 format will be used for your Kindle."
-                    : book.formats?.includes('EPUB')
+                    : book.formats?.some(f => f.toUpperCase() === 'EPUB')
                       ? "EPUB format will be converted to MOBI for your Kindle."
-                      : book.formats?.includes('PDF')
+                      : book.formats?.some(f => f.toUpperCase() === 'PDF')
                         ? "PDF format will be sent to your Kindle."
                         : "No compatible format is available for Kindle."}
               </Typography>
@@ -522,6 +522,13 @@ const BookDetailDrawer = ({ book, open, onClose }) => {
               </Typography>
             )}
           </Box>
+
+          {deviceType === 'kindle' && book.formats?.some(f => f.toLowerCase() === 'epub') && 
+            !book.formats?.some(f => ['mobi', 'azw3'].includes(f.toLowerCase())) && (
+            <Alert severity="info" sx={{ mt: 2, mb: 1 }}>
+              EPUB format will be automatically converted to MOBI for your Kindle.
+            </Alert>
+          )}
           
           {deviceType === 'kindle' && (
             <Alert severity="info" sx={{ mt: 2, mb: 1 }}>
@@ -552,9 +559,11 @@ const BookDetailDrawer = ({ book, open, onClose }) => {
               variant="contained" 
               onClick={handleSendToDevice}
               disabled={sendingToDevice || !email || (email && !validateEmail(email)) || 
-                // Disable if no compatible format is available
-                (deviceType === 'kindle' && !book.formats?.some(f => ['MOBI', 'AZW3', 'EPUB', 'PDF'].includes(f))) ||
-                (deviceType === 'kobo' && !book.formats?.some(f => ['KEPUB', 'EPUB', 'PDF'].includes(f))) ||
+                // Disable if no compatible format is available (case-insensitive)
+                (deviceType === 'kindle' && !book.formats?.some(f => 
+                  ['mobi', 'azw3', 'epub', 'pdf'].includes(f.toLowerCase()))) ||
+                (deviceType === 'kobo' && !book.formats?.some(f => 
+                  ['kepub', 'epub', 'pdf'].includes(f.toLowerCase()))) ||
                 (deviceType === 'other' && book.formats?.length === 0)
               }
               startIcon={sendingToDevice ? <CircularProgress size={16} /> : <SendIcon />}
