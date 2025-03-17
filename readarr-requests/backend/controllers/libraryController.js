@@ -430,7 +430,7 @@ exports.sendToDevice = async (req, res) => {
         if (formatsUpperCase.includes('MOBI')) {
           format = 'MOBI';
         } else if (formatsUpperCase.includes('AZW3')) {
-          format = 'AZW3');
+          format = 'AZW3';
         } else if (formatsUpperCase.includes('PDF')) {
           format = 'PDF'; // Fallback to PDF
         } else if (formatsUpperCase.includes('EPUB')) {
