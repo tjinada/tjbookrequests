@@ -501,11 +501,11 @@ const BookDetailDrawer = ({ book, open, onClose }) => {
             )}
             {deviceType === 'kobo' && (
               <Typography variant="body2" color="text.secondary">
-                {book.formats?.includes('KEPUB') 
+                {book.formats?.some(f => f.toUpperCase() ==='KEPUB') 
                   ? "KEPUB format will be used for your Kobo." 
-                  : book.formats?.includes('EPUB')
+                  : book.formats?.some(f => f.toUpperCase() === 'EPUB')
                     ? "EPUB format will be used for your Kobo."
-                    : book.formats?.includes('PDF')
+                    : book.formats?.some(f => f.toUpperCase() === 'PDF')
                       ? "PDF format will be sent to your Kobo."
                       : "No compatible format is available for Kobo."}
               </Typography>
