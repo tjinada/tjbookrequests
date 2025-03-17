@@ -442,11 +442,11 @@ exports.sendToDevice = async (req, res) => {
         }
       } else if (deviceType === 'kobo') {
               // Check if KEPUB or EPUB is available
-        if (book.formats.includes('KEPUB')) {
+        if (formatsUpperCase.includes('KEPUB')) {
           format = 'KEPUB';
-        } else if (book.formats.includes('EPUB')) {
+        } else if (formatsUpperCase.includes('EPUB')) {
           format = 'EPUB';
-        } else if (book.formats.includes('PDF')) {
+        } else if (formatsUpperCase.includes('PDF')) {
           format = 'PDF'; // Fallback to PDF
         } else {
           return res.status(400).json({ message: 'No compatible format available for Kobo' });
