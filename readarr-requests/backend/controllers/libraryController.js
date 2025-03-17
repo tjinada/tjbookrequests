@@ -422,9 +422,9 @@ exports.sendToDevice = async (req, res) => {
       
       // Determine the format to use based on device type
       let format;
+      const formatsUpperCase = book.formats.map(f => f.toUpperCase());
       if (deviceType === 'kindle') {
         // Convert formats to uppercase for case-insensitive comparison
-        const formatsUpperCase = book.formats.map(f => f.toUpperCase());
         
         // Check if MOBI or AZW3 is available
         if (formatsUpperCase.includes('MOBI')) {
