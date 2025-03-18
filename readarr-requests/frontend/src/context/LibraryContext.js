@@ -10,8 +10,10 @@ export const LibraryProvider = ({ children }) => {
   
   // Library data
   const [myBooks, setMyBooks] = useState([]);
-  const [currentBook, setCurrentBook] = useState(null);
+  const [recentlyAdded, setRecentlyAdded] = useState([]);
+  const [recentlyRead, setRecentlyRead] = useState([]);
   const [bookFormats, setBookFormats] = useState({});
+  const [readingProgress, setReadingProgress] = useState({});
   
   // State
   const [loading, setLoading] = useState(false);
@@ -20,17 +22,43 @@ export const LibraryProvider = ({ children }) => {
   
   // Fetch user's library books
   const fetchMyLibrary = useCallback(async () => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated) return [];
     
     setLoading(true);
     setError(null);
     
     try {
-      const response = await api.get('/library');
-      setMyBooks(response.data);
+      const response = await api.get('/library/books');
+      const books = response.data;
+      
+      setMyBooks(books);
+      
+      // Set recently added books (last 30 days)
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      const recent = books.filter(book => {
+        const addedDate = new Date(book.added);
+        return addedDate >= thirtyDaysAgo;
+      });
+      
+      setRecentlyAdded(recent);
+      
+      // Set recently read books
+      if (books.some(book => book.lastRead)) {
+        const recentlyReadBooks = [...books]
+          .filter(book => book.lastRead)
+          .sort((a, b) => new Date(b.lastRead) - new Date(a.lastRead))
+          .slice(0, 3);
+        
+        setRecentlyRead(recentlyReadBooks);
+      }
+      
+      return books;
     } catch (err) {
       console.error('Error fetching library:', err);
-      setError(err.response?.data?.message || 'Failed to load your library books.');
+      setError('Failed to load your library. Please try again.');
+      return [];
     } finally {
       setLoading(false);
     }
@@ -38,15 +66,19 @@ export const LibraryProvider = ({ children }) => {
   
   // Fetch available formats for a book
   const fetchBookFormats = useCallback(async (bookId) => {
-    if (!bookId || !isAuthenticated) return;
+    if (!bookId || !isAuthenticated) return [];
     
     try {
       const response = await api.get(`/library/formats/${bookId}`);
+      const formats = response.data.formats || [];
+      
+      // Update formats cache
       setBookFormats(prev => ({
         ...prev,
-        [bookId]: response.data.formats
+        [bookId]: formats
       }));
-      return response.data.formats;
+      
+      return formats;
     } catch (err) {
       console.error(`Error fetching formats for book ${bookId}:`, err);
       return [];
@@ -55,7 +87,7 @@ export const LibraryProvider = ({ children }) => {
   
   // Get book details
   const getBookDetails = useCallback(async (bookId) => {
-    if (!bookId || !isAuthenticated) return null;
+    if (!bookId) return null;
     
     try {
       // First check if we have the book in our state
@@ -69,22 +101,46 @@ export const LibraryProvider = ({ children }) => {
       console.error(`Error fetching book details for ${bookId}:`, err);
       return null;
     }
-  }, [isAuthenticated, myBooks]);
+  }, [myBooks]);
+  
+  // Save reading progress
+  const saveReadingProgress = useCallback(async (bookId, progress) => {
+    if (!bookId || !isAuthenticated) return false;
+    
+    try {
+      // Save to server
+      await api.post(`/library/progress/${bookId}`, { progress });
+      
+      // Update local state
+      setReadingProgress(prev => ({
+        ...prev,
+        [bookId]: progress
+      }));
+      
+      // Save to localStorage as backup
+      localStorage.setItem(`reading_progress_${bookId}`, JSON.stringify(progress));
+      
+      return true;
+    } catch (err) {
+      console.error(`Error saving reading progress for book ${bookId}:`, err);
+      return false;
+    }
+  }, [isAuthenticated]);
   
   // Download a book
   const downloadBook = useCallback((bookId, format) => {
     if (!bookId || !format || !isAuthenticated) return;
     
-    // Create download URL
+    // Create the download URL
     const downloadUrl = `/api/library/download/${bookId}/${format}`;
     
-    // Open in new tab or trigger download
+    // Open in new tab to trigger download
     window.open(downloadUrl, '_blank');
   }, [isAuthenticated]);
   
-  // Send book to device (Kindle or Kobo)
-  const sendToDevice = useCallback(async (bookId, deviceType, email) => {
-    if (!bookId || !deviceType || !isAuthenticated) {
+  // Send to device
+  const sendToDevice = useCallback(async (bookId, deviceType, email, format) => {
+    if (!bookId || !deviceType || !email || !isAuthenticated) {
       return { success: false, message: 'Missing required parameters' };
     }
     
@@ -92,18 +148,19 @@ export const LibraryProvider = ({ children }) => {
       const response = await api.post('/library/send-to-device', {
         bookId,
         deviceType,
-        email
+        email,
+        format
       });
       
       return { 
         success: true, 
-        message: response.data.message || 'Book sent successfully' 
+        message: response.data.message || 'Book successfully sent to your device!'
       };
     } catch (err) {
       console.error('Error sending book to device:', err);
       return { 
         success: false, 
-        message: err.response?.data?.message || 'Failed to send book to device' 
+        message: err.response?.data?.message || 'Failed to send book to device. Please try again.' 
       };
     }
   }, [isAuthenticated]);
@@ -120,17 +177,35 @@ export const LibraryProvider = ({ children }) => {
     }
   }, [isAuthenticated, fetchMyLibrary, refreshTrigger]);
   
+  // Effect to load reading progress from localStorage
+  useEffect(() => {
+    if (isAuthenticated && myBooks.length > 0) {
+      const loadedProgress = {};
+      
+      myBooks.forEach(book => {
+        const savedProgress = localStorage.getItem(`reading_progress_${book.id}`);
+        if (savedProgress) {
+          loadedProgress[book.id] = JSON.parse(savedProgress);
+        }
+      });
+      
+      setReadingProgress(loadedProgress);
+    }
+  }, [isAuthenticated, myBooks]);
+  
   // Provide the context value
   const contextValue = {
     myBooks,
-    currentBook,
-    setCurrentBook,
+    recentlyAdded,
+    recentlyRead,
+    bookFormats,
+    readingProgress,
     loading,
     error,
-    bookFormats,
     fetchMyLibrary,
     fetchBookFormats,
     getBookDetails,
+    saveReadingProgress,
     downloadBook,
     sendToDevice,
     refreshLibrary

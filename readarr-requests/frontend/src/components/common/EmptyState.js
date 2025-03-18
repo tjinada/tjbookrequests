@@ -1,39 +1,47 @@
 // src/components/common/EmptyState.js
 import React from 'react';
-import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
-import Button from '@mui/material/Button';
-import { useTheme } from '@mui/material/styles';
+import {
+  Box,
+  Typography,
+  Button,
+  Paper,
+  useTheme
+} from '@mui/material';
 
-const EmptyState = ({ 
-  icon: Icon, 
-  title, 
-  description, 
-  actionText, 
-  onAction 
+const EmptyState = ({
+  icon: Icon,
+  title,
+  description,
+  actionText,
+  onAction,
+  paperProps = {},
+  height = 'auto'
 }) => {
   const theme = useTheme();
-
+  
   return (
-    <Box
+    <Paper
+      elevation={0}
       sx={{
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        py: 8,
-        px: 2,
+        p: { xs: 3, sm: 4 },
         textAlign: 'center',
         backgroundColor: theme.palette.mode === 'dark' 
           ? 'rgba(255,255,255,0.03)' 
           : 'rgba(0,0,0,0.02)',
         borderRadius: 2,
+        minHeight: height,
+        ...paperProps.sx
       }}
+      {...paperProps}
     >
       {Icon && (
         <Icon 
           sx={{ 
-            fontSize: 64, 
+            fontSize: 70, 
             color: 'primary.main',
             mb: 2,
             opacity: 0.8
@@ -73,7 +81,7 @@ const EmptyState = ({
           {actionText}
         </Button>
       )}
-    </Box>
+    </Paper>
   );
 };
 

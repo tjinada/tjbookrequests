@@ -44,7 +44,7 @@ const BottomNav = () => {
         // Add safe area padding for iOS
         paddingBottom: 'env(safe-area-inset-bottom)',
       }}
-      elevation={0}
+      elevation={3}
     >
       <BottomNavigation
         value={getActiveTab()}

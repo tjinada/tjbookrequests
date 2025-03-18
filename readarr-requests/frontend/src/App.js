@@ -1,75 +1,97 @@
 // src/App.js
-import React, { lazy, Suspense } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import CircularProgress from '@mui/material/CircularProgress';
-import Box from '@mui/material/Box';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import CssBaseline from '@mui/material/CssBaseline';
+import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider } from './context/AuthContext';
 import { AppProvider } from './context/AppContext';
-import InstallPrompt from './components/common/InstallPrompt';
-import { ThemeProvider } from './context/ThemeContext';
 import { SearchProvider } from './context/SearchContext';
-import PrivateRoute from './components/routing/PrivateRoute';
-import Layout from './components/layout/Layout';
-import AdminRoute from './components/routing/AdminRoute';
 import { LibraryProvider } from './context/LibraryContext';
-const MyLibrary = lazy(() => import('./pages/MyLibrary'));
-const BookReader = lazy(() => import('./components/library/BookReader'));
-
-
-
-// Lazy-loaded components
-const Login = lazy(() => import('./pages/Login'));
-const Register = lazy(() => import('./pages/Register'));
-const Home = lazy(() => import('./pages/Home'));
-const Search = lazy(() => import('./pages/Search'));
-const BookDetail = lazy(() => import('./pages/BookDetail'));
-const Requests = lazy(() => import('./pages/Requests'));
-const AdminRequests = lazy(() => import('./pages/AdminRequests'));
-const Profile = lazy(() => import('./pages/Profile'));
-const CalibreManager = lazy(() => import('./pages/CalibreManager'));
-
-
-// Loading fallback
-const LoadingFallback = () => (
-  <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-    <CircularProgress />
-  </Box>
-);
+import Layout from './components/layout/Layout';
+import PrivateRoute from './components/routing/PrivateRoute';
+import AdminRoute from './components/routing/AdminRoute';
+import Home from './pages/Home';
+import Search from './pages/Search';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import Profile from './pages/Profile';
+import Requests from './pages/Requests';
+import AdminRequests from './pages/AdminRequests';
+import CalibreManager from './pages/CalibreManager';
+import BookDetail from './pages/BookDetail';
+import Library from './pages/Library';
+import BookReader from './components/library/BookReader';
+import InstallPrompt from './components/common/InstallPrompt';
+import UpdateNotification from './components/common/UpdateNotification';
+import SwipeTutorial from './components/common/SwipeTutorial';
 
 function App() {
   return (
     <ThemeProvider>
-      <CssBaseline />
       <AuthProvider>
         <AppProvider>
-        <SearchProvider>
-        <LibraryProvider>
-          <Router>
-            <Suspense fallback={<LoadingFallback />}>
-              <Routes>
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
+          <SearchProvider>
+            <LibraryProvider>
+              <Router>
+                <CssBaseline />
+                <InstallPrompt />
+                <UpdateNotification />
+                <SwipeTutorial />
+                <Routes>
+                  {/* Standalone routes */}
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/register" element={<Register />} />
+                  <Route path="/read/:bookId/:format?" element={<BookReader />} />
 
-                <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
-                  <Route path="/" element={<Home />} />
-                  <Route path="/search" element={<Search />} />
-                  <Route path="/book/:id" element={<BookDetail />} />
-                  <Route path="/requests" element={<Requests />} />
-                  <Route path="/admin/requests" element={<AdminRequests />} />
-                  <Route path="/profile" element={<Profile />} />
-                  <Route path="/book/google/:id" element={<BookDetail source="google" />} />
-                  <Route path="calibre-manager" element={<AdminRoute><CalibreManager /></AdminRoute>} />
-                  <Route path="/library" element={<MyLibrary />} />
-                  <Route path="/read/:id/:format" element={<BookReader />} />
-                </Route>
-
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-              <InstallPrompt />
-            </Suspense>
-          </Router>
-          </LibraryProvider>
+                  {/* Routes within main layout */}
+                  <Route path="/" element={<Layout />}>
+                    <Route index element={<Home />} />
+                    <Route path="search" element={<Search />} />
+                    <Route path="book/:id/:source?" element={<BookDetail />} />
+                    <Route 
+                      path="requests" 
+                      element={
+                        <PrivateRoute>
+                          <Requests />
+                        </PrivateRoute>
+                      } 
+                    />
+                    <Route 
+                      path="profile" 
+                      element={
+                        <PrivateRoute>
+                          <Profile />
+                        </PrivateRoute>
+                      } 
+                    />
+                    <Route 
+                      path="library" 
+                      element={
+                        <PrivateRoute>
+                          <Library />
+                        </PrivateRoute>
+                      } 
+                    />
+                    <Route 
+                      path="admin/requests" 
+                      element={
+                        <AdminRoute>
+                          <AdminRequests />
+                        </AdminRoute>
+                      } 
+                    />
+                    <Route 
+                      path="calibre-manager" 
+                      element={
+                        <AdminRoute>
+                          <CalibreManager />
+                        </AdminRoute>
+                      } 
+                    />
+                  </Route>
+                </Routes>
+              </Router>
+            </LibraryProvider>
           </SearchProvider>
         </AppProvider>
       </AuthProvider>

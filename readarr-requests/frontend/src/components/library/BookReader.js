@@ -1,74 +1,110 @@
 // src/components/library/BookReader.js
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
   Typography,
-  CircularProgress,
   IconButton,
   Paper,
   Slider,
-  Tooltip,
-  Alert,
   Drawer,
-  List,
-  ListItem,
-  ListItemText,
-  Divider,
+  CircularProgress,
   useTheme,
-  useMediaQuery
+  useMediaQuery,
+  Alert,
+  Snackbar,
+  Fab,
+  Divider,
+  Select,
+  MenuItem,
+  FormControl,
+  Button
 } from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import MenuIcon from '@mui/icons-material/Menu';
+import SettingsIcon from '@mui/icons-material/Settings';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
+import NavigateNextIcon from '@mui/icons-material/NavigateNext';
+import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
+import BookmarkIcon from '@mui/icons-material/Bookmark';
+import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
 import BrightnessHighIcon from '@mui/icons-material/BrightnessHigh';
 import BrightnessLowIcon from '@mui/icons-material/BrightnessLow';
-import SettingsIcon from '@mui/icons-material/Settings';
-import api from '../../utils/api';
+import NightsStayIcon from '@mui/icons-material/NightsStay';
+import WbSunnyIcon from '@mui/icons-material/WbSunny';
+import FormatColorFillIcon from '@mui/icons-material/FormatColorFill';
+import LibraryContext from '../../context/LibraryContext';
 
-// This is a simple placeholder for a book reader component
-// In a real application, you would use a more sophisticated library for EPUB/PDF reading
-// such as epub.js, pdf.js, or a commercial solution
+// This is a placeholder component for a book reader
+// In a real implementation, you would integrate with a library like epub.js for EPUBs
+// or PDF.js for PDFs to render the actual book content
 const BookReader = () => {
-  const { id, format = 'epub' } = useParams();
+  const { bookId, format = 'epub' } = useParams();
   const navigate = useNavigate();
-  const theme = useTheme();
+  //const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const { getBookDetails } = useContext(LibraryContext);
   
-  // State for reader
+  // Reader container ref
+  const readerContainerRef = useRef(null);
+  
+  // State
+  const [book, setBook] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [book, setBook] = useState(null);
-  
-  // Reader settings
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [bookmarksOpen, setBookmarksOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [fontSize, setFontSize] = useState(100); // percentage
   const [brightness, setBrightness] = useState(100); // percentage
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [theme, setTheme] = useState('dark'); // 'light', 'dark', 'sepia'
+  const [bookmarks, setBookmarks] = useState([]);
+  const [showOverlay, setShowOverlay] = useState(true);
+  const [overlayTimeout, setOverlayTimeout] = useState(null);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
   
-  // Content frame reference
-  const contentRef = useRef(null);
-  
-  // Load book data when component mounts
+  // Load book data
   useEffect(() => {
-    if (!id) {
+    if (!bookId) {
       setError('Book ID is required');
       setLoading(false);
       return;
     }
     
-    // Function to load book data
     const loadBook = async () => {
       try {
         // Get book details
-        const bookResponse = await api.get(`/library/book/${id}`);
-        setBook(bookResponse.data);
+        const bookData = await getBookDetails(bookId);
+        setBook(bookData);
         
-        // For a real reader, you would load the book content here
-        // This placeholder just simulates loading
+        // Load reader settings from localStorage
+        const savedSettings = localStorage.getItem('readerSettings');
+        if (savedSettings) {
+          const { fontSize, brightness, theme } = JSON.parse(savedSettings);
+          setFontSize(fontSize || 100);
+          setBrightness(brightness || 100);
+          setTheme(theme || 'light');
+        }
+        
+        // Load bookmarks from localStorage
+        const savedBookmarks = localStorage.getItem(`bookmarks_${bookId}`);
+        if (savedBookmarks) {
+          setBookmarks(JSON.parse(savedBookmarks));
+        }
+        
+        // Simulate loading the book content
+        // In a real implementation, you would initialize your book reader library here
         setTimeout(() => {
+          setTotalPages(Math.floor(Math.random() * 300) + 50); // Random for demo
           setLoading(false);
+          
+          // Auto-hide overlay after 3 seconds
+          setOverlayTimeout(setTimeout(() => {
+            setShowOverlay(false);
+          }, 3000));
         }, 1500);
       } catch (err) {
         console.error('Error loading book:', err);
@@ -78,53 +114,154 @@ const BookReader = () => {
     };
     
     loadBook();
-  }, [id, format]);
+    
+    // Set up event listeners for overlay
+    const handleTap = () => {
+      toggleOverlay();
+      
+      // Clear existing timeout
+      if (overlayTimeout) {
+        clearTimeout(overlayTimeout);
+      }
+      
+      // Set new timeout to hide overlay
+      if (showOverlay) {
+        setOverlayTimeout(setTimeout(() => {
+          setShowOverlay(false);
+        }, 3000));
+      }
+    };
+    
+    // Add event listener to the document
+    document.addEventListener('click', handleTap);
+    
+    return () => {
+      // Clean up
+      document.removeEventListener('click', handleTap);
+      if (overlayTimeout) {
+        clearTimeout(overlayTimeout);
+      }
+    };
+  }, [bookId, getBookDetails, overlayTimeout, showOverlay]);
   
-  // Toggle settings drawer
-  const toggleSettings = () => {
-    setSettingsOpen(!settingsOpen);
+  // Save settings whenever they change
+  useEffect(() => {
+    localStorage.setItem('readerSettings', JSON.stringify({
+      fontSize,
+      brightness,
+      theme
+    }));
+    
+    // Apply settings to the reader
+    if (readerContainerRef.current) {
+      // Apply font size
+      readerContainerRef.current.style.fontSize = `${fontSize}%`;
+      
+      // Apply brightness as an overlay
+      const brightnessOverlay = document.querySelector('.brightness-overlay');
+      if (brightnessOverlay) {
+        const opacity = (100 - brightness) / 100;
+        brightnessOverlay.style.backgroundColor = `rgba(0, 0, 0, ${opacity})`;
+      }
+      
+      // Apply theme
+      const container = readerContainerRef.current;
+      container.classList.remove('theme-light', 'theme-dark', 'theme-sepia');
+      container.classList.add(`theme-${theme}`);
+    }
+  }, [fontSize, brightness, theme]);
+  
+  // Toggle the overlay
+  const toggleOverlay = () => {
+    setShowOverlay(!showOverlay);
   };
   
-  // Close reader and go back
-  const handleClose = () => {
+  // Go back to library
+  const handleBack = () => {
     navigate('/library');
   };
   
-  // Update font size
-  const handleFontSizeChange = (event, newValue) => {
-    setFontSize(newValue);
-    
-    // Apply font size to content
-    if (contentRef.current) {
-      contentRef.current.style.fontSize = `${newValue}%`;
+  // Toggle settings drawer
+  const handleToggleSettings = () => {
+    setSettingsOpen(!settingsOpen);
+    setBookmarksOpen(false);
+  };
+  
+  // Toggle bookmarks drawer
+  const handleToggleBookmarks = () => {
+    setBookmarksOpen(!bookmarksOpen);
+    setSettingsOpen(false);
+  };
+  
+  // Navigate to next page
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
     }
   };
   
-  // Update brightness
-  const handleBrightnessChange = (event, newValue) => {
-    setBrightness(newValue);
-    
-    // Apply brightness to content container
-    if (contentRef.current) {
-      const opacity = (100 - newValue) / 100;
-      contentRef.current.style.boxShadow = `inset 0 0 0 2000px rgba(0, 0, 0, ${opacity})`;
+  // Navigate to previous page
+  const handlePrevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
     }
+  };
+  
+  // Add bookmark
+  const handleAddBookmark = () => {
+    // Check if current page is already bookmarked
+    const exists = bookmarks.some(bookmark => bookmark.page === currentPage);
+    if (exists) {
+      // Remove bookmark
+      const newBookmarks = bookmarks.filter(bookmark => bookmark.page !== currentPage);
+      setBookmarks(newBookmarks);
+      localStorage.setItem(`bookmarks_${bookId}`, JSON.stringify(newBookmarks));
+      setSnackbarMessage('Bookmark removed');
+    } else {
+      // Add bookmark
+      const newBookmark = {
+        page: currentPage,
+        text: `Page ${currentPage}`,
+        timestamp: new Date().toISOString()
+      };
+      const newBookmarks = [...bookmarks, newBookmark];
+      setBookmarks(newBookmarks);
+      localStorage.setItem(`bookmarks_${bookId}`, JSON.stringify(newBookmarks));
+      setSnackbarMessage('Bookmark added');
+    }
+    setSnackbarOpen(true);
+  };
+  
+  // Go to bookmark
+  const handleGoToBookmark = (page) => {
+    setCurrentPage(page);
+    setBookmarksOpen(false);
+    setSnackbarMessage(`Jumped to page ${page}`);
+    setSnackbarOpen(true);
+  };
+  
+  // Check if current page is bookmarked
+  const isCurrentPageBookmarked = () => {
+    return bookmarks.some(bookmark => bookmark.page === currentPage);
   };
   
   // Render loading state
   if (loading) {
     return (
-      <Box sx={{ 
-        display: 'flex', 
-        flexDirection: 'column',
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        height: '100vh',
-        bgcolor: 'background.default'
-      }}>
+      <Box 
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '100vh',
+          width: '100vw',
+          bgcolor: theme === 'dark' ? '#121212' : theme === 'sepia' ? '#f8f1e3' : '#ffffff'
+        }}
+      >
         <CircularProgress />
         <Typography variant="body1" sx={{ mt: 2 }}>
-          Loading book...
+          Loading {book?.title || 'book'}...
         </Typography>
       </Box>
     );
@@ -133,127 +270,183 @@ const BookReader = () => {
   // Render error state
   if (error) {
     return (
-      <Box sx={{ 
-        p: 3,
-        display: 'flex', 
-        flexDirection: 'column',
-        alignItems: 'center', 
-        height: '100vh',
-        bgcolor: 'background.default'
-      }}>
+      <Box sx={{ p: 3 }}>
         <Alert 
           severity="error" 
-          sx={{ width: '100%', maxWidth: 500, mb: 2 }}
           action={
-            <IconButton color="inherit" size="small" onClick={handleClose}>
-              <ArrowBackIcon />
-            </IconButton>
+            <Button color="inherit" onClick={handleBack}>
+              Back to Library
+            </Button>
           }
         >
           {error}
         </Alert>
-        <Typography variant="body1">
-          Unable to load the book. Please try again or select a different format.
-        </Typography>
       </Box>
     );
   }
   
   return (
-    <Box sx={{ 
-      height: '100vh', 
-      display: 'flex', 
-      flexDirection: 'column',
-      bgcolor: 'background.default',
-      overflow: 'hidden'
-    }}>
-      {/* Reader header */}
+    <Box 
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100vh',
+        width: '100vw',
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        zIndex: 1300,
+        bgcolor: 'background.default'
+      }}
+    >
+      {/* Brightness overlay */}
+      <Box 
+        className="brightness-overlay" 
+        sx={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: `rgba(0, 0, 0, ${(100 - brightness) / 100})`,
+          pointerEvents: 'none',
+          zIndex: 10
+        }} 
+      />
+      
+      {/* Top overlay bar */}
       <Paper 
-        sx={{ 
-          px: 2, 
-          py: 1, 
-          display: 'flex', 
+        elevation={3}
+        sx={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 20,
+          transition: 'transform 0.3s ease',
+          transform: showOverlay ? 'translateY(0)' : 'translateY(-100%)',
+          display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          borderRadius: 0,
-          zIndex: 1,
+          px: 2,
+          py: 1,
+          bgcolor: theme === 'dark' ? '#333' : theme === 'sepia' ? '#e8dcb5' : '#fff'
         }}
-        elevation={1}
       >
-        <IconButton onClick={handleClose}>
+        <IconButton onClick={handleBack} edge="start">
           <ArrowBackIcon />
         </IconButton>
         
-        <Typography 
-          variant="subtitle1" 
-          component="div" 
-          sx={{ 
-            fontWeight: 'medium',
-            textAlign: 'center',
-            flex: 1,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap'
-          }}
-        >
-          {book?.title || 'Book Reader'}
+        <Typography variant="h6" sx={{ flex: 1, textAlign: 'center', ml: 2 }}>
+          {book?.title || 'Reading'}
         </Typography>
         
-        <IconButton onClick={toggleSettings}>
-          <SettingsIcon />
+        <Box>
+          <IconButton onClick={handleToggleBookmarks}>
+            <BookmarkIcon color={isCurrentPageBookmarked() ? "primary" : "inherit"} />
+          </IconButton>
+          <IconButton onClick={handleToggleSettings} edge="end">
+            <SettingsIcon />
+          </IconButton>
+        </Box>
+      </Paper>
+      
+      {/* Bottom overlay bar */}
+      <Paper 
+        elevation={3}
+        sx={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          zIndex: 20,
+          transition: 'transform 0.3s ease',
+          transform: showOverlay ? 'translateY(0)' : 'translateY(100%)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          px: 2,
+          py: 1,
+          bgcolor: theme === 'dark' ? '#333' : theme === 'sepia' ? '#e8dcb5' : '#fff'
+        }}
+      >
+        <IconButton 
+          onClick={handlePrevPage}
+          disabled={currentPage <= 1}
+        >
+          <NavigateBeforeIcon />
+        </IconButton>
+        
+        <Typography variant="body2">
+          Page {currentPage} of {totalPages}
+        </Typography>
+        
+        <IconButton 
+          onClick={handleNextPage}
+          disabled={currentPage >= totalPages}
+        >
+          <NavigateNextIcon />
         </IconButton>
       </Paper>
       
-      {/* Reader content area */}
+      {/* Reader content */}
       <Box 
-        ref={contentRef}
-        sx={{ 
-          flex: 1, 
-          overflowY: 'auto',
-          p: 2,
-          transition: 'all 0.3s ease',
-          fontSize: `${fontSize}%`
+        ref={readerContainerRef}
+        className={`theme-${theme}`}
+        sx={{
+          flex: 1,
+          p: 3,
+          overflow: 'auto',
+          bgcolor: theme === 'dark' ? '#121212' : theme === 'sepia' ? '#f8f1e3' : '#ffffff',
+          color: theme === 'dark' ? '#e0e0e0' : theme === 'sepia' ? '#5f4b32' : 'text.primary',
+          fontSize: `${fontSize}%`,
+          transition: 'background-color 0.3s ease, color 0.3s ease',
+          pt: 8, // Space for the top bar
+          pb: 8  // Space for the bottom bar
         }}
       >
         {/* This is a placeholder for actual book content */}
-        <Box sx={{ maxWidth: 800, mx: 'auto', p: 2 }}>
+        {/* In a real implementation, you would render the book content from epub.js or PDF.js here */}
+        <Box sx={{ maxWidth: 800, mx: 'auto' }}>
           <Typography variant="h4" gutterBottom align="center">
-            {book?.title || 'Sample Book'}
+            {book?.title || 'Book Title'}
           </Typography>
           
           <Typography variant="h6" gutterBottom align="center" color="text.secondary">
-            {book?.author || 'Unknown Author'}
+            {book?.author || 'Author Name'}
+          </Typography>
+          
+          <Typography variant="h6" gutterBottom align="center">
+            Chapter {Math.ceil(currentPage / 10)}
           </Typography>
           
           <Divider sx={{ my: 3 }} />
           
           <Typography paragraph>
             This is a placeholder for the actual book content. In a real implementation,
-            you would integrate an EPUB or PDF reader library to display the book content here.
+            you would integrate with a library like epub.js or PDF.js to render the book.
+            This page is demonstrating UI features like the reader settings, bookmarks,
+            and navigation.
           </Typography>
           
           <Typography paragraph>
-            For EPUBs, you could use libraries like epub.js or Readium.
-            For PDFs, you could use libraries like PDF.js.
+            Try the settings button to adjust font size, brightness, and theme.
+            You can also bookmark pages and navigate between them.
           </Typography>
           
-          <Typography paragraph>
-            The content would be loaded from the server using the endpoint:
-            <Box component="code" sx={{ display: 'block', bgcolor: 'background.paper', p: 1, mt: 1, borderRadius: 1 }}>
-              /api/library/reading/{id}/{format}
-            </Box>
-          </Typography>
-          
-          <Typography paragraph>
-            Adjust the font size and brightness using the settings panel to see how those controls work in this demo.
-          </Typography>
-          
-          {/* Create some dummy paragraphs to demonstrate scrolling */}
-          {Array.from({ length: 10 }).map((_, index) => (
-            <Typography key={index} paragraph>
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam in dui mauris. Vivamus hendrerit arcu sed erat molestie vehicula. Sed auctor neque eu tellus rhoncus ut eleifend nibh porttitor. Ut in nulla enim. Phasellus molestie magna non est bibendum non venenatis nisl tempor. Suspendisse dictum feugiat nisl ut dapibus. Mauris iaculis porttitor posuere.
+          {/* Generate some random paragraphs for demonstration */}
+          {Array.from({ length: 15 }, (_, i) => (
+            <Typography key={i} paragraph>
+              Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam in dui mauris. 
+              Vivamus hendrerit arcu sed erat molestie vehicula. Sed auctor neque eu tellus 
+              rhoncus ut eleifend nibh porttitor. Ut in nulla enim. Phasellus molestie magna 
+              non est bibendum non venenatis nisl tempor. Suspendisse dictum feugiat nisl ut dapibus.
             </Typography>
           ))}
+          
+          <Typography align="center" sx={{ mt: 3 }}>
+            Page {currentPage} of {totalPages}
+          </Typography>
         </Box>
       </Box>
       
@@ -263,24 +456,25 @@ const BookReader = () => {
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         PaperProps={{
-          sx: { width: { xs: '80%', sm: 300 } }
+          sx: { width: { xs: 280, sm: 350 } }
         }}
       >
-        <Box sx={{ p: 2 }}>
+        <Box sx={{ p: 3 }}>
           <Typography variant="h6" gutterBottom>
             Reader Settings
           </Typography>
           
-          <Divider sx={{ mb: 2 }} />
+          <Divider sx={{ mb: 3 }} />
           
+          {/* Font size control */}
           <Typography id="font-size-slider" gutterBottom>
-            Font Size
+            Font Size: {fontSize}%
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
             <ZoomOutIcon sx={{ mr: 2 }} />
             <Slider
               value={fontSize}
-              onChange={handleFontSizeChange}
+              onChange={(e, newValue) => setFontSize(newValue)}
               aria-labelledby="font-size-slider"
               min={50}
               max={200}
@@ -289,14 +483,15 @@ const BookReader = () => {
             <ZoomInIcon sx={{ ml: 2 }} />
           </Box>
           
+          {/* Brightness control */}
           <Typography id="brightness-slider" gutterBottom>
-            Brightness
+            Brightness: {brightness}%
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
             <BrightnessLowIcon sx={{ mr: 2 }} />
             <Slider
               value={brightness}
-              onChange={handleBrightnessChange}
+              onChange={(e, newValue) => setBrightness(newValue)}
               aria-labelledby="brightness-slider"
               min={30}
               max={100}
@@ -304,28 +499,156 @@ const BookReader = () => {
             <BrightnessHighIcon sx={{ ml: 2 }} />
           </Box>
           
-          <Divider sx={{ my: 2 }} />
-          
-          <Typography variant="subtitle2" gutterBottom>
-            Available Formats
+          {/* Theme selection */}
+          <Typography gutterBottom>
+            Theme
           </Typography>
-          <List dense>
-            {book?.formats?.map(fmt => (
-              <ListItem 
-                key={fmt}
-                button
-                selected={fmt.toLowerCase() === format.toLowerCase()}
-                onClick={() => navigate(`/read/${id}/${fmt.toLowerCase()}`)}
-              >
-                <ListItemText 
-                  primary={fmt} 
-                  secondary={fmt.toLowerCase() === format.toLowerCase() ? 'Current' : null}
-                />
-              </ListItem>
-            ))}
-          </List>
+          <FormControl fullWidth variant="outlined" sx={{ mb: 3 }}>
+            <Select
+              value={theme}
+              onChange={(e) => setTheme(e.target.value)}
+              displayEmpty
+            >
+              <MenuItem value="light">
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <WbSunnyIcon sx={{ mr: 1 }} />
+                  Light
+                </Box>
+              </MenuItem>
+              <MenuItem value="dark">
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <NightsStayIcon sx={{ mr: 1 }} />
+                  Dark
+                </Box>
+              </MenuItem>
+              <MenuItem value="sepia">
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <FormatColorFillIcon sx={{ mr: 1 }} />
+                  Sepia
+                </Box>
+              </MenuItem>
+            </Select>
+          </FormControl>
+          
+          <Button 
+            variant="outlined" 
+            fullWidth
+            onClick={() => {
+              setFontSize(100);
+              setBrightness(100);
+              setTheme('light');
+            }}
+          >
+            Reset to Default
+          </Button>
         </Box>
       </Drawer>
+      
+      {/* Bookmarks drawer */}
+      <Drawer
+        anchor="left"
+        open={bookmarksOpen}
+        onClose={() => setBookmarksOpen(false)}
+        PaperProps={{
+          sx: { width: { xs: 280, sm: 350 } }
+        }}
+      >
+        <Box sx={{ p: 3 }}>
+          <Typography variant="h6" gutterBottom>
+            Bookmarks
+          </Typography>
+          
+          <Divider sx={{ mb: 2 }} />
+          
+          {bookmarks.length === 0 ? (
+            <Typography color="text.secondary" sx={{ py: 2 }}>
+              No bookmarks yet. Add bookmarks by tapping the bookmark icon while reading.
+            </Typography>
+          ) : (
+            bookmarks
+              .sort((a, b) => a.page - b.page)
+              .map((bookmark) => (
+                <Button
+                  key={bookmark.page}
+                  fullWidth
+                  variant={currentPage === bookmark.page ? "contained" : "text"}
+                  sx={{ 
+                    justifyContent: 'flex-start', 
+                    px: 1, 
+                    py: 1.5,
+                    mb: 1,
+                    borderRadius: 1,
+                    border: currentPage === bookmark.page ? 'none' : '1px solid rgba(0,0,0,0.12)',
+                    textAlign: 'left'
+                  }}
+                  onClick={() => handleGoToBookmark(bookmark.page)}
+                  startIcon={<BookmarkIcon />}
+                >
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                    <Typography variant="body2">
+                      Page {bookmark.page}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {new Date(bookmark.timestamp).toLocaleString()}
+                    </Typography>
+                  </Box>
+                </Button>
+              ))
+          )}
+          
+          <Box sx={{ mt: 2 }}>
+            <Button 
+              fullWidth 
+              color="primary"
+              variant="contained"
+              onClick={handleAddBookmark}
+              startIcon={isCurrentPageBookmarked() ? <BookmarkIcon /> : <BookmarkBorderIcon />}
+            >
+              {isCurrentPageBookmarked() ? 'Remove Bookmark' : 'Bookmark Current Page'}
+            </Button>
+          </Box>
+        </Box>
+      </Drawer>
+      
+      {/* Floating navigation buttons for mobile */}
+      {isMobile && showOverlay && (
+        <Box sx={{ position: 'fixed', bottom: 70, right: 16, zIndex: 15 }}>
+          <Fab
+            color="primary"
+            size="medium"
+            onClick={handleNextPage}
+            disabled={currentPage >= totalPages}
+            sx={{ ml: 1 }}
+          >
+            <NavigateNextIcon />
+          </Fab>
+        </Box>
+      )}
+      
+      {isMobile && showOverlay && (
+        <Box sx={{ position: 'fixed', bottom: 70, left: 16, zIndex: 15 }}>
+          <Fab
+            color="primary"
+            size="medium"
+            onClick={handlePrevPage}
+            disabled={currentPage <= 1}
+          >
+            <NavigateBeforeIcon />
+          </Fab>
+        </Box>
+      )}
+      
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={2000}
+        onClose={() => setSnackbarOpen(false)}
+        message={snackbarMessage}
+        anchorOrigin={{
+          vertical: 'bottom',
+          horizontal: 'center'
+        }}
+      />
     </Box>
   );
 };

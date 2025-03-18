@@ -1,347 +1,394 @@
 // src/components/library/BookDetailDrawer.js
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
+  Drawer,
   Box,
   Typography,
   IconButton,
   Button,
   Divider,
+  Tabs,
+  Tab,
   List,
   ListItem,
   ListItemText,
-  ListItemIcon,
   ListItemButton,
-  CircularProgress,
-  Tabs,
-  Tab,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  MenuItem,
+  ListItemIcon,
   Chip,
-  Paper,
-  Grid,
-  Tooltip,
-  Alert,
-  Card,
-  CardMedia,
-  Drawer
+  CircularProgress,
+  useMediaQuery,
+  Alert
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import CloseIcon from '@mui/icons-material/Close';
-import DownloadIcon from '@mui/icons-material/Download';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
+import DownloadIcon from '@mui/icons-material/Download';
 import SendIcon from '@mui/icons-material/Send';
-import TabletIcon from '@mui/icons-material/Tablet';
-import KindleIcon from '@mui/icons-material/Tablet'; // Using Tablet as Kindle icon
-import InfoIcon from '@mui/icons-material/Info';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import DescriptionIcon from '@mui/icons-material/Description';
+import DeleteIcon from '@mui/icons-material/Delete';
+import ShareIcon from '@mui/icons-material/Share';
+import BookmarkAddIcon from '@mui/icons-material/BookmarkAdd';
+import BookmarkAddedIcon from '@mui/icons-material/BookmarkAdded';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import LocalLibraryIcon from '@mui/icons-material/LocalLibrary';
+import PersonIcon from '@mui/icons-material/Person';
+import BusinessIcon from '@mui/icons-material/Business';
 import LibraryContext from '../../context/LibraryContext';
-import noImage from '../../assets/no-image.png';
+import SendToDeviceDialog from './SendToDeviceDialog';
 
-// Helper function to get icon for a format
+// Helper function to get icon for specific format
 const getFormatIcon = (format) => {
-  format = format.toUpperCase();
-  switch (format) {
-    case 'PDF':
-      return <PictureAsPdfIcon />;
-    case 'EPUB':
-    case 'MOBI':
-    case 'AZW3':
-    case 'KEPUB':
-      return <MenuBookIcon />;
-    default:
-      return <DescriptionIcon />;
-  }
+  if (!format) return <DescriptionIcon />;
+  
+  const formatLower = format.toLowerCase();
+  if (formatLower === 'pdf') return <PictureAsPdfIcon />;
+  if (['epub', 'mobi', 'azw3', 'fb2'].includes(formatLower)) return <MenuBookIcon />;
+  return <DescriptionIcon />;
 };
 
 const BookDetailDrawer = ({ book, open, onClose }) => {
-  const { fetchBookFormats, downloadBook, sendToDevice } = useContext(LibraryContext);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const navigate = useNavigate();
+  const { fetchBookFormats, downloadBook } = useContext(LibraryContext);
   
   // Local state
+  const [tabValue, setTabValue] = useState(0);
   const [formats, setFormats] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState(0);
   const [error, setError] = useState(null);
+  const [sendToDeviceOpen, setSendToDeviceOpen] = useState(false);
+  const [isBookmarked, setIsBookmarked] = useState(false);
   
-  // Dialog state
-  const [sendDialogOpen, setSendDialogOpen] = useState(false);
-  const [deviceType, setDeviceType] = useState('kindle');
-  const [email, setEmail] = useState('');
-  const [sendingToDevice, setSendingToDevice] = useState(false);
-  const [sendResult, setSendResult] = useState(null);
-  
-  // Load book formats when the drawer opens
   useEffect(() => {
-    if (open && book && book.id) {
+    // Load book formats when drawer opens
+    if (open && book?.id) {
       setLoading(true);
+      fetchBookFormats(book.id)
+        .then(formats => {
+          setFormats(formats || []);
+          setLoading(false);
+        })
+        .catch(err => {
+          console.error('Error fetching formats:', err);
+          setError('Could not load book formats');
+          setLoading(false);
+        });
       
-      // Check if book already has formats
-      if (book.formats && Array.isArray(book.formats) && book.formats.length > 0) {
-        setFormats(book.formats);
-        setLoading(false);
-      } else {
-        // Fetch formats
-        fetchBookFormats(book.id)
-          .then(formats => {
-            setFormats(formats || []);
-            setLoading(false);
-          })
-          .catch(err => {
-            console.error('Error fetching formats:', err);
-            setError('Failed to load available formats');
-            setLoading(false);
-          });
-      }
+      // Check if book is bookmarked (from local storage)
+      const bookmarks = JSON.parse(localStorage.getItem('bookmarks') || '[]');
+      setIsBookmarked(bookmarks.some(id => id === book.id));
     }
   }, [open, book, fetchBookFormats]);
   
-  // Handle tab change
   const handleTabChange = (event, newValue) => {
-    setActiveTab(newValue);
+    setTabValue(newValue);
   };
   
-  // Handle download
+  const handleReadBook = (format = 'epub') => {
+    onClose();
+    navigate(`/read/${book.id}/${format}`);
+  };
+  
   const handleDownload = (format) => {
-    if (book && book.id) {
-      downloadBook(book.id, format);
-    }
+    downloadBook(book?.id, format);
   };
   
-  // Validate email format
-  const validateEmail = (email) => {
-    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return re.test(String(email).toLowerCase());
-  };
-  
-  // Open send to device dialog
   const handleOpenSendDialog = () => {
-    setSendDialogOpen(true);
-    // Reset previous results
-    setSendResult(null);
-    
-    // Try to load previously saved email for the current device type
-    const savedEmail = localStorage.getItem(`${deviceType}Email`);
-    if (savedEmail) {
-      setEmail(savedEmail);
-    }
+    setSendToDeviceOpen(true);
   };
   
-  // Close send to device dialog
   const handleCloseSendDialog = () => {
-    setSendDialogOpen(false);
+    setSendToDeviceOpen(false);
   };
   
-  // Handle device type change - load saved email for that device type
-  const handleDeviceTypeChange = (e) => {
-    const newDeviceType = e.target.value;
-    setDeviceType(newDeviceType);
+  const handleToggleBookmark = () => {
+    const bookmarks = JSON.parse(localStorage.getItem('bookmarks') || '[]');
     
-    // Try to load previously saved email for this device type
-    const savedEmail = localStorage.getItem(`${newDeviceType}Email`);
-    if (savedEmail) {
-      setEmail(savedEmail);
+    if (isBookmarked) {
+      // Remove bookmark
+      const newBookmarks = bookmarks.filter(id => id !== book.id);
+      localStorage.setItem('bookmarks', JSON.stringify(newBookmarks));
+    } else {
+      // Add bookmark
+      bookmarks.push(book.id);
+      localStorage.setItem('bookmarks', JSON.stringify(bookmarks));
     }
+    
+    setIsBookmarked(!isBookmarked);
   };
   
-  // Send to device
-  const handleSendToDevice = async () => {
-    if (!book || !book.id || !deviceType || !email) return;
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Unknown';
     
-    // Validate email format
-    if (!validateEmail(email)) {
-      setSendResult({
-        success: false,
-        message: 'Please enter a valid email address'
-      });
-      return;
-    }
-    
-    setSendingToDevice(true);
-    setSendResult(null);
-    
-    try {
-      const result = await sendToDevice(book.id, deviceType, email);
-      setSendResult(result);
-      
-      // Save email in localStorage for convenience (if successful)
-      if (result.success) {
-        localStorage.setItem(`${deviceType}Email`, email);
-        
-        // Close dialog after successful send with a short delay
-        setTimeout(() => {
-          setSendDialogOpen(false);
-        }, 2000);
-      }
-    } catch (err) {
-      setSendResult({
-        success: false,
-        message: err.response?.data?.message || 'Failed to send book to device'
-      });
-    } finally {
-      setSendingToDevice(false);
-    }
+    const date = new Date(dateString);
+    return date.toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
   };
   
-  // Render the book info tab
+  // Render the info tab content
   const renderInfoTab = () => (
     <Box sx={{ p: 2 }}>
-      <Card elevation={0} sx={{ mb: 3, maxWidth: 300, mx: 'auto' }}>
-        <CardMedia
-          component="img"
-          image={book.cover || noImage}
-          alt={book.title}
+      {/* Book Cover (only show on mobile) */}
+      {isMobile && book?.coverUrl && (
+        <Box 
           sx={{ 
-            height: 300,
-            objectFit: 'contain',
-            bgcolor: 'background.paper',
-            borderRadius: 1
+            display: 'flex', 
+            justifyContent: 'center', 
+            mb: 2 
           }}
-        />
-      </Card>
+        >
+          <Box
+            component="img"
+            src={book.coverUrl}
+            alt={book.title}
+            sx={{
+              maxWidth: '70%',
+              maxHeight: 200,
+              objectFit: 'contain',
+              borderRadius: 1,
+              boxShadow: theme.shadows[2]
+            }}
+          />
+        </Box>
+      )}
       
-      <Typography variant="subtitle1" fontWeight="bold">
-        Book Details
-      </Typography>
-      
-      <Divider sx={{ my: 1 }} />
-      
-      <List dense>
-        <ListItem>
+      <List disablePadding>
+        {/* Title */}
+        <ListItem sx={{ pl: 0 }}>
           <ListItemIcon>
-            <InfoIcon />
+            <MenuBookIcon color="primary" />
           </ListItemIcon>
           <ListItemText 
             primary="Title" 
-            secondary={book.title} 
-            primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
-            secondaryTypographyProps={{ variant: 'body1' }}
+            secondary={book?.title} 
+            primaryTypographyProps={{
+              variant: 'body2',
+              color: 'text.secondary'
+            }}
+            secondaryTypographyProps={{
+              variant: 'body1',
+              fontWeight: 'medium'
+            }}
           />
         </ListItem>
         
-        <ListItem>
+        {/* Author */}
+        <ListItem sx={{ pl: 0 }}>
           <ListItemIcon>
-            <InfoIcon />
+            <PersonIcon color="primary" />
           </ListItemIcon>
           <ListItemText 
             primary="Author" 
-            secondary={book.author} 
-            primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
-            secondaryTypographyProps={{ variant: 'body1' }}
+            secondary={book?.author} 
+            primaryTypographyProps={{
+              variant: 'body2',
+              color: 'text.secondary'
+            }}
           />
         </ListItem>
         
-        {book.publisher && (
-          <ListItem>
+        {/* Publisher */}
+        {book?.publisher && (
+          <ListItem sx={{ pl: 0 }}>
             <ListItemIcon>
-              <InfoIcon />
+              <BusinessIcon color="primary" />
             </ListItemIcon>
             <ListItemText 
               primary="Publisher" 
               secondary={book.publisher} 
-              primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
-              secondaryTypographyProps={{ variant: 'body1' }}
+              primaryTypographyProps={{
+                variant: 'body2',
+                color: 'text.secondary'
+              }}
             />
           </ListItem>
         )}
         
-        {book.added && (
-          <ListItem>
+        {/* Added Date */}
+        {book?.added && (
+          <ListItem sx={{ pl: 0 }}>
             <ListItemIcon>
-              <InfoIcon />
+              <AccessTimeIcon color="primary" />
             </ListItemIcon>
             <ListItemText 
               primary="Added to Library" 
-              secondary={new Date(book.added).toLocaleDateString()} 
-              primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
-              secondaryTypographyProps={{ variant: 'body1' }}
+              secondary={formatDate(book.added)} 
+              primaryTypographyProps={{
+                variant: 'body2',
+                color: 'text.secondary'
+              }}
             />
           </ListItem>
         )}
+        
+        {/* Format */}
+        <ListItem sx={{ pl: 0 }}>
+          <ListItemIcon>
+            <LocalLibraryIcon color="primary" />
+          </ListItemIcon>
+          <ListItemText 
+            primary="Available Formats" 
+            secondary={
+              formats.length > 0 
+                ? formats.join(', ') 
+                : 'Loading formats...'
+            }
+            primaryTypographyProps={{
+              variant: 'body2',
+              color: 'text.secondary'
+            }}
+          />
+        </ListItem>
       </List>
       
-      {book.tags && book.tags.length > 0 && (
+      {/* Tags */}
+      {book?.tags && book.tags.length > 0 && (
         <Box sx={{ mt: 2 }}>
-          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+          <Typography variant="body2" color="text.secondary" gutterBottom>
             Tags
           </Typography>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-            {book.tags.map(tag => (
-              <Chip key={tag} label={tag} size="small" />
+            {book.tags.map((tag, index) => (
+              <Chip 
+                key={index} 
+                label={tag} 
+                size="small" 
+                color="default"
+                variant="outlined"
+              />
             ))}
           </Box>
         </Box>
       )}
       
-      {book.comments && (
+      {/* Book Description */}
+      {book?.description && (
         <Box sx={{ mt: 3 }}>
-          <Typography variant="subtitle1" fontWeight="bold">
+          <Divider sx={{ mb: 2 }} />
+          <Typography variant="subtitle2" gutterBottom>
             Description
           </Typography>
-          <Divider sx={{ my: 1 }} />
           <Typography 
             variant="body2" 
-            component="div"
-            dangerouslySetInnerHTML={{ __html: book.comments }}
-            sx={{ mt: 1 }}
+            sx={{ 
+              mt: 1,
+              color: 'text.secondary',
+              whiteSpace: 'pre-line'
+            }}
+            dangerouslySetInnerHTML={{ __html: book.description }}
           />
         </Box>
       )}
     </Box>
   );
   
-  // Render the download tab
-  const renderDownloadTab = () => (
+  // Render actions tab content
+  const renderActionsTab = () => (
     <Box sx={{ p: 2 }}>
-      <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-        Available Formats
-      </Typography>
-      
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', my: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
           <CircularProgress size={24} />
         </Box>
       ) : error ? (
-        <Alert severity="error" sx={{ my: 2 }}>
+        <Alert severity="error" sx={{ mb: 2 }}>
           {error}
         </Alert>
-      ) : formats.length === 0 ? (
-        <Alert severity="info" sx={{ my: 2 }}>
-          No downloadable formats available for this book.
-        </Alert>
       ) : (
-        <List>
-          {formats.map(format => (
-            <ListItem key={format} disablePadding>
-              <ListItemButton onClick={() => handleDownload(format)}>
-                <ListItemIcon>
-                  {getFormatIcon(format)}
-                </ListItemIcon>
-                <ListItemText primary={`Download ${format}`} />
-              </ListItemButton>
-            </ListItem>
-          ))}
-        </List>
+        <>
+          {/* Read Now Button */}
+          <Button
+            variant="contained"
+            color="primary"
+            fullWidth
+            size="large"
+            startIcon={<MenuBookIcon />}
+            onClick={() => handleReadBook(formats[0])}
+            disabled={formats.length === 0}
+            sx={{ mb: 2 }}
+          >
+            Read Now
+          </Button>
+          
+          <Divider sx={{ my: 2 }}>
+            <Chip label="Download Options" />
+          </Divider>
+          
+          {/* Download Options */}
+          <List>
+            {formats.map((format) => (
+              <ListItem key={format} disablePadding>
+                <ListItemButton onClick={() => handleDownload(format)}>
+                  <ListItemIcon>
+                    {getFormatIcon(format)}
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary={`Download ${format.toUpperCase()}`} 
+                  />
+                </ListItemButton>
+              </ListItem>
+            ))}
+          </List>
+          
+          <Divider sx={{ my: 2 }}>
+            <Chip label="More Actions" />
+          </Divider>
+          
+          {/* Send to Device Button */}
+          <Button
+            variant="outlined"
+            startIcon={<SendIcon />}
+            fullWidth
+            sx={{ mb: 2 }}
+            onClick={handleOpenSendDialog}
+            disabled={formats.length === 0}
+          >
+            Send to Device
+          </Button>
+          
+          {/* Bookmark Button */}
+          <Button
+            variant="outlined"
+            startIcon={isBookmarked ? <BookmarkAddedIcon /> : <BookmarkAddIcon />}
+            color={isBookmarked ? "success" : "primary"}
+            fullWidth
+            sx={{ mb: 2 }}
+            onClick={handleToggleBookmark}
+          >
+            {isBookmarked ? 'Bookmarked' : 'Bookmark'}
+          </Button>
+          
+          {/* Share Button */}
+          <Button
+            variant="outlined"
+            startIcon={<ShareIcon />}
+            fullWidth
+            sx={{ mb: 2 }}
+            onClick={() => {
+              if (navigator.share) {
+                navigator.share({
+                  title: book.title,
+                  text: `Check out "${book.title}" by ${book.author}`,
+                  url: window.location.href
+                });
+              } else {
+                // Fallback - copy to clipboard
+                navigator.clipboard.writeText(
+                  `${book.title} by ${book.author} - ${window.location.href}`
+                );
+              }
+            }}
+          >
+            Share
+          </Button>
+        </>
       )}
-      
-      <Divider sx={{ my: 2 }} />
-      
-      <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-        Send to Device
-      </Typography>
-      
-      <Button
-        variant="outlined"
-        startIcon={<SendIcon />}
-        onClick={handleOpenSendDialog}
-        fullWidth
-        sx={{ mt: 1 }}
-        disabled={formats.length === 0}
-      >
-        Send to E-Reader
-      </Button>
     </Box>
   );
   
@@ -354,226 +401,72 @@ const BookDetailDrawer = ({ book, open, onClose }) => {
         open={open}
         onClose={onClose}
         PaperProps={{
-          sx: { width: { xs: '100%', sm: 400 } }
+          sx: { 
+            width: { xs: '100%', sm: 400 },
+            maxWidth: '100%'
+          }
         }}
       >
-        <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="h6" component="h2" noWrap>
-            {book.title}
-          </Typography>
-          <IconButton onClick={onClose} edge="end">
-            <CloseIcon />
-          </IconButton>
-        </Box>
-        
-        <Divider />
-        
-        <Tabs 
-          value={activeTab} 
-          onChange={handleTabChange} 
-          variant="fullWidth"
-          sx={{ borderBottom: 1, borderColor: 'divider' }}
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            flexDirection: 'column',
+            height: '100%'
+          }}
         >
-          <Tab label="Info" />
-          <Tab label="Download" />
-        </Tabs>
-        
-        <Box sx={{ overflow: 'auto', flexGrow: 1 }}>
-          {activeTab === 0 && renderInfoTab()}
-          {activeTab === 1 && renderDownloadTab()}
+          {/* Header with title and close button */}
+          <Box 
+            sx={{ 
+              p: 2, 
+              display: 'flex', 
+              alignItems: 'center',
+              borderBottom: 1,
+              borderColor: 'divider'
+            }}
+          >
+            <Typography 
+              variant="h6" 
+              component="div" 
+              sx={{ 
+                flexGrow: 1,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              {book.title}
+            </Typography>
+            <IconButton edge="end" onClick={onClose} aria-label="close">
+              <CloseIcon />
+            </IconButton>
+          </Box>
+          
+          {/* Tabs */}
+          <Tabs 
+            value={tabValue} 
+            onChange={handleTabChange}
+            variant="fullWidth"
+            sx={{ borderBottom: 1, borderColor: 'divider' }}
+          >
+            <Tab icon={<InfoOutlinedIcon />} label="Info" />
+            <Tab icon={<DownloadIcon />} label="Actions" />
+          </Tabs>
+          
+          {/* Tab Content */}
+          <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
+            {tabValue === 0 && renderInfoTab()}
+            {tabValue === 1 && renderActionsTab()}
+          </Box>
         </Box>
       </Drawer>
       
       {/* Send to Device Dialog */}
-      <Dialog open={sendDialogOpen} onClose={handleCloseSendDialog}>
-        <DialogTitle>Send "{book.title}" to Device</DialogTitle>
-        <DialogContent>
-          {/* Book cover and basic info */}
-          <Box sx={{ display: 'flex', mb: 2, mt: 1 }}>
-            <Box
-              component="img"
-              src={book.cover || noImage}
-              alt={book.title}
-              sx={{ 
-                width: 60, 
-                height: 90, 
-                objectFit: 'contain', 
-                borderRadius: 1,
-                mr: 2
-              }}
-            />
-            <Box>
-              <Typography variant="subtitle1">{book.title}</Typography>
-              <Typography variant="body2" color="text.secondary">{book.author}</Typography>
-              
-              {/* Format badges */}
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 1 }}>
-                {book.formats && book.formats.map(fmt => (
-                  <Chip 
-                    key={fmt} 
-                    label={fmt} 
-                    size="small" 
-                    variant={
-                      (deviceType === 'kindle' && (fmt === 'MOBI' || fmt === 'AZW3')) ||
-                      (deviceType === 'kobo' && (fmt === 'EPUB' || fmt === 'KEPUB')) ||
-                      (deviceType === 'other' && fmt === 'EPUB')
-                        ? 'filled' : 'outlined'
-                    }
-                    color={
-                      (deviceType === 'kindle' && (fmt === 'MOBI' || fmt === 'AZW3')) ||
-                      (deviceType === 'kobo' && (fmt === 'EPUB' || fmt === 'KEPUB')) ||
-                      (deviceType === 'other' && fmt === 'EPUB')
-                        ? 'primary' : 'default'
-                    }
-                  />
-                ))}
-              </Box>
-            </Box>
-          </Box>
-          
-          <Divider sx={{ my: 2 }} />
-          
-          <TextField
-            select
-            label="Device Type"
-            value={deviceType}
-            onChange={handleDeviceTypeChange}
-            fullWidth
-            margin="normal"
-          >
-            <MenuItem value="kindle">
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <KindleIcon sx={{ mr: 1 }} />
-                Kindle
-              </Box>
-            </MenuItem>
-            <MenuItem value="kobo">
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <TabletIcon sx={{ mr: 1 }} />
-                Kobo
-              </Box>
-            </MenuItem>
-            <MenuItem value="other">
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <TabletIcon sx={{ mr: 1 }} />
-                Other E-Reader
-              </Box>
-            </MenuItem>
-          </TextField>
-          
-          <TextField
-            label="Email Address"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            fullWidth
-            margin="normal"
-            required
-            error={email && !validateEmail(email)}
-            helperText={
-              email && !validateEmail(email) 
-                ? "Please enter a valid email address" 
-                : deviceType === 'kindle' 
-                  ? "Enter your Kindle email (ends with @kindle.com)" 
-                  : deviceType === 'kobo' 
-                    ? "Enter your email associated with Kobo"
-                    : "Enter the email address to send the ebook to"
-            }
-          />
-          
-          {/* Format information */}
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="subtitle2" gutterBottom>
-              Format Information:
-            </Typography>
-            {deviceType === 'kindle' && (
-              <Typography variant="body2" color="text.secondary">
-                {book.formats?.some(f => f.toUpperCase() === 'MOBI') 
-                  ? "MOBI format will be used for your Kindle." 
-                  : book.formats?.some(f => f.toUpperCase() === 'AZW3')
-                    ? "AZW3 format will be used for your Kindle."
-                    : book.formats?.some(f => f.toUpperCase() === 'EPUB')
-                      ? "EPUB format will be converted to MOBI for your Kindle."
-                      : book.formats?.some(f => f.toUpperCase() === 'PDF')
-                        ? "PDF format will be sent to your Kindle."
-                        : "No compatible format is available for Kindle."}
-              </Typography>
-            )}
-            {deviceType === 'kobo' && (
-              <Typography variant="body2" color="text.secondary">
-                {book.formats?.some(f => f.toUpperCase() ==='KEPUB') 
-                  ? "KEPUB format will be used for your Kobo." 
-                  : book.formats?.some(f => f.toUpperCase() === 'EPUB')
-                    ? "EPUB format will be used for your Kobo."
-                    : book.formats?.some(f => f.toUpperCase() === 'PDF')
-                      ? "PDF format will be sent to your Kobo."
-                      : "No compatible format is available for Kobo."}
-              </Typography>
-            )}
-            {deviceType === 'other' && (
-              <Typography variant="body2" color="text.secondary">
-                {book.formats?.includes('EPUB') 
-                  ? "EPUB format will be used for your device." 
-                  : book.formats?.includes('PDF')
-                    ? "PDF format will be used for your device."
-                    : book.formats?.length > 0
-                      ? `${book.formats[0]} format will be used for your device.`
-                      : "No formats are available for this book."}
-              </Typography>
-            )}
-          </Box>
-
-          {deviceType === 'kindle' && book.formats?.some(f => f.toLowerCase() === 'epub') && 
-            !book.formats?.some(f => ['mobi', 'azw3'].includes(f.toLowerCase())) && (
-            <Alert severity="info" sx={{ mt: 2, mb: 1 }}>
-              EPUB format will be automatically converted to MOBI for your Kindle.
-            </Alert>
-          )}
-          
-          {deviceType === 'kindle' && (
-            <Alert severity="info" sx={{ mt: 2, mb: 1 }}>
-              Make sure to add {process.env.REACT_APP_SMTP_FROM || 'our email address'} to your 
-              approved senders list in your Amazon account settings.
-            </Alert>
-          )}
-          
-          {sendResult && (
-            <Alert 
-              severity={sendResult.success ? "success" : "error"}
-              sx={{ mt: 2 }}
-            >
-              {sendResult.message}
-            </Alert>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button 
-            onClick={handleCloseSendDialog}
-            disabled={sendingToDevice}
-          >
-            {sendResult?.success ? 'Close' : 'Cancel'}
-          </Button>
-          
-          {!sendResult?.success && (
-            <Button 
-              variant="contained" 
-              onClick={handleSendToDevice}
-              disabled={sendingToDevice || !email || (email && !validateEmail(email)) || 
-                // Disable if no compatible format is available (case-insensitive)
-                (deviceType === 'kindle' && !book.formats?.some(f => 
-                  ['mobi', 'azw3', 'epub', 'pdf'].includes(f.toLowerCase()))) ||
-                (deviceType === 'kobo' && !book.formats?.some(f => 
-                  ['kepub', 'epub', 'pdf'].includes(f.toLowerCase()))) ||
-                (deviceType === 'other' && book.formats?.length === 0)
-              }
-              startIcon={sendingToDevice ? <CircularProgress size={16} /> : <SendIcon />}
-              color="primary"
-            >
-              {sendingToDevice ? 'Sending...' : 'Send to Device'}
-            </Button>
-          )}
-        </DialogActions>
-      </Dialog>
+      <SendToDeviceDialog
+        open={sendToDeviceOpen}
+        onClose={handleCloseSendDialog}
+        book={book}
+        formats={formats}
+      />
     </>
   );
 };
