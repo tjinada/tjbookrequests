@@ -37,10 +37,15 @@ const StyledCard = styled(Card)(({ theme }) => ({
   display: 'flex',
   flexDirection: 'column',
   cursor: 'pointer',
-  transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+  transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+  overflow: 'hidden',
+  borderRadius: theme.shape.borderRadius * 2,
+  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+  border: '1px solid',
+  borderColor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
   '&:hover': {
-    transform: 'translateY(-4px)',
-    boxShadow: theme.shadows[4]
+    transform: 'translateY(-8px)',
+    boxShadow: '0 12px 24px rgba(0,0,0,0.2)'
   }
 }));
 
@@ -167,88 +172,103 @@ const LibraryBookCard = ({ book, onClick }) => {
   return (
     <>
       <StyledCard onClick={handleReadBook}>
-        <Box sx={{ position: 'relative' }}>
-          {/* Book Cover */}
-          <CardMedia
-            component="img"
-            height="200"
-            image={book.cover || noImage}
-            alt={book.title}
-            sx={{ 
-              objectFit: 'contain',
-              bgcolor: 'rgba(0,0,0,0.03)',
-              p: 1
-            }}
-            imgProps={{
-              crossOrigin: "anonymous"
-            }}
-          />
+        <Box sx={{ position: 'relative', display: 'flex', flexDirection: 'column', height: '100%' }}>
+          {/* Background gradient for visual interest */}
+          <Box sx={{ 
+            position: 'absolute', 
+            top: 0, 
+            left: 0, 
+            right: 0, 
+            height: 40, 
+            background: 'linear-gradient(to bottom, rgba(0,0,0,0.05), transparent)',
+            borderTopLeftRadius: 'inherit',
+            borderTopRightRadius: 'inherit',
+          }} />
           
-          {/* Available format badges */}
-          {formats.length > 0 && (
-            <Box 
-              sx={{
-                position: 'absolute',
-                top: 8,
-                right: 8,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'flex-end',
-                gap: 0.5
+          {/* Book Cover - centered with larger size */}
+          <Box sx={{ 
+            display: 'flex', 
+            justifyContent: 'center', 
+            pt: 2,
+            pb: 1,
+            position: 'relative',
+            flexGrow: 1
+          }}>
+            <CardMedia
+              component="img"
+              image={book.cover || noImage}
+              alt={book.title}
+              sx={{ 
+                height: 200,
+                width: 'auto',
+                maxWidth: '80%',
+                objectFit: 'contain',
+                borderRadius: 1,
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
               }}
-            >
-              {formats.slice(0, 2).map(format => (
-                <Chip
-                  key={format}
-                  label={format}
-                  size="small"
-                  sx={{ 
-                    fontSize: '0.7rem',
-                    opacity: 0.9,
-                    bgcolor: 'rgba(255,255,255,0.85)',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                    '&:hover': {
-                      bgcolor: 'rgba(255,255,255,0.95)',
-                    }
-                  }}
-                />
-              ))}
-              
-              {formats.length > 2 && (
-                <Chip
-                  label={`+${formats.length - 2}`}
-                  size="small"
-                  sx={{ 
-                    fontSize: '0.7rem',
-                    opacity: 0.9,
-                    bgcolor: 'rgba(255,255,255,0.85)',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-                  }}
-                />
-              )}
-            </Box>
-          )}
+              imgProps={{
+                crossOrigin: "anonymous"
+              }}
+            />
+            
+            {/* Format badge displayed as a ribbon */}
+            {formats.length > 0 && (
+              <Chip
+                label={formats[0]}
+                size="small"
+                sx={{ 
+                  position: 'absolute',
+                  top: 5,
+                  right: 5,
+                  fontSize: '0.7rem',
+                  backgroundColor: 'primary.main',
+                  color: 'white',
+                  fontWeight: 'bold',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                }}
+              />
+            )}
+            
+            {/* Additional formats count */}
+            {formats.length > 1 && (
+              <Chip
+                label={`+${formats.length - 1}`}
+                size="small"
+                sx={{ 
+                  position: 'absolute',
+                  top: 35,
+                  right: 5,
+                  fontSize: '0.7rem',
+                  backgroundColor: 'rgba(0,0,0,0.6)',
+                  color: 'white',
+                }}
+              />
+            )}
+          </Box>
           
-          {/* Action buttons */}
+          {/* Action buttons - positioned at bottom of cover */}
           <Box 
             sx={{
-              position: 'absolute',
-              bottom: 0,
-              left: 0,
-              right: 0,
               display: 'flex',
-              justifyContent: 'space-around',
-              p: 1,
-              background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%)',
+              justifyContent: 'center',
+              gap: 2,
+              mb: 1,
+              mt: -1,
+              position: 'relative',
+              zIndex: 1,
             }}
           >
             <Tooltip title="Read">
               <IconButton 
                 size="small" 
                 onClick={handleReadBook}
-                sx={{ color: 'white', bgcolor: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(4px)' }}
+                sx={{ 
+                  color: 'white', 
+                  bgcolor: 'primary.main',
+                  '&:hover': { bgcolor: 'primary.dark' }
+                }}
               >
-                <MenuBookIcon />
+                <MenuBookIcon fontSize="small" />
               </IconButton>
             </Tooltip>
             
@@ -256,9 +276,13 @@ const LibraryBookCard = ({ book, onClick }) => {
               <IconButton 
                 size="small" 
                 onClick={handleFormatMenuClick}
-                sx={{ color: 'white', bgcolor: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(4px)' }}
+                sx={{ 
+                  color: 'white', 
+                  bgcolor: 'secondary.main',
+                  '&:hover': { bgcolor: 'secondary.dark' }
+                }}
               >
-                <DownloadIcon />
+                <DownloadIcon fontSize="small" />
               </IconButton>
             </Tooltip>
             
@@ -267,16 +291,30 @@ const LibraryBookCard = ({ book, onClick }) => {
                 <IconButton 
                   size="small" 
                   onClick={handleOpenEmailDialog(formats[0])}
-                  sx={{ color: 'white', bgcolor: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(4px)' }}
+                  sx={{ 
+                    color: 'white', 
+                    bgcolor: 'info.main',
+                    '&:hover': { bgcolor: 'info.dark' }
+                  }}
                 >
-                  <EmailIcon />
+                  <EmailIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
             )}
           </Box>
         </Box>
         
-        <CardContent sx={{ flexGrow: 1 }}>
+        {/* Book Info with gradient background */}
+        <CardContent sx={{ 
+          flexGrow: 0,
+          p: 1.5,
+          background: (theme) => 
+            theme.palette.mode === 'dark' 
+              ? 'linear-gradient(to bottom, rgba(42,45,50,0.8) 0%, rgba(32,35,40,1) 100%)' 
+              : 'linear-gradient(to bottom, rgba(245,247,250,0.8) 0%, rgba(255,255,255,1) 100%)',
+          borderTop: '1px solid',
+          borderTopColor: 'divider'
+        }}>
           <Typography 
             variant="h6" 
             component="h2" 
@@ -289,7 +327,8 @@ const LibraryBookCard = ({ book, onClick }) => {
               textOverflow: 'ellipsis',
               display: '-webkit-box',
               WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical'
+              WebkitBoxOrient: 'vertical',
+              textAlign: 'center'
             }}
           >
             {book.title}
@@ -303,7 +342,9 @@ const LibraryBookCard = ({ book, onClick }) => {
               textOverflow: 'ellipsis',
               display: '-webkit-box',
               WebkitLineClamp: 1,
-              WebkitBoxOrient: 'vertical'
+              WebkitBoxOrient: 'vertical',
+              textAlign: 'center',
+              fontStyle: 'italic'
             }}
           >
             {book.author}
