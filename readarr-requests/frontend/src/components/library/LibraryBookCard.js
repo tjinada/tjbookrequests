@@ -20,7 +20,8 @@ import {
   Button,
   Divider,
   Snackbar,
-  Alert
+  Alert,
+  CircularProgress
 } from '@mui/material';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import DownloadIcon from '@mui/icons-material/Download';
@@ -54,6 +55,7 @@ const LibraryBookCard = ({ book, onClick }) => {
   const [selectedFormat, setSelectedFormat] = useState('');
   const [email, setEmail] = useState('');
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
+  const [isSending, setIsSending] = useState(false);
 
   // Process formats for display
   const formats = Array.isArray(book.formats) ? book.formats : [];
@@ -115,11 +117,17 @@ const LibraryBookCard = ({ book, onClick }) => {
       return;
     }
     
+    // Set sending state to show loading indicator
+    setIsSending(true);
+    
     // Save email for future use
     localStorage.setItem('lastUsedEmail', email);
     
     // Send book
     if (sendToDevice) {
+      // Show in-progress notification
+      showNotification(`Sending ${book.title} to ${email}...`, 'info');
+      
       sendToDevice(book.id, 'email', email)
         .then(result => {
           if (result.success) {
@@ -131,11 +139,18 @@ const LibraryBookCard = ({ book, onClick }) => {
         })
         .catch(err => {
           showNotification('Error sending email', 'error');
+        })
+        .finally(() => {
+          setIsSending(false);
         });
     } else {
       // Fallback if context function not available
-      showNotification(`Sent ${book.title} to ${email}`, 'success');
-      handleCloseEmailDialog();
+      // Simulate network delay for demonstration
+      setTimeout(() => {
+        showNotification(`Sent ${book.title} to ${email}`, 'success');
+        setIsSending(false);
+        handleCloseEmailDialog();
+      }, 1500);
     }
   };
   
@@ -400,19 +415,46 @@ const LibraryBookCard = ({ book, onClick }) => {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             helperText="Enter the email where you want to receive this book"
+            disabled={isSending}
           />
+          
+          {isSending && (
+            <Box sx={{ display: 'flex', alignItems: 'center', mt: 2, p: 1, bgcolor: 'action.hover', borderRadius: 1 }}>
+              <CircularProgress size={16} sx={{ mr: 1 }} />
+              <Typography variant="body2">Sending email, please wait...</Typography>
+            </Box>
+          )}
         </DialogContent>
         
         <DialogActions>
-          <Button onClick={handleCloseEmailDialog}>Cancel</Button>
           <Button 
-            onClick={handleSendToEmail} 
-            variant="contained" 
-            startIcon={<SendIcon />}
-            disabled={!email}
+            onClick={handleCloseEmailDialog}
+            disabled={isSending}
           >
-            Send
+            Cancel
           </Button>
+          <Box sx={{ position: 'relative' }}>
+            <Button 
+              onClick={handleSendToEmail} 
+              variant="contained" 
+              startIcon={isSending ? null : <SendIcon />}
+              disabled={!email || isSending}
+            >
+              {isSending ? 'Sending...' : 'Send'}
+            </Button>
+            {isSending && (
+              <CircularProgress
+                size={24}
+                sx={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  marginTop: '-12px',
+                  marginLeft: '-12px',
+                }}
+              />
+            )}
+          </Box>
         </DialogActions>
       </Dialog>
       
