@@ -172,36 +172,30 @@ const LibraryBookCard = ({ book, onClick }) => {
   return (
     <>
       <StyledCard onClick={handleReadBook}>
-        <Box sx={{ position: 'relative', display: 'flex', flexDirection: 'column', height: '100%' }}>
-          {/* Background gradient for visual interest */}
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: 'row',
+          height: '100%',
+          position: 'relative'
+        }}>
+          {/* Left side - Book Cover */}
           <Box sx={{ 
-            position: 'absolute', 
-            top: 0, 
-            left: 0, 
-            right: 0, 
-            height: 40, 
-            background: 'linear-gradient(to bottom, rgba(0,0,0,0.05), transparent)',
-            borderTopLeftRadius: 'inherit',
-            borderTopRightRadius: 'inherit',
-          }} />
-          
-          {/* Book Cover - centered with larger size */}
-          <Box sx={{ 
-            display: 'flex', 
-            justifyContent: 'center', 
-            pt: 2,
-            pb: 1,
-            position: 'relative',
-            flexGrow: 1
+            width: '65%', 
+            p: 2,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            position: 'relative'
           }}>
             <CardMedia
               component="img"
               image={book.cover || noImage}
               alt={book.title}
               sx={{ 
-                height: 200,
+                height: 'auto',
+                maxHeight: 180,
                 width: 'auto',
-                maxWidth: '80%',
+                maxWidth: '100%',
                 objectFit: 'contain',
                 borderRadius: 1,
                 boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
@@ -211,15 +205,15 @@ const LibraryBookCard = ({ book, onClick }) => {
               }}
             />
             
-            {/* Format badge displayed as a ribbon */}
+            {/* Format badge */}
             {formats.length > 0 && (
               <Chip
                 label={formats[0]}
                 size="small"
                 sx={{ 
                   position: 'absolute',
-                  top: 5,
-                  right: 5,
+                  top: 8,
+                  left: 8,
                   fontSize: '0.7rem',
                   backgroundColor: 'primary.main',
                   color: 'white',
@@ -236,8 +230,9 @@ const LibraryBookCard = ({ book, onClick }) => {
                 size="small"
                 sx={{ 
                   position: 'absolute',
-                  top: 35,
-                  right: 5,
+                  top: 8,
+                  left: formats[0] ? 'auto' : 8,
+                  right: formats[0] ? 8 : 'auto',
                   fontSize: '0.7rem',
                   backgroundColor: 'rgba(0,0,0,0.6)',
                   color: 'white',
@@ -246,110 +241,107 @@ const LibraryBookCard = ({ book, onClick }) => {
             )}
           </Box>
           
-          {/* Action buttons - positioned at bottom of cover */}
-          <Box 
-            sx={{
-              display: 'flex',
-              justifyContent: 'center',
-              gap: 2,
-              mb: 1,
-              mt: -1,
-              position: 'relative',
-              zIndex: 1,
-            }}
-          >
-            <Tooltip title="Read">
-              <IconButton 
-                size="small" 
-                onClick={handleReadBook}
+          {/* Right side - Info and buttons */}
+          <Box sx={{ 
+            width: '35%',
+            display: 'flex',
+            flexDirection: 'column',
+            bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(42,45,50,1)' : 'rgba(245,247,250,1)',
+            borderLeft: '1px solid',
+            borderLeftColor: 'divider'
+          }}>
+            {/* Book info */}
+            <Box sx={{ p: 1.5, flexGrow: 1 }}>
+              <Typography 
+                variant="h6" 
+                component="h2" 
                 sx={{ 
-                  color: 'white', 
-                  bgcolor: 'primary.main',
-                  '&:hover': { bgcolor: 'primary.dark' }
+                  fontSize: '0.9rem', 
+                  fontWeight: 600,
+                  lineHeight: 1.2,
+                  mb: 1,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical'
                 }}
               >
-                <MenuBookIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            
-            <Tooltip title="Download">
-              <IconButton 
-                size="small" 
-                onClick={handleFormatMenuClick}
-                sx={{ 
-                  color: 'white', 
-                  bgcolor: 'secondary.main',
-                  '&:hover': { bgcolor: 'secondary.dark' }
+                {book.title}
+              </Typography>
+              
+              <Typography 
+                variant="body2" 
+                color="text.secondary"
+                sx={{
+                  fontSize: '0.8rem',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 1,
+                  WebkitBoxOrient: 'vertical',
+                  fontStyle: 'italic',
+                  mb: 2
                 }}
               >
-                <DownloadIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
+                {book.author}
+              </Typography>
+            </Box>
             
-            {formats.length > 0 && (
-              <Tooltip title="Send to Email">
+            {/* Vertically stacked action buttons */}
+            <Box sx={{ 
+              display: 'flex', 
+              flexDirection: 'column',
+              gap: 1,
+              p: 1,
+              mt: 'auto'
+            }}>
+              <Tooltip title="Read">
                 <IconButton 
                   size="small" 
-                  onClick={handleOpenEmailDialog(formats[0])}
+                  onClick={handleReadBook}
                   sx={{ 
                     color: 'white', 
-                    bgcolor: 'info.main',
-                    '&:hover': { bgcolor: 'info.dark' }
+                    bgcolor: 'primary.main',
+                    '&:hover': { bgcolor: 'primary.dark' }
                   }}
                 >
-                  <EmailIcon fontSize="small" />
+                  <MenuBookIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
-            )}
+              
+              <Tooltip title="Download">
+                <IconButton 
+                  size="small" 
+                  onClick={handleFormatMenuClick}
+                  sx={{ 
+                    color: 'white', 
+                    bgcolor: 'secondary.main',
+                    '&:hover': { bgcolor: 'secondary.dark' }
+                  }}
+                >
+                  <DownloadIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              
+              {formats.length > 0 && (
+                <Tooltip title="Send to Email">
+                  <IconButton 
+                    size="small" 
+                    onClick={handleOpenEmailDialog(formats[0])}
+                    sx={{ 
+                      color: 'white', 
+                      bgcolor: 'info.main',
+                      '&:hover': { bgcolor: 'info.dark' }
+                    }}
+                  >
+                    <EmailIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
+            </Box>
           </Box>
         </Box>
-        
-        {/* Book Info with gradient background */}
-        <CardContent sx={{ 
-          flexGrow: 0,
-          p: 1.5,
-          background: (theme) => 
-            theme.palette.mode === 'dark' 
-              ? 'linear-gradient(to bottom, rgba(42,45,50,0.8) 0%, rgba(32,35,40,1) 100%)' 
-              : 'linear-gradient(to bottom, rgba(245,247,250,0.8) 0%, rgba(255,255,255,1) 100%)',
-          borderTop: '1px solid',
-          borderTopColor: 'divider'
-        }}>
-          <Typography 
-            variant="h6" 
-            component="h2" 
-            sx={{ 
-              fontSize: '1rem', 
-              fontWeight: 600,
-              lineHeight: 1.2,
-              mb: 0.5,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              display: '-webkit-box',
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical',
-              textAlign: 'center'
-            }}
-          >
-            {book.title}
-          </Typography>
-          
-          <Typography 
-            variant="body2" 
-            color="text.secondary"
-            sx={{
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              display: '-webkit-box',
-              WebkitLineClamp: 1,
-              WebkitBoxOrient: 'vertical',
-              textAlign: 'center',
-              fontStyle: 'italic'
-            }}
-          >
-            {book.author}
-          </Typography>
-        </CardContent>
       </StyledCard>
       
       {/* Format menu */}
