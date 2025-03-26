@@ -246,9 +246,11 @@ const LibraryBookCard = ({ book, onClick }) => {
             width: '35%',
             display: 'flex',
             flexDirection: 'column',
-            bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(42,45,50,1)' : 'rgba(245,247,250,1)',
+            bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(32,35,40,1)' : 'rgba(248,249,250,1)',
             borderLeft: '1px solid',
-            borderLeftColor: 'divider'
+            borderLeftColor: 'divider',
+            borderTopRightRadius: 'inherit',
+            borderBottomRightRadius: 'inherit'
           }}>
             {/* Book info */}
             <Box sx={{ p: 1.5, flexGrow: 1 }}>
@@ -292,52 +294,59 @@ const LibraryBookCard = ({ book, onClick }) => {
             <Box sx={{ 
               display: 'flex', 
               flexDirection: 'column',
-              gap: 1,
-              p: 1,
-              mt: 'auto'
+              gap: 2,
+              p: 2,
+              mt: 'auto',
+              alignItems: 'center'
             }}>
-              <Tooltip title="Read">
-                <IconButton 
-                  size="small" 
-                  onClick={handleReadBook}
-                  sx={{ 
-                    color: 'white', 
-                    bgcolor: 'primary.main',
-                    '&:hover': { bgcolor: 'primary.dark' }
-                  }}
-                >
-                  <MenuBookIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
+              <Button 
+                variant="contained"
+                color="primary"
+                startIcon={<MenuBookIcon />}
+                onClick={handleReadBook}
+                fullWidth
+                sx={{ 
+                  borderRadius: 4,
+                  textTransform: 'none',
+                  boxShadow: 2,
+                  py: 0.5
+                }}
+              >
+                Read
+              </Button>
               
-              <Tooltip title="Download">
-                <IconButton 
-                  size="small" 
-                  onClick={handleFormatMenuClick}
-                  sx={{ 
-                    color: 'white', 
-                    bgcolor: 'secondary.main',
-                    '&:hover': { bgcolor: 'secondary.dark' }
-                  }}
-                >
-                  <DownloadIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
+              <Button 
+                variant="contained"
+                color="secondary"
+                startIcon={<DownloadIcon />}
+                onClick={handleFormatMenuClick}
+                fullWidth
+                sx={{ 
+                  borderRadius: 4,
+                  textTransform: 'none',
+                  boxShadow: 2,
+                  py: 0.5
+                }}
+              >
+                Download
+              </Button>
               
               {formats.length > 0 && (
-                <Tooltip title="Send to Email">
-                  <IconButton 
-                    size="small" 
-                    onClick={handleOpenEmailDialog(formats[0])}
-                    sx={{ 
-                      color: 'white', 
-                      bgcolor: 'info.main',
-                      '&:hover': { bgcolor: 'info.dark' }
-                    }}
-                  >
-                    <EmailIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
+                <Button 
+                  variant="contained"
+                  color="info"
+                  startIcon={<EmailIcon />}
+                  onClick={handleOpenEmailDialog(formats[0])}
+                  fullWidth
+                  sx={{ 
+                    borderRadius: 4,
+                    textTransform: 'none',
+                    boxShadow: 2,
+                    py: 0.5
+                  }}
+                >
+                  Email
+                </Button>
               )}
             </Box>
           </Box>
