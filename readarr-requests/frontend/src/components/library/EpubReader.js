@@ -46,7 +46,6 @@ const EpubReader = ({
         const epubUrl = URL.createObjectURL(epubBlob);
         setBookData(epubUrl);
         
-        // Don't set loading to false here - we'll do that after rendering
       } catch (err) {
         console.error('Error fetching EPUB:', err);
         setError(`Failed to load EPUB: ${err.message}`);
@@ -95,7 +94,36 @@ const EpubReader = ({
     }
   };
   
-  // Set up rendition with improved themes
+  // Add a <style> tag to the document head for dark mode
+  useEffect(() => {
+    if (theme === 'dark') {
+      // Create a style element
+      const style = document.createElement('style');
+      style.id = 'dark-mode-styles';
+      style.textContent = `
+        .epub-container {
+          background-color: black !important;
+        }
+        .epub-view {
+          background-color: black !important;
+          color: white !important;
+        }
+        .epub-view > iframe {
+          border: none !important;
+          background-color: black !important;
+        }
+      `;
+      document.head.appendChild(style);
+      
+      return () => {
+        // Remove the style element when unmounting
+        const element = document.getElementById('dark-mode-styles');
+        if (element) element.remove();
+      };
+    }
+  }, [theme]);
+  
+  // Set up rendition
   const handleRenditionReady = (rendition) => {
     console.log('Rendition ready');
     // Store rendition for later use
@@ -105,61 +133,25 @@ const EpubReader = ({
     // Apply font size
     rendition.themes.fontSize(`${fontSize}%`);
     
-    // Register improved themes with better contrast and readability
+    // Register themes
     rendition.themes.register('light', {
       body: {
         color: '#000',
-        background: '#fff',
-        'line-height': '1.5',
-        'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
-      },
-      'p, li': {
-        'font-size': '1em',
-        'margin-bottom': '0.8em'
-      },
-      h1: { 'font-size': '1.8em', 'margin': '0.8em 0' },
-      h2: { 'font-size': '1.6em', 'margin': '0.8em 0' },
-      h3: { 'font-size': '1.4em', 'margin': '0.7em 0' },
-      h4: { 'font-size': '1.2em', 'margin': '0.6em 0' },
-      a: { color: '#0066cc' }
+        background: '#fff'
+      }
     });
     
-    rendition.themes.register('sepia', {
-      body: {
-        color: '#5B4636',
-        background: '#FBF0D9',
-        'line-height': '1.5',
-        'font-family': 'Georgia, serif'
-      },
-      'p, li': {
-        'font-size': '1em',
-        'margin-bottom': '0.8em'
-      },
-      h1: { 'font-size': '1.8em', 'margin': '0.8em 0' },
-      h2: { 'font-size': '1.6em', 'margin': '0.8em 0' },
-      h3: { 'font-size': '1.4em', 'margin': '0.7em 0' },
-      h4: { 'font-size': '1.2em', 'margin': '0.6em 0' },
-      a: { color: '#8B4513' }
-    });
-    
-    // Improved dark mode with better contrast
     rendition.themes.register('dark', {
       body: {
-        color: '#e8e8e8', // Light gray for better readability
-        background: '#000000', // Pure black background for full dark mode
-        'line-height': '1.5',
-        'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
+        color: '#e8e8e8',
+        background: '#000000'
       },
-      'p, li': {
-        'font-size': '1em',
-        'margin-bottom': '0.8em'
+      'h1, h2, h3, h4, h5, h6': {
+        color: '#ffffff'
       },
-      h1: { 'font-size': '1.8em', 'margin': '0.8em 0', 'color': '#ffffff' },
-      h2: { 'font-size': '1.6em', 'margin': '0.8em 0', 'color': '#ffffff' },
-      h3: { 'font-size': '1.4em', 'margin': '0.7em 0', 'color': '#ffffff' },
-      h4: { 'font-size': '1.2em', 'margin': '0.6em 0', 'color': '#ffffff' },
-      a: { color: '#81d4fa' }, // Light blue links that stand out in dark mode
-      img: { 'filter': 'brightness(0.85)' } // Slightly dim images in dark mode
+      'a': {
+        color: '#81d4fa'  
+      }
     });
     
     // Apply theme
@@ -178,34 +170,6 @@ const EpubReader = ({
     // Pass rendition to parent component
     getRendition(rendition);
     
-    // Add custom CSS to fix margins and make full page dark mode
-    if (theme === 'dark') {
-      rendition.themes.default({
-        '::selection': {
-          'background': 'rgba(100, 100, 100, 0.3)'
-        },
-        '*': {
-          'color': '#e8e8e8',
-          'background-color': '#000000 !important',
-          'margin-top': '0 !important', 
-          'margin-bottom': '0 !important'
-        },
-        'html': {
-          'background-color': '#000000 !important'
-        },
-        'body': {
-          'background-color': '#000000 !important',
-          'padding': '0 !important',
-          'margin': '0 !important',
-          'border': 'none !important'
-        },
-        'div': {
-          'border-color': 'transparent !important',
-          'background-color': '#000000 !important'
-        }
-      });
-    }
-    
     // Loading is complete
     setLoading(false);
   };
@@ -221,52 +185,11 @@ const EpubReader = ({
   useEffect(() => {
     if (rendition) {
       rendition.themes.select(theme);
-      
-      // Apply custom CSS to fix margins and make full page dark mode
-      if (theme === 'dark') {
-        rendition.themes.default({
-          '::selection': {
-            'background': 'rgba(100, 100, 100, 0.3)'
-          },
-          '*': {
-            'color': '#e8e8e8',
-            'background-color': '#000000 !important',
-            'margin-top': '0 !important', 
-            'margin-bottom': '0 !important'
-          },
-          'html': {
-            'background-color': '#000000 !important'
-          },
-          'body': {
-            'background-color': '#000000 !important',
-            'padding': '0 !important',
-            'margin': '0 !important',
-            'border': 'none !important'
-          },
-          'div': {
-            'border-color': 'transparent !important',
-            'background-color': '#000000 !important'
-          }
-        });
-      }
     }
   }, [theme, rendition]);
   
-  const handleLoadError = (error) => {
-    console.error('Error loading EPUB:', error);
-    setError(`Error loading book: ${error.message}`);
-    setLoading(false);
-  };
-  
-  // Determine if dark mode is active
-  const isDarkMode = theme === 'dark';
-  
   return (
-    <Box sx={{ 
-      height: '100%', 
-      position: 'relative',
-      bgcolor: isDarkMode ? '#000000' : '#ffffff'
-    }}>
+    <Box sx={{ height: '100%', position: 'relative' }}>
       {loading && (
         <Box sx={{ 
           position: 'absolute', 
@@ -277,16 +200,16 @@ const EpubReader = ({
           display: 'flex', 
           alignItems: 'center', 
           justifyContent: 'center',
-          backgroundColor: isDarkMode ? 'rgba(0,0,0,0.9)' : 'rgba(255,255,255,0.9)',
+          backgroundColor: theme === 'dark' ? 'rgba(0,0,0,0.9)' : 'rgba(255,255,255,0.9)',
           zIndex: 1,
           flexDirection: 'column'
         }}>
-          <CircularProgress color={isDarkMode ? 'secondary' : 'primary'} />
+          <CircularProgress color={theme === 'dark' ? 'secondary' : 'primary'} />
           <Typography 
             variant="body2" 
             sx={{ 
               mt: 2,
-              color: isDarkMode ? '#e8e8e8' : 'text.primary'
+              color: theme === 'dark' ? '#e8e8e8' : 'text.primary'
             }}
           >
             Loading book...
@@ -300,18 +223,9 @@ const EpubReader = ({
           display: 'flex', 
           alignItems: 'center', 
           justifyContent: 'center',
-          p: 3,
-          backgroundColor: isDarkMode ? '#000000' : undefined
+          p: 3
         }}>
-          <Alert severity="error" sx={{ 
-            width: '100%', 
-            maxWidth: 500,
-            backgroundColor: isDarkMode ? 'rgba(50,0,0,0.7)' : undefined,
-            color: isDarkMode ? '#fff' : undefined,
-            '& .MuiAlert-icon': {
-              color: isDarkMode ? '#fff' : undefined
-            }
-          }}>
+          <Alert severity="error" sx={{ width: '100%', maxWidth: 500 }}>
             {error}
           </Alert>
         </Box>
@@ -328,35 +242,14 @@ const EpubReader = ({
             tocRef.current = toc;
             tocChanged(toc);
           }}
-          epubOptions={{
-            flow: 'paginated',
-            manager: 'continuous'
-          }}
           styles={{
             container: {
-              height: '100%',
-              width: '100%',
-              backgroundColor: isDarkMode ? '#000000' : 
-                               theme === 'sepia' ? '#FBF0D9' : '#fff'
+              backgroundColor: theme === 'dark' ? '#000000' : '#ffffff'
             },
             readerArea: {
-              height: '100%',
-              width: '100%',
-              backgroundColor: isDarkMode ? '#000000' : 
-                               theme === 'sepia' ? '#FBF0D9' : '#fff',
-              border: 'none',
-              padding: 0,
-              margin: 0
-            },
-            arrow: {
-              color: isDarkMode ? '#ffffff' : '#000000'
+              backgroundColor: theme === 'dark' ? '#000000' : '#ffffff'
             }
           }}
-          loadingView={<div style={{ display: 'none' }}></div>} // Hide default loading view
-          epubInitOptions={{
-            openAs: 'epub'
-          }}
-          handleError={handleLoadError}
         />
       )}
       
@@ -365,8 +258,8 @@ const EpubReader = ({
           position: 'absolute', 
           bottom: 10, 
           right: 10, 
-          backgroundColor: isDarkMode ? 'rgba(30,30,30,0.8)' : 'rgba(255,255,255,0.8)', 
-          color: isDarkMode ? '#e8e8e8' : 'inherit',
+          backgroundColor: theme === 'dark' ? 'rgba(30,30,30,0.8)' : 'rgba(255,255,255,0.8)', 
+          color: theme === 'dark' ? '#e8e8e8' : 'inherit',
           borderRadius: 10, 
           px: 1.5, 
           py: 0.5,
