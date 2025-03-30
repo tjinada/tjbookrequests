@@ -89,13 +89,19 @@ const BookReader = () => {
         setLoading(false);
       } catch (err) {
         console.error('Error loading book:', err);
-        setError('Failed to load book information. Please try again.');
+        if (err.response && err.response.status === 401) {
+          setError('Authentication required. Please sign in again.');
+          // Optionally redirect to login
+          // navigate('/login');
+        } else {
+          setError('Failed to load book information. Please try again.');
+        }
         setLoading(false);
       }
     };
     
     loadBook();
-  }, [id, format]);
+  }, [id, format, navigate]);
   
   // Change book format
   const changeFormat = (newFormat) => {
@@ -134,12 +140,53 @@ const BookReader = () => {
   const handleDownload = () => {
     // Create the download URL
     const downloadUrl = `/api/library/download/${id}/${currentFormat}`;
-    window.open(downloadUrl, '_blank');
+    
+    // Use the api utility to get authenticated download
+    api({
+      url: downloadUrl,
+      method: 'GET',
+      responseType: 'blob',
+      headers: {
+        'x-auth-token': localStorage.getItem('token')
+      }
+    })
+    .then(response => {
+      // Create a blob URL and trigger download
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      
+      // Set filename from Content-Disposition header if available
+      const contentDisposition = response.headers['content-disposition'];
+      let filename = `book.${currentFormat}`;
+      
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+        if (filenameMatch && filenameMatch[1]) {
+          filename = filenameMatch[1];
+        }
+      } else if (book && book.title) {
+        // Use book title as filename
+        filename = `${book.title.replace(/[/\\?%*:|"<>]/g, '_')}.${currentFormat}`;
+      }
+      
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      
+      // Clean up
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(link);
+    })
+    .catch(error => {
+      console.error('Error downloading book:', error);
+      alert('Failed to download the book. Please try again.');
+    });
   };
   
-  // Get URL for reader
+  // Get URL for reader - ensure it's the full API path
   const getReaderUrl = () => {
-    return `/api/library/reading/${id}/${currentFormat}`;
+    return `/library/reading/${id}/${currentFormat}`;
   };
   
   // Render loading state

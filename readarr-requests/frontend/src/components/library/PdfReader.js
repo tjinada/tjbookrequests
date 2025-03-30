@@ -1,9 +1,10 @@
 // src/components/library/PdfReader.js
 import React, { useState, useEffect } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
-import { Box, CircularProgress, Typography, IconButton, Pagination } from '@mui/material';
+import { Box, CircularProgress, Typography, IconButton, Pagination, Alert } from '@mui/material';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
+import api from '../../utils/api';
 
 // Set up worker for PDF.js
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
@@ -15,6 +16,47 @@ const PdfReader = ({ url, initialScale = 1.0 }) => {
   const [scale, setScale] = useState(initialScale);
   const [pdfError, setPdfError] = useState(null);
   const [pageWidth, setPageWidth] = useState(null);
+  const [pdfData, setPdfData] = useState(null);
+  
+  // Fetch the PDF file using authentication
+  useEffect(() => {
+    const fetchPdf = async () => {
+      try {
+        setLoading(true);
+        // Use the api utility to fetch the book with authentication
+        const response = await api({
+          url: url,
+          method: 'GET',
+          responseType: 'blob',
+          headers: {
+            'x-auth-token': localStorage.getItem('token')
+          }
+        });
+        
+        // Create a blob URL from the response data
+        const pdfBlob = new Blob([response.data], { type: 'application/pdf' });
+        const pdfUrl = URL.createObjectURL(pdfBlob);
+        setPdfData(pdfUrl);
+        
+        // Loading will continue until the PDF document is loaded
+      } catch (err) {
+        console.error('Error fetching PDF:', err);
+        setPdfError(`Failed to load PDF: ${err.message}`);
+        setLoading(false);
+      }
+    };
+    
+    if (url) {
+      fetchPdf();
+    }
+    
+    // Clean up created object URLs when unmounting
+    return () => {
+      if (pdfData) {
+        URL.revokeObjectURL(pdfData);
+      }
+    };
+  }, [url]);
   
   useEffect(() => {
     // Get container width
@@ -40,7 +82,7 @@ const PdfReader = ({ url, initialScale = 1.0 }) => {
   
   const onDocumentLoadError = (error) => {
     console.error('PDF load error:', error);
-    setPdfError('Failed to load PDF document');
+    setPdfError(`Failed to load PDF document: ${error.message}`);
     setLoading(false);
   };
   
@@ -133,27 +175,29 @@ const PdfReader = ({ url, initialScale = 1.0 }) => {
             height: '100%',
             width: '100%'
           }}>
-            <Typography color="error">
+            <Alert severity="error" sx={{ maxWidth: 500 }}>
               {pdfError}
-            </Typography>
+            </Alert>
           </Box>
         )}
         
-        <Document
-          file={url}
-          onLoadSuccess={onDocumentLoadSuccess}
-          onLoadError={onDocumentLoadError}
-          loading={<></>} // We have our own loading indicator
-        >
-          <Page 
-            pageNumber={pageNumber} 
-            scale={scale}
-            width={pageWidth ? pageWidth * 0.9 : undefined}
+        {pdfData && (
+          <Document
+            file={pdfData}
+            onLoadSuccess={onDocumentLoadSuccess}
+            onLoadError={onDocumentLoadError}
             loading={<></>} // We have our own loading indicator
-            renderTextLayer={false} // For better performance
-            renderAnnotationLayer={false} // For better performance
-          />
-        </Document>
+          >
+            <Page 
+              pageNumber={pageNumber} 
+              scale={scale}
+              width={pageWidth ? pageWidth * 0.9 : undefined}
+              loading={<></>} // We have our own loading indicator
+              renderTextLayer={false} // For better performance
+              renderAnnotationLayer={false} // For better performance
+            />
+          </Document>
+        )}
       </Box>
     </Box>
   );

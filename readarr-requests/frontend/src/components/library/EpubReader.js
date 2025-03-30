@@ -1,7 +1,8 @@
 // src/components/library/EpubReader.js
 import React, { useRef, useState, useEffect } from 'react';
 import { ReactReader } from 'react-reader';
-import { Box, CircularProgress, Typography } from '@mui/material';
+import { Box, CircularProgress, Typography, Alert } from '@mui/material';
+import api from '../../utils/api';
 
 const EpubReader = ({ url, fontSize = 100 }) => {
   const [location, setLocation] = useState(null);
@@ -10,6 +11,47 @@ const EpubReader = ({ url, fontSize = 100 }) => {
   const [error, setError] = useState(null);
   const [totalPages, setTotalPages] = useState(0);
   const [currentPage, setCurrentPage] = useState(0);
+  const [bookData, setBookData] = useState(null);
+  
+  // Fetch the EPUB file using authentication
+  useEffect(() => {
+    const fetchEpub = async () => {
+      try {
+        setLoading(true);
+        // Use the api utility to fetch the book with authentication
+        const response = await api({
+          url: url,
+          method: 'GET',
+          responseType: 'blob',
+          headers: {
+            'x-auth-token': localStorage.getItem('token')
+          }
+        });
+        
+        // Create a blob URL from the response data
+        const epubBlob = new Blob([response.data], { type: 'application/epub+zip' });
+        const epubUrl = URL.createObjectURL(epubBlob);
+        setBookData(epubUrl);
+        
+        // Loading will be set to false after the book is rendered
+      } catch (err) {
+        console.error('Error fetching EPUB:', err);
+        setError(`Failed to load EPUB: ${err.message}`);
+        setLoading(false);
+      }
+    };
+    
+    if (url) {
+      fetchEpub();
+    }
+    
+    // Clean up created object URLs when unmounting
+    return () => {
+      if (bookData) {
+        URL.revokeObjectURL(bookData);
+      }
+    };
+  }, [url]);
   
   // Keep track of locator
   const renditionRef = useRef(null);
@@ -80,28 +122,44 @@ const EpubReader = ({ url, fontSize = 100 }) => {
         </Box>
       )}
       
-      <ReactReader
-        url={url}
-        title={""}
-        location={location}
-        locationChanged={locationChanged}
-        getRendition={getRendition}
-        showToc={false}
-        epubInitOptions={{
-          openAs: 'epub'
-        }}
-        styles={{
-          container: {
-            height: '100%',
-            width: '100%'
-          },
-          readerArea: {
-            height: '100%',
-            width: '100%',
-            backgroundColor: '#fff'
-          }
-        }}
-      />
+      {error && (
+        <Box sx={{ 
+          height: '100%', 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          p: 3
+        }}>
+          <Alert severity="error" sx={{ width: '100%', maxWidth: 500 }}>
+            {error}
+          </Alert>
+        </Box>
+      )}
+      
+      {bookData && (
+        <ReactReader
+          url={bookData}
+          title={""}
+          location={location}
+          locationChanged={locationChanged}
+          getRendition={getRendition}
+          showToc={false}
+          epubInitOptions={{
+            openAs: 'epub'
+          }}
+          styles={{
+            container: {
+              height: '100%',
+              width: '100%'
+            },
+            readerArea: {
+              height: '100%',
+              width: '100%',
+              backgroundColor: '#fff'
+            }
+          }}
+        />
+      )}
       
       {totalPages > 0 && (
         <Box sx={{ 
