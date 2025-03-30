@@ -10,23 +10,27 @@ import {
   Tooltip,
   Alert,
   Button,
-  Snackbar
+  Snackbar,
+  useTheme
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import BookmarkIcon from '@mui/icons-material/Bookmark';
 import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
 import SettingsIcon from '@mui/icons-material/Settings';
 import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
+import Brightness4Icon from '@mui/icons-material/Brightness4';
+import Brightness7Icon from '@mui/icons-material/Brightness7';
 import api from '../../utils/api';
 
 // Import our components
 import EpubReader from './EpubReader';
 import BookmarkDrawer from './BookmarkDrawer';
-import useBookmarks from '../../hooks/useBookmarks'; // Make sure to create this hook
+import useBookmarks from '../../hooks/useBookmarks';
 
 const BookReader = () => {
   const { id, format = 'epub' } = useParams();
   const navigate = useNavigate();
+  const theme = useTheme();
   
   // State for reader
   const [loading, setLoading] = useState(true);
@@ -38,8 +42,11 @@ const BookReader = () => {
   const [fontSize, setFontSize] = useState(() => {
     return parseInt(localStorage.getItem('reader_fontSize') || '100', 10);
   });
+  
+  // Set dark mode as default
   const [readerTheme, setReaderTheme] = useState(() => {
-    return localStorage.getItem('reader_theme') || 'light';
+    const savedTheme = localStorage.getItem('reader_theme');
+    return savedTheme || 'dark'; // Default to dark mode
   });
   
   // Table of contents and location tracking
@@ -103,6 +110,11 @@ const BookReader = () => {
     loadBook();
   }, [id]);
   
+  // Save theme preference whenever it changes
+  useEffect(() => {
+    localStorage.setItem('reader_theme', readerTheme);
+  }, [readerTheme]);
+  
   // Handle location change from EPUB reader
   const handleLocationChanged = (newLocation) => {
     setCurrentLocation(newLocation);
@@ -124,6 +136,13 @@ const BookReader = () => {
   // Toggle bookmark drawer
   const toggleDrawer = () => {
     setDrawerOpen(!drawerOpen);
+  };
+  
+  // Toggle reader theme between light and dark
+  const toggleTheme = () => {
+    const newTheme = readerTheme === 'light' ? 'dark' : 'light';
+    setReaderTheme(newTheme);
+    showNotification(`${newTheme.charAt(0).toUpperCase() + newTheme.slice(1)} mode enabled`, 'info');
   };
   
   // Handle bookmark toggle
@@ -219,10 +238,16 @@ const BookReader = () => {
         justifyContent: 'center', 
         alignItems: 'center', 
         height: '100vh',
-        bgcolor: 'background.default'
+        bgcolor: readerTheme === 'dark' ? '#121212' : 'background.default'
       }}>
-        <CircularProgress />
-        <Typography variant="body1" sx={{ mt: 2 }}>
+        <CircularProgress color={readerTheme === 'dark' ? 'secondary' : 'primary'} />
+        <Typography 
+          variant="body1" 
+          sx={{ 
+            mt: 2,
+            color: readerTheme === 'dark' ? '#fff' : 'text.primary'
+          }}
+        >
           Loading book...
         </Typography>
       </Box>
@@ -238,7 +263,7 @@ const BookReader = () => {
         flexDirection: 'column',
         alignItems: 'center', 
         height: '100vh',
-        bgcolor: 'background.default'
+        bgcolor: readerTheme === 'dark' ? '#121212' : 'background.default'
       }}>
         <Alert 
           severity="error" 
@@ -268,7 +293,8 @@ const BookReader = () => {
       height: '100vh', 
       display: 'flex', 
       flexDirection: 'column',
-      bgcolor: 'background.default',
+      bgcolor: readerTheme === 'dark' ? '#121212' : 'background.default',
+      color: readerTheme === 'dark' ? '#fff' : 'text.primary',
       overflow: 'hidden'
     }}>
       {/* Reader header */}
@@ -281,10 +307,15 @@ const BookReader = () => {
           alignItems: 'center',
           borderRadius: 0,
           zIndex: 1,
+          bgcolor: readerTheme === 'dark' ? '#1e1e1e' : 'background.paper',
+          color: readerTheme === 'dark' ? '#fff' : 'text.primary',
         }}
         elevation={1}
       >
-        <IconButton onClick={handleClose}>
+        <IconButton 
+          onClick={handleClose}
+          color={readerTheme === 'dark' ? 'inherit' : 'default'}
+        >
           <ArrowBackIcon />
         </IconButton>
         
@@ -307,21 +338,27 @@ const BookReader = () => {
           <Tooltip title={isBookmarked(currentLocation) ? "Remove bookmark" : "Add bookmark"}>
             <IconButton 
               onClick={handleToggleBookmark}
-              color={isBookmarked(currentLocation) ? 'primary' : 'default'}
+              color={isBookmarked(currentLocation) ? 'primary' : readerTheme === 'dark' ? 'inherit' : 'default'}
             >
               {isBookmarked(currentLocation) ? <BookmarkIcon /> : <BookmarkBorderIcon />}
             </IconButton>
           </Tooltip>
           
           <Tooltip title="Contents & Bookmarks">
-            <IconButton onClick={toggleDrawer}>
+            <IconButton 
+              onClick={toggleDrawer}
+              color={readerTheme === 'dark' ? 'inherit' : 'default'}
+            >
               <FormatListBulletedIcon />
             </IconButton>
           </Tooltip>
           
-          <Tooltip title="Settings">
-            <IconButton>
-              <SettingsIcon />
+          <Tooltip title={readerTheme === 'dark' ? "Switch to Light Mode" : "Switch to Dark Mode"}>
+            <IconButton 
+              onClick={toggleTheme}
+              color={readerTheme === 'dark' ? 'inherit' : 'default'}
+            >
+              {readerTheme === 'dark' ? <Brightness7Icon /> : <Brightness4Icon />}
             </IconButton>
           </Tooltip>
         </Box>
@@ -364,6 +401,7 @@ const BookReader = () => {
         currentLocation={currentLocation}
         bookTitle={book?.title}
         bookAuthor={book?.author}
+        theme={readerTheme}
       />
       
       {/* Notifications */}
@@ -376,7 +414,13 @@ const BookReader = () => {
         <Alert 
           onClose={handleCloseNotification} 
           severity={notification.severity}
-          sx={{ width: '100%' }}
+          sx={{ 
+            width: '100%',
+            bgcolor: readerTheme === 'dark' ? 'rgba(30,30,30,0.9)' : undefined,
+            '& .MuiAlert-icon': {
+              color: readerTheme === 'dark' ? '#fff' : undefined
+            }
+          }}
         >
           {notification.message}
         </Alert>

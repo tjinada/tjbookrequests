@@ -7,7 +7,7 @@ import api from '../../utils/api';
 const EpubReader = ({ 
   url, 
   fontSize = 100, 
-  theme = 'light',
+  theme = 'dark', // Default to dark mode
   initialLocation = null,
   locationChanged = () => {},
   tocChanged = () => {},
@@ -95,7 +95,7 @@ const EpubReader = ({
     }
   };
   
-  // Set up rendition
+  // Set up rendition with improved themes
   const handleRenditionReady = (rendition) => {
     console.log('Rendition ready');
     // Store rendition for later use
@@ -105,26 +105,61 @@ const EpubReader = ({
     // Apply font size
     rendition.themes.fontSize(`${fontSize}%`);
     
-    // Register themes
+    // Register improved themes with better contrast and readability
     rendition.themes.register('light', {
       body: {
         color: '#000',
-        background: '#fff'
-      }
+        background: '#fff',
+        'line-height': '1.5',
+        'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
+      },
+      'p, li': {
+        'font-size': '1em',
+        'margin-bottom': '0.8em'
+      },
+      h1: { 'font-size': '1.8em', 'margin': '0.8em 0' },
+      h2: { 'font-size': '1.6em', 'margin': '0.8em 0' },
+      h3: { 'font-size': '1.4em', 'margin': '0.7em 0' },
+      h4: { 'font-size': '1.2em', 'margin': '0.6em 0' },
+      a: { color: '#0066cc' }
     });
     
     rendition.themes.register('sepia', {
       body: {
         color: '#5B4636',
-        background: '#FBF0D9'
-      }
+        background: '#FBF0D9',
+        'line-height': '1.5',
+        'font-family': 'Georgia, serif'
+      },
+      'p, li': {
+        'font-size': '1em',
+        'margin-bottom': '0.8em'
+      },
+      h1: { 'font-size': '1.8em', 'margin': '0.8em 0' },
+      h2: { 'font-size': '1.6em', 'margin': '0.8em 0' },
+      h3: { 'font-size': '1.4em', 'margin': '0.7em 0' },
+      h4: { 'font-size': '1.2em', 'margin': '0.6em 0' },
+      a: { color: '#8B4513' }
     });
     
+    // Improved dark mode with better contrast
     rendition.themes.register('dark', {
       body: {
-        color: '#ccc',
-        background: '#222'
-      }
+        color: '#e8e8e8', // Light gray for better readability
+        background: '#121212', // Dark background (not pure black for less eye strain)
+        'line-height': '1.5',
+        'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
+      },
+      'p, li': {
+        'font-size': '1em',
+        'margin-bottom': '0.8em'
+      },
+      h1: { 'font-size': '1.8em', 'margin': '0.8em 0', 'color': '#ffffff' },
+      h2: { 'font-size': '1.6em', 'margin': '0.8em 0', 'color': '#ffffff' },
+      h3: { 'font-size': '1.4em', 'margin': '0.7em 0', 'color': '#ffffff' },
+      h4: { 'font-size': '1.2em', 'margin': '0.6em 0', 'color': '#ffffff' },
+      a: { color: '#81d4fa' }, // Light blue links that stand out in dark mode
+      img: { 'filter': 'brightness(0.85)' } // Slightly dim images in dark mode
     });
     
     // Apply theme
@@ -167,6 +202,9 @@ const EpubReader = ({
     setLoading(false);
   };
   
+  // Determine if dark mode is active
+  const isDarkMode = theme === 'dark';
+  
   return (
     <Box sx={{ height: '100%', position: 'relative' }}>
       {loading && (
@@ -179,16 +217,16 @@ const EpubReader = ({
           display: 'flex', 
           alignItems: 'center', 
           justifyContent: 'center',
-          backgroundColor: theme === 'dark' ? 'rgba(34,34,34,0.9)' : 'rgba(255,255,255,0.9)',
+          backgroundColor: isDarkMode ? 'rgba(18,18,18,0.9)' : 'rgba(255,255,255,0.9)',
           zIndex: 1,
           flexDirection: 'column'
         }}>
-          <CircularProgress />
+          <CircularProgress color={isDarkMode ? 'secondary' : 'primary'} />
           <Typography 
             variant="body2" 
             sx={{ 
               mt: 2,
-              color: theme === 'dark' ? '#ccc' : 'inherit'
+              color: isDarkMode ? '#e8e8e8' : 'text.primary'
             }}
           >
             Loading book...
@@ -202,9 +240,18 @@ const EpubReader = ({
           display: 'flex', 
           alignItems: 'center', 
           justifyContent: 'center',
-          p: 3
+          p: 3,
+          backgroundColor: isDarkMode ? '#121212' : undefined
         }}>
-          <Alert severity="error" sx={{ width: '100%', maxWidth: 500 }}>
+          <Alert severity="error" sx={{ 
+            width: '100%', 
+            maxWidth: 500,
+            backgroundColor: isDarkMode ? 'rgba(50,0,0,0.7)' : undefined,
+            color: isDarkMode ? '#fff' : undefined,
+            '& .MuiAlert-icon': {
+              color: isDarkMode ? '#fff' : undefined
+            }
+          }}>
             {error}
           </Alert>
         </Box>
@@ -229,7 +276,7 @@ const EpubReader = ({
             container: {
               height: '100%',
               width: '100%',
-              backgroundColor: theme === 'dark' ? '#222' : 
+              backgroundColor: isDarkMode ? '#121212' : 
                                theme === 'sepia' ? '#FBF0D9' : '#fff'
             },
             readerArea: {
@@ -250,8 +297,8 @@ const EpubReader = ({
           position: 'absolute', 
           bottom: 10, 
           right: 10, 
-          backgroundColor: theme === 'dark' ? 'rgba(50,50,50,0.8)' : 'rgba(255,255,255,0.8)', 
-          color: theme === 'dark' ? '#ccc' : 'inherit',
+          backgroundColor: isDarkMode ? 'rgba(30,30,30,0.8)' : 'rgba(255,255,255,0.8)', 
+          color: isDarkMode ? '#e8e8e8' : 'inherit',
           borderRadius: 10, 
           px: 1.5, 
           py: 0.5,

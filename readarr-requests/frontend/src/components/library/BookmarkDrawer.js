@@ -29,15 +29,23 @@ const BookmarkDrawer = ({
   onRemoveBookmark,
   currentLocation,
   bookTitle,
-  bookAuthor
+  bookAuthor,
+  theme = 'light' // Default to light if not specified
 }) => {
+  // Determine if dark mode is active
+  const isDarkMode = theme === 'dark';
+  
   return (
     <Drawer
       anchor="left"
       open={open}
       onClose={onClose}
       PaperProps={{
-        sx: { width: { xs: '80%', sm: 300 } }
+        sx: { 
+          width: { xs: '80%', sm: 300 },
+          bgcolor: isDarkMode ? '#1e1e1e' : 'background.paper',
+          color: isDarkMode ? '#fff' : 'text.primary',
+        }
       }}
     >
       <Box sx={{ 
@@ -47,18 +55,25 @@ const BookmarkDrawer = ({
         justifyContent: 'space-between' 
       }}>
         <Typography variant="h6">Contents & Bookmarks</Typography>
-        <IconButton onClick={onClose}>
+        <IconButton 
+          onClick={onClose}
+          color={isDarkMode ? 'inherit' : 'default'}
+        >
           <CloseIcon />
         </IconButton>
       </Box>
       
-      <Divider />
+      <Divider sx={{ bgcolor: isDarkMode ? 'rgba(255,255,255,0.12)' : undefined }} />
       
       <Box sx={{ p: 2 }}>
         <Typography variant="subtitle1" gutterBottom>
           {bookTitle || 'Book Reader'}
         </Typography>
-        <Typography variant="body2" color="text.secondary" gutterBottom>
+        <Typography 
+          variant="body2" 
+          color={isDarkMode ? 'rgba(255,255,255,0.7)' : 'text.secondary'} 
+          gutterBottom
+        >
           {bookAuthor || 'Unknown Author'}
         </Typography>
       </Box>
@@ -80,6 +95,7 @@ const BookmarkDrawer = ({
             startIcon={<BookmarkAddIcon />}
             onClick={onAddBookmark}
             disabled={!currentLocation}
+            color={isDarkMode ? 'secondary' : 'primary'}
           >
             Add
           </Button>
@@ -94,7 +110,7 @@ const BookmarkDrawer = ({
                   py: 1, 
                   px: 1,
                   borderBottom: '1px solid',
-                  borderColor: 'divider',
+                  borderColor: isDarkMode ? 'rgba(255,255,255,0.12)' : 'divider',
                 }}
                 secondaryAction={
                   <IconButton 
@@ -102,13 +118,14 @@ const BookmarkDrawer = ({
                     aria-label="delete" 
                     size="small"
                     onClick={() => onRemoveBookmark(bookmark.cfi)}
+                    color={isDarkMode ? 'inherit' : 'default'}
                   >
                     <DeleteIcon fontSize="small" />
                   </IconButton>
                 }
               >
                 <ListItemIcon sx={{ minWidth: 36 }}>
-                  <BookmarkIcon color="primary" fontSize="small" />
+                  <BookmarkIcon color={isDarkMode ? 'secondary' : 'primary'} fontSize="small" />
                 </ListItemIcon>
                 
                 <ListItemText 
@@ -124,13 +141,17 @@ const BookmarkDrawer = ({
             ))}
           </List>
         ) : (
-          <Typography variant="body2" color="text.secondary" sx={{ ml: 1, mb: 2 }}>
+          <Typography 
+            variant="body2" 
+            color={isDarkMode ? 'rgba(255,255,255,0.7)' : 'text.secondary'} 
+            sx={{ ml: 1, mb: 2 }}
+          >
             No bookmarks yet
           </Typography>
         )}
       </Box>
       
-      <Divider sx={{ my: 2 }} />
+      <Divider sx={{ my: 2, bgcolor: isDarkMode ? 'rgba(255,255,255,0.12)' : undefined }} />
       
       {/* Table of Contents section */}
       {toc && toc.length > 0 && (
@@ -147,11 +168,11 @@ const BookmarkDrawer = ({
                   py: 1, 
                   px: 1,
                   borderBottom: '1px solid',
-                  borderColor: 'divider',
+                  borderColor: isDarkMode ? 'rgba(255,255,255,0.12)' : 'divider',
                 }}
               >
                 <ListItemIcon sx={{ minWidth: 36 }}>
-                  <MenuBookIcon fontSize="small" />
+                  <MenuBookIcon fontSize="small" color={isDarkMode ? 'inherit' : 'default'} />
                 </ListItemIcon>
                 
                 <ListItemText 
