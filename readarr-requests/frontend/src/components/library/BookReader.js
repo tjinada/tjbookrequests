@@ -110,9 +110,33 @@ const BookReader = () => {
     loadBook();
   }, [id]);
   
+  // Apply full-screen adjustments on component mount
+  useEffect(() => {
+    // Save original body background and color
+    const originalBgColor = document.body.style.backgroundColor;
+    const originalColor = document.body.style.color;
+    const originalOverflow = document.body.style.overflow;
+    
+    // Apply full black background to body
+    document.body.style.backgroundColor = readerTheme === 'dark' ? '#000000' : '#ffffff';
+    document.body.style.color = readerTheme === 'dark' ? '#e8e8e8' : '#000000';
+    document.body.style.overflow = 'hidden';
+    
+    // Cleanup on unmount
+    return () => {
+      document.body.style.backgroundColor = originalBgColor;
+      document.body.style.color = originalColor;
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [readerTheme]);
+  
   // Save theme preference whenever it changes
   useEffect(() => {
     localStorage.setItem('reader_theme', readerTheme);
+    
+    // Update body background when theme changes
+    document.body.style.backgroundColor = readerTheme === 'dark' ? '#000000' : '#ffffff';
+    document.body.style.color = readerTheme === 'dark' ? '#e8e8e8' : '#000000';
   }, [readerTheme]);
   
   // Handle location change from EPUB reader
@@ -229,6 +253,9 @@ const BookReader = () => {
     return `/library/reading/${id}/${currentFormat}`;
   };
   
+  // Determine if dark mode is active
+  const isDarkMode = readerTheme === 'dark';
+  
   // Render loading state
   if (loading) {
     return (
@@ -238,14 +265,20 @@ const BookReader = () => {
         justifyContent: 'center', 
         alignItems: 'center', 
         height: '100vh',
-        bgcolor: readerTheme === 'dark' ? '#121212' : 'background.default'
+        width: '100vw',
+        bgcolor: isDarkMode ? '#000000' : '#ffffff',
+        color: isDarkMode ? '#e8e8e8' : 'text.primary',
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        zIndex: 9999
       }}>
-        <CircularProgress color={readerTheme === 'dark' ? 'secondary' : 'primary'} />
+        <CircularProgress color={isDarkMode ? 'secondary' : 'primary'} />
         <Typography 
           variant="body1" 
           sx={{ 
             mt: 2,
-            color: readerTheme === 'dark' ? '#fff' : 'text.primary'
+            color: isDarkMode ? '#e8e8e8' : 'text.primary'
           }}
         >
           Loading book...
@@ -263,7 +296,13 @@ const BookReader = () => {
         flexDirection: 'column',
         alignItems: 'center', 
         height: '100vh',
-        bgcolor: readerTheme === 'dark' ? '#121212' : 'background.default'
+        width: '100vw',
+        bgcolor: isDarkMode ? '#000000' : '#ffffff',
+        color: isDarkMode ? '#e8e8e8' : 'text.primary',
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        zIndex: 9999
       }}>
         <Alert 
           severity="error" 
@@ -291,11 +330,16 @@ const BookReader = () => {
   return (
     <Box sx={{ 
       height: '100vh', 
+      width: '100vw',
       display: 'flex', 
       flexDirection: 'column',
-      bgcolor: readerTheme === 'dark' ? '#121212' : 'background.default',
-      color: readerTheme === 'dark' ? '#fff' : 'text.primary',
-      overflow: 'hidden'
+      bgcolor: isDarkMode ? '#000000' : '#ffffff',
+      color: isDarkMode ? '#e8e8e8' : 'text.primary',
+      overflow: 'hidden',
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      zIndex: 9999
     }}>
       {/* Reader header */}
       <Paper 
@@ -307,14 +351,15 @@ const BookReader = () => {
           alignItems: 'center',
           borderRadius: 0,
           zIndex: 1,
-          bgcolor: readerTheme === 'dark' ? '#1e1e1e' : 'background.paper',
-          color: readerTheme === 'dark' ? '#fff' : 'text.primary',
+          bgcolor: isDarkMode ? '#000000' : '#ffffff',
+          color: isDarkMode ? '#e8e8e8' : 'text.primary',
+          borderBottom: isDarkMode ? '1px solid #333' : '1px solid #ddd'
         }}
         elevation={1}
       >
         <IconButton 
           onClick={handleClose}
-          color={readerTheme === 'dark' ? 'inherit' : 'default'}
+          sx={{ color: isDarkMode ? '#e8e8e8' : undefined }}
         >
           <ArrowBackIcon />
         </IconButton>
@@ -338,7 +383,8 @@ const BookReader = () => {
           <Tooltip title={isBookmarked(currentLocation) ? "Remove bookmark" : "Add bookmark"}>
             <IconButton 
               onClick={handleToggleBookmark}
-              color={isBookmarked(currentLocation) ? 'primary' : readerTheme === 'dark' ? 'inherit' : 'default'}
+              color={isBookmarked(currentLocation) ? 'primary' : 'default'}
+              sx={{ color: !isBookmarked(currentLocation) && isDarkMode ? '#e8e8e8' : undefined }}
             >
               {isBookmarked(currentLocation) ? <BookmarkIcon /> : <BookmarkBorderIcon />}
             </IconButton>
@@ -347,18 +393,18 @@ const BookReader = () => {
           <Tooltip title="Contents & Bookmarks">
             <IconButton 
               onClick={toggleDrawer}
-              color={readerTheme === 'dark' ? 'inherit' : 'default'}
+              sx={{ color: isDarkMode ? '#e8e8e8' : undefined }}
             >
               <FormatListBulletedIcon />
             </IconButton>
           </Tooltip>
           
-          <Tooltip title={readerTheme === 'dark' ? "Switch to Light Mode" : "Switch to Dark Mode"}>
+          <Tooltip title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}>
             <IconButton 
               onClick={toggleTheme}
-              color={readerTheme === 'dark' ? 'inherit' : 'default'}
+              sx={{ color: isDarkMode ? '#e8e8e8' : undefined }}
             >
-              {readerTheme === 'dark' ? <Brightness7Icon /> : <Brightness4Icon />}
+              {isDarkMode ? <Brightness7Icon /> : <Brightness4Icon />}
             </IconButton>
           </Tooltip>
         </Box>
@@ -369,12 +415,15 @@ const BookReader = () => {
         sx={{ 
           flex: 1, 
           overflow: 'hidden',
-          position: 'relative'
+          position: 'relative',
+          bgcolor: isDarkMode ? '#000000' : '#ffffff',
+          margin: 0,
+          padding: 0
         }}
       >
         {/* EPUB Reader */}
         {currentFormat === 'epub' && (
-          <Box sx={{ height: '100%' }}>
+          <Box sx={{ height: '100%', width: '100%' }}>
             <EpubReader 
               url={getReaderUrl()} 
               fontSize={fontSize}
@@ -416,9 +465,10 @@ const BookReader = () => {
           severity={notification.severity}
           sx={{ 
             width: '100%',
-            bgcolor: readerTheme === 'dark' ? 'rgba(30,30,30,0.9)' : undefined,
+            bgcolor: isDarkMode ? 'rgba(0,0,0,0.9)' : undefined,
+            color: isDarkMode ? '#fff' : undefined,
             '& .MuiAlert-icon': {
-              color: readerTheme === 'dark' ? '#fff' : undefined
+              color: isDarkMode ? '#fff' : undefined
             }
           }}
         >

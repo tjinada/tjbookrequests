@@ -146,7 +146,7 @@ const EpubReader = ({
     rendition.themes.register('dark', {
       body: {
         color: '#e8e8e8', // Light gray for better readability
-        background: '#121212', // Dark background (not pure black for less eye strain)
+        background: '#000000', // Pure black background for full dark mode
         'line-height': '1.5',
         'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
       },
@@ -178,6 +178,34 @@ const EpubReader = ({
     // Pass rendition to parent component
     getRendition(rendition);
     
+    // Add custom CSS to fix margins and make full page dark mode
+    if (theme === 'dark') {
+      rendition.themes.default({
+        '::selection': {
+          'background': 'rgba(100, 100, 100, 0.3)'
+        },
+        '*': {
+          'color': '#e8e8e8',
+          'background-color': '#000000 !important',
+          'margin-top': '0 !important', 
+          'margin-bottom': '0 !important'
+        },
+        'html': {
+          'background-color': '#000000 !important'
+        },
+        'body': {
+          'background-color': '#000000 !important',
+          'padding': '0 !important',
+          'margin': '0 !important',
+          'border': 'none !important'
+        },
+        'div': {
+          'border-color': 'transparent !important',
+          'background-color': '#000000 !important'
+        }
+      });
+    }
+    
     // Loading is complete
     setLoading(false);
   };
@@ -193,6 +221,34 @@ const EpubReader = ({
   useEffect(() => {
     if (rendition) {
       rendition.themes.select(theme);
+      
+      // Apply custom CSS to fix margins and make full page dark mode
+      if (theme === 'dark') {
+        rendition.themes.default({
+          '::selection': {
+            'background': 'rgba(100, 100, 100, 0.3)'
+          },
+          '*': {
+            'color': '#e8e8e8',
+            'background-color': '#000000 !important',
+            'margin-top': '0 !important', 
+            'margin-bottom': '0 !important'
+          },
+          'html': {
+            'background-color': '#000000 !important'
+          },
+          'body': {
+            'background-color': '#000000 !important',
+            'padding': '0 !important',
+            'margin': '0 !important',
+            'border': 'none !important'
+          },
+          'div': {
+            'border-color': 'transparent !important',
+            'background-color': '#000000 !important'
+          }
+        });
+      }
     }
   }, [theme, rendition]);
   
@@ -206,7 +262,11 @@ const EpubReader = ({
   const isDarkMode = theme === 'dark';
   
   return (
-    <Box sx={{ height: '100%', position: 'relative' }}>
+    <Box sx={{ 
+      height: '100%', 
+      position: 'relative',
+      bgcolor: isDarkMode ? '#000000' : '#ffffff'
+    }}>
       {loading && (
         <Box sx={{ 
           position: 'absolute', 
@@ -217,7 +277,7 @@ const EpubReader = ({
           display: 'flex', 
           alignItems: 'center', 
           justifyContent: 'center',
-          backgroundColor: isDarkMode ? 'rgba(18,18,18,0.9)' : 'rgba(255,255,255,0.9)',
+          backgroundColor: isDarkMode ? 'rgba(0,0,0,0.9)' : 'rgba(255,255,255,0.9)',
           zIndex: 1,
           flexDirection: 'column'
         }}>
@@ -241,7 +301,7 @@ const EpubReader = ({
           alignItems: 'center', 
           justifyContent: 'center',
           p: 3,
-          backgroundColor: isDarkMode ? '#121212' : undefined
+          backgroundColor: isDarkMode ? '#000000' : undefined
         }}>
           <Alert severity="error" sx={{ 
             width: '100%', 
@@ -276,12 +336,20 @@ const EpubReader = ({
             container: {
               height: '100%',
               width: '100%',
-              backgroundColor: isDarkMode ? '#121212' : 
+              backgroundColor: isDarkMode ? '#000000' : 
                                theme === 'sepia' ? '#FBF0D9' : '#fff'
             },
             readerArea: {
               height: '100%',
-              width: '100%'
+              width: '100%',
+              backgroundColor: isDarkMode ? '#000000' : 
+                               theme === 'sepia' ? '#FBF0D9' : '#fff',
+              border: 'none',
+              padding: 0,
+              margin: 0
+            },
+            arrow: {
+              color: isDarkMode ? '#ffffff' : '#000000'
             }
           }}
           loadingView={<div style={{ display: 'none' }}></div>} // Hide default loading view
