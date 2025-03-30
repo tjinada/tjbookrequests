@@ -27,7 +27,7 @@ router.post('/send-to-device', libraryController.sendToDevice);
 // @route   GET api/library/reading/:id/:format
 // @desc    Get book content for in-app reading
 // @access  Private
-router.get('/reading/:id/:format', libraryController.getBookForReading);
+router.get('/reading/:id/:format', auth, libraryController.getBookForReading);
 
 // @route   GET api/library/formats/:id
 // @desc    Get available formats for a book
