@@ -536,6 +536,11 @@ exports.sendToDevice = async (req, res) => {
 exports.getBookForReading = async (req, res) => {
   try {
     const { id, format } = req.params;
+
+    // Check if user is authenticated
+    if (!req.user) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
     const userId = req.user.id;
     
     // Fetch the complete user data from the database
