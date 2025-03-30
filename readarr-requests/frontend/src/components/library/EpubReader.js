@@ -26,7 +26,9 @@ const EpubReader = ({
   useEffect(() => {
     const fetchEpub = async () => {
       try {
+        console.log('Fetching EPUB from:', url);
         setLoading(true);
+        
         // Use the api utility to fetch the book with authentication
         const response = await api({
           url: url,
@@ -37,12 +39,14 @@ const EpubReader = ({
           }
         });
         
+        console.log('EPUB received, size:', response.data.size);
+        
         // Create a blob URL from the response data
         const epubBlob = new Blob([response.data], { type: 'application/epub+zip' });
         const epubUrl = URL.createObjectURL(epubBlob);
         setBookData(epubUrl);
         
-        // Loading will be set to false after the book is rendered
+        // Don't set loading to false here - we'll do that after rendering
       } catch (err) {
         console.error('Error fetching EPUB:', err);
         setError(`Failed to load EPUB: ${err.message}`);
@@ -93,12 +97,10 @@ const EpubReader = ({
   
   // Set up rendition
   const handleRenditionReady = (rendition) => {
+    console.log('Rendition ready');
     // Store rendition for later use
     renditionRef.current = rendition;
     setRendition(rendition);
-    
-    // Pass rendition to parent component
-    getRendition(rendition);
     
     // Apply font size
     rendition.themes.fontSize(`${fontSize}%`);
@@ -129,7 +131,7 @@ const EpubReader = ({
     rendition.themes.select(theme);
     
     // Fix for TOC links - handle internal navigation
-    rendition.on('selected', function(cfiRange, contents) {
+    rendition.on('selected', function(cfiRange) {
       rendition.display(cfiRange);
     });
     
@@ -137,6 +139,9 @@ const EpubReader = ({
     rendition.on('linkClicked', function(href) {
       rendition.display(href);
     });
+    
+    // Pass rendition to parent component
+    getRendition(rendition);
     
     // Loading is complete
     setLoading(false);
@@ -156,6 +161,12 @@ const EpubReader = ({
     }
   }, [theme, rendition]);
   
+  const handleLoadError = (error) => {
+    console.error('Error loading EPUB:', error);
+    setError(`Error loading book: ${error.message}`);
+    setLoading(false);
+  };
+  
   return (
     <Box sx={{ height: '100%', position: 'relative' }}>
       {loading && (
@@ -168,13 +179,19 @@ const EpubReader = ({
           display: 'flex', 
           alignItems: 'center', 
           justifyContent: 'center',
-          backgroundColor: 'rgba(255,255,255,0.7)',
+          backgroundColor: theme === 'dark' ? 'rgba(34,34,34,0.9)' : 'rgba(255,255,255,0.9)',
           zIndex: 1,
           flexDirection: 'column'
         }}>
           <CircularProgress />
-          <Typography variant="body2" sx={{ mt: 2 }}>
-            Loading EPUB...
+          <Typography 
+            variant="body2" 
+            sx={{ 
+              mt: 2,
+              color: theme === 'dark' ? '#ccc' : 'inherit'
+            }}
+          >
+            Loading book...
           </Typography>
         </Box>
       )}
@@ -200,7 +217,6 @@ const EpubReader = ({
           location={location}
           locationChanged={handleLocationChange}
           getRendition={handleRenditionReady}
-          showToc={false}
           tocChanged={(toc) => {
             tocRef.current = toc;
             tocChanged(toc);
@@ -221,6 +237,11 @@ const EpubReader = ({
               width: '100%'
             }
           }}
+          loadingView={<div style={{ display: 'none' }}></div>} // Hide default loading view
+          epubInitOptions={{
+            openAs: 'epub'
+          }}
+          handleError={handleLoadError}
         />
       )}
       
