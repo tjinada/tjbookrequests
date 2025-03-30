@@ -13,9 +13,7 @@ import PrivateRoute from './components/routing/PrivateRoute';
 import Layout from './components/layout/Layout';
 import AdminRoute from './components/routing/AdminRoute';
 import { LibraryProvider } from './context/LibraryContext';
-const MyLibrary = lazy(() => import('./pages/MyLibrary'));
-const BookReader = lazy(() => import('./components/library/BookReader'));
-
+import Reader from './pages/Reader';
 
 
 // Lazy-loaded components
@@ -28,7 +26,8 @@ const Requests = lazy(() => import('./pages/Requests'));
 const AdminRequests = lazy(() => import('./pages/AdminRequests'));
 const Profile = lazy(() => import('./pages/Profile'));
 const CalibreManager = lazy(() => import('./pages/CalibreManager'));
-
+const MyLibrary = lazy(() => import('./pages/MyLibrary'));
+const BookReader = lazy(() => import('./components/library/BookReader'));
 
 // Loading fallback
 const LoadingFallback = () => (
@@ -65,6 +64,8 @@ function App() {
                 </Route>
 
                 <Route path="*" element={<Navigate to="/" replace />} />
+                <Route path="/read/:id" element={<Reader />} />
+                <Route path="/read/:id/:format" element={<Reader />} />
               </Routes>
               <InstallPrompt />
             </Suspense>

@@ -1,5 +1,6 @@
 // src/components/library/LibraryBookCard.js
 import React, { useContext, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { styled } from '@mui/material/styles';
 import {
   Card,
@@ -21,13 +22,16 @@ import {
   Divider,
   Snackbar,
   Alert,
-  CircularProgress
+  CircularProgress,
+  ListItemIcon,
+  ListItemText
 } from '@mui/material';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import DownloadIcon from '@mui/icons-material/Download';
 import EmailIcon from '@mui/icons-material/Email';
 import SendIcon from '@mui/icons-material/Send';
 import CloseIcon from '@mui/icons-material/Close';
+import AutoStoriesIcon from '@mui/icons-material/AutoStories';
 import noImage from '../../assets/no-image.png';
 import LibraryContext from '../../context/LibraryContext';
 
@@ -50,6 +54,9 @@ const StyledCard = styled(Card)(({ theme }) => ({
 }));
 
 const LibraryBookCard = ({ book, onClick }) => {
+  // Add navigation hook
+  const navigate = useNavigate();
+  
   // Context for library functions
   const { downloadBook, sendToDevice } = useContext(LibraryContext);
 
@@ -88,8 +95,17 @@ const LibraryBookCard = ({ book, onClick }) => {
     }
   };
   
-  // Handle read book action
-  const handleReadBook = (event) => {
+  // Handle read book action (Opens the EPUB reader)
+  const handleReadBook = (format) => (event) => {
+    event.stopPropagation();
+    handleFormatMenuClose();
+    
+    // Navigate to the reader page with the book ID and format
+    navigate(`/read/${book.id}/${format.toLowerCase()}`);
+  };
+  
+  // Handle book detail view
+  const handleViewDetails = (event) => {
     event.stopPropagation();
     onClick && onClick(book);
   };
@@ -171,7 +187,7 @@ const LibraryBookCard = ({ book, onClick }) => {
 
   return (
     <>
-      <StyledCard onClick={handleReadBook}>
+      <StyledCard onClick={handleViewDetails}>
         <Box sx={{ 
           display: 'flex', 
           flexDirection: 'row',
@@ -299,21 +315,24 @@ const LibraryBookCard = ({ book, onClick }) => {
               mt: 'auto',
               alignItems: 'center'
             }}>
-              <Button 
-                variant="contained"
-                color="primary"
-                startIcon={<MenuBookIcon />}
-                onClick={handleReadBook}
-                fullWidth
-                sx={{ 
-                  borderRadius: 4,
-                  textTransform: 'none',
-                  boxShadow: 2,
-                  py: 0.5
-                }}
-              >
-                Read
-              </Button>
+              {/* New Read button that checks for EPUB format first */}
+              {formats.some(f => ['epub', 'EPUB'].includes(f)) && (
+                <Button 
+                  variant="contained"
+                  color="primary"
+                  startIcon={<AutoStoriesIcon />}
+                  onClick={handleReadBook(formats.find(f => ['epub', 'EPUB'].includes(f)) || formats[0])}
+                  fullWidth
+                  sx={{ 
+                    borderRadius: 4,
+                    textTransform: 'none',
+                    boxShadow: 2,
+                    py: 0.5
+                  }}
+                >
+                  Read
+                </Button>
+              )}
               
               <Button 
                 variant="contained"
@@ -361,16 +380,28 @@ const LibraryBookCard = ({ book, onClick }) => {
         onClick={(e) => e.stopPropagation()}
       >
         <Typography variant="subtitle2" sx={{ px: 2, py: 1 }}>
-          Download or Send
+          Available Formats
         </Typography>
         <Divider sx={{ mb: 1 }} />
         
         {formats.length > 0 ? (
           formats.map((format) => (
-            <MenuItem key={format} sx={{ px: 2, py: 1 }}>
+            <MenuItem key={format} dense sx={{ px: 2, py: 1 }}>
               <Box sx={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant="body2">{format}</Typography>
                 <Box sx={{ display: 'flex' }}>
+                  {/* Show Read option only for EPUB format */}
+                  {['epub', 'EPUB'].includes(format) && (
+                    <Tooltip title={`Read ${format}`}>
+                      <IconButton 
+                        size="small" 
+                        onClick={handleReadBook(format)}
+                        color="primary"
+                      >
+                        <AutoStoriesIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  )}
                   <Tooltip title={`Download ${format}`}>
                     <IconButton 
                       size="small" 

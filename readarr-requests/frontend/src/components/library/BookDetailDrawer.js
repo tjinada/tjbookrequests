@@ -40,6 +40,8 @@ import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import DescriptionIcon from '@mui/icons-material/Description';
 import LibraryContext from '../../context/LibraryContext';
 import noImage from '../../assets/no-image.png';
+import { useNavigate } from 'react-router-dom';
+import AutoStoriesIcon from '@mui/icons-material/AutoStories';
 
 // Helper function to get icon for a format
 const getFormatIcon = (format) => {
@@ -72,6 +74,8 @@ const BookDetailDrawer = ({ book, open, onClose }) => {
   const [email, setEmail] = useState('');
   const [sendingToDevice, setSendingToDevice] = useState(false);
   const [sendResult, setSendResult] = useState(null);
+
+  const navigate = useNavigate();
   
   // Load book formats when the drawer opens
   useEffect(() => {
@@ -183,6 +187,12 @@ const BookDetailDrawer = ({ book, open, onClose }) => {
     } finally {
       setSendingToDevice(false);
     }
+  };
+
+  const handleReadBook = (format) => {
+    onClose(); // Close the drawer
+    // Navigate to the reader page with the book ID and format
+    navigate(`/read/${book.id}/${format.toLowerCase()}`);
   };
   
   // Render the book info tab
@@ -298,6 +308,19 @@ const BookDetailDrawer = ({ book, open, onClose }) => {
       <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
         Available Formats
       </Typography>
+
+      {formats.some(format => ['epub', 'EPUB'].includes(format)) && (
+        <Button
+          variant="contained"
+          color="primary"
+          startIcon={<AutoStoriesIcon />}
+          onClick={() => handleReadBook(formats.find(f => ['epub', 'EPUB'].includes(f)) || formats[0])}
+          fullWidth
+          sx={{ mt: 2, mb: 2 }}
+        >
+          Read Book
+        </Button>
+      )}
       
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', my: 3 }}>
@@ -321,6 +344,21 @@ const BookDetailDrawer = ({ book, open, onClose }) => {
                 </ListItemIcon>
                 <ListItemText primary={`Download ${format}`} />
               </ListItemButton>
+              {/* Add this conditional Read button for EPUB formats */}
+              {['epub', 'EPUB'].includes(format) && (
+                <Tooltip title="Read">
+                  <IconButton 
+                    edge="end" 
+                    aria-label="read" 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleReadBook(format);
+                    }}
+                  >
+                    <AutoStoriesIcon />
+                  </IconButton>
+                </Tooltip>
+              )}
             </ListItem>
           ))}
         </List>
