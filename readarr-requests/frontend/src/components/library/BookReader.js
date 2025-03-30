@@ -9,15 +9,20 @@ import {
   Paper,
   Tooltip,
   Alert,
-  Button
+  Button,
+  Snackbar
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import BookmarkIcon from '@mui/icons-material/Bookmark';
 import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
+import SettingsIcon from '@mui/icons-material/Settings';
+import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
 import api from '../../utils/api';
 
-// Import the specialized reader components
+// Import our components
 import EpubReader from './EpubReader';
+import BookmarkDrawer from './BookmarkDrawer';
+import useBookmarks from '../../hooks/useBookmarks'; // Make sure to create this hook
 
 const BookReader = () => {
   const { id, format = 'epub' } = useParams();
@@ -29,13 +34,36 @@ const BookReader = () => {
   const [book, setBook] = useState(null);
   const [currentFormat, setCurrentFormat] = useState(format.toLowerCase());
   
-  // Basic settings
-  const [fontSize, setFontSize] = useState(100);
-  const [readerTheme, setReaderTheme] = useState('light');
+  // Reader settings
+  const [fontSize, setFontSize] = useState(() => {
+    return parseInt(localStorage.getItem('reader_fontSize') || '100', 10);
+  });
+  const [readerTheme, setReaderTheme] = useState(() => {
+    return localStorage.getItem('reader_theme') || 'light';
+  });
   
-  // Simple bookmarks for testing
+  // Table of contents and location tracking
+  const [toc, setToc] = useState([]);
   const [currentLocation, setCurrentLocation] = useState(null);
-  const [bookmarks, setBookmarks] = useState([]);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  
+  // Use our bookmark hook
+  const { 
+    bookmarks,
+    addBookmark, 
+    removeBookmark, 
+    isBookmarked 
+  } = useBookmarks(id);
+  
+  // Notification for user feedback
+  const [notification, setNotification] = useState({
+    open: false,
+    message: '',
+    severity: 'info'
+  });
+  
+  // Rendition reference
+  const renditionRef = useRef(null);
   
   // Load book data when component mounts
   useEffect(() => {
@@ -49,82 +77,127 @@ const BookReader = () => {
     const loadBook = async () => {
       try {
         setLoading(true);
-        console.log(`Loading book ID: ${id} in format: ${format}`);
         
         // Get book details
         const bookResponse = await api.get(`/library/book/${id}`);
-        console.log('Book details loaded:', bookResponse.data.title);
         setBook(bookResponse.data);
         
         // Load saved location if available
         const lastLocation = localStorage.getItem(`book_location_${id}`);
         if (lastLocation) {
-          console.log('Loaded saved location:', lastLocation.substring(0, 20) + '...');
           setCurrentLocation(lastLocation);
-        }
-        
-        // Load saved bookmarks
-        try {
-          const savedBookmarks = localStorage.getItem(`bookmarks_${id}`);
-          if (savedBookmarks) {
-            console.log('Loaded bookmarks');
-            setBookmarks(JSON.parse(savedBookmarks));
-          }
-        } catch (err) {
-          console.error('Error loading bookmarks:', err);
         }
         
         setLoading(false);
       } catch (err) {
         console.error('Error loading book:', err);
-        setError(`Failed to load book information: ${err.message}`);
+        if (err.response && err.response.status === 401) {
+          setError('Authentication required. Please sign in again.');
+        } else {
+          setError('Failed to load book information. Please try again.');
+        }
         setLoading(false);
       }
     };
     
     loadBook();
-  }, [id, format]);
+  }, [id]);
   
-  // Handle location change (from EPUB reader)
+  // Handle location change from EPUB reader
   const handleLocationChanged = (newLocation) => {
-    console.log('Location changed:', newLocation.substring(0, 20) + '...');
     setCurrentLocation(newLocation);
     
     // Save current location to localStorage
     localStorage.setItem(`book_location_${id}`, newLocation);
   };
   
-  // Add/remove bookmark at current location
-  const toggleBookmark = () => {
-    if (!currentLocation) return;
+  // Handle TOC change from EPUB reader
+  const handleTocChanged = (newToc) => {
+    setToc(newToc || []);
+  };
+  
+  // Set rendition reference from EPUB reader
+  const handleRenditionReady = (rendition) => {
+    renditionRef.current = rendition;
+  };
+  
+  // Toggle bookmark drawer
+  const toggleDrawer = () => {
+    setDrawerOpen(!drawerOpen);
+  };
+  
+  // Handle bookmark toggle
+  const handleToggleBookmark = () => {
+    if (!currentLocation) {
+      showNotification('Cannot add bookmark at current location', 'warning');
+      return;
+    }
     
-    // Check if this location is already bookmarked
-    const isBookmarked = bookmarks.some(b => b.cfi === currentLocation);
-    
-    if (isBookmarked) {
-      // Remove the bookmark
-      const updatedBookmarks = bookmarks.filter(b => b.cfi !== currentLocation);
-      setBookmarks(updatedBookmarks);
-      localStorage.setItem(`bookmarks_${id}`, JSON.stringify(updatedBookmarks));
-      console.log('Bookmark removed');
+    if (isBookmarked(currentLocation)) {
+      removeBookmark(currentLocation);
+      showNotification('Bookmark removed', 'info');
     } else {
-      // Add the bookmark
-      const newBookmark = {
-        cfi: currentLocation,
-        title: 'Bookmark ' + (bookmarks.length + 1),
-        timestamp: new Date().toISOString()
-      };
+      // Try to get chapter title if possible
+      let title = 'Unnamed bookmark';
       
-      const updatedBookmarks = [...bookmarks, newBookmark];
-      setBookmarks(updatedBookmarks);
-      localStorage.setItem(`bookmarks_${id}`, JSON.stringify(updatedBookmarks));
-      console.log('Bookmark added');
+      if (renditionRef.current) {
+        try {
+          // Try to get the current chapter title
+          const location = renditionRef.current.currentLocation();
+          if (location && location.start) {
+            const href = location.start.href;
+            
+            // Try to find the chapter in TOC
+            const chapter = toc.find(item => 
+              item.href.includes(href.split('#')[0])
+            );
+            if (chapter) {
+              title = chapter.label || title;
+            }
+          }
+        } catch (e) {
+          console.error('Error getting chapter title:', e);
+        }
+      }
+      
+      addBookmark(currentLocation, title);
+      showNotification('Bookmark added', 'success');
     }
   };
   
-  // Check if current location is bookmarked
-  const isCurrentLocationBookmarked = () => {
-    return bookmarks.some(b => b.cfi === currentLocation);
+  // Handle adding a bookmark from the drawer
+  const handleAddBookmark = () => {
+    handleToggleBookmark();
+  };
+  
+  // Go to bookmark location
+  const handleBookmarkClick = (cfi) => {
+    if (renditionRef.current && cfi) {
+      renditionRef.current.display(cfi);
+      setDrawerOpen(false); // Close drawer after navigation
+    }
+  };
+  
+  // Go to TOC location
+  const handleTocClick = (href) => {
+    if (renditionRef.current && href) {
+      renditionRef.current.display(href);
+      setDrawerOpen(false); // Close drawer after navigation
+    }
+  };
+  
+  // Show notification
+  const showNotification = (message, severity = 'info') => {
+    setNotification({
+      open: true,
+      message,
+      severity
+    });
+  };
+  
+  // Close notification
+  const handleCloseNotification = () => {
+    setNotification(prev => ({ ...prev, open: false }));
   };
   
   // Close reader and go back
@@ -198,7 +271,7 @@ const BookReader = () => {
       bgcolor: 'background.default',
       overflow: 'hidden'
     }}>
-      {/* Simple header */}
+      {/* Reader header */}
       <Paper 
         sx={{ 
           px: 2, 
@@ -230,17 +303,31 @@ const BookReader = () => {
           {book?.title || 'Book Reader'}
         </Typography>
         
-        <Tooltip title={isCurrentLocationBookmarked() ? "Remove bookmark" : "Add bookmark"}>
-          <IconButton 
-            onClick={toggleBookmark}
-            color={isCurrentLocationBookmarked() ? 'primary' : 'default'}
-          >
-            {isCurrentLocationBookmarked() ? <BookmarkIcon /> : <BookmarkBorderIcon />}
-          </IconButton>
-        </Tooltip>
+        <Box>
+          <Tooltip title={isBookmarked(currentLocation) ? "Remove bookmark" : "Add bookmark"}>
+            <IconButton 
+              onClick={handleToggleBookmark}
+              color={isBookmarked(currentLocation) ? 'primary' : 'default'}
+            >
+              {isBookmarked(currentLocation) ? <BookmarkIcon /> : <BookmarkBorderIcon />}
+            </IconButton>
+          </Tooltip>
+          
+          <Tooltip title="Contents & Bookmarks">
+            <IconButton onClick={toggleDrawer}>
+              <FormatListBulletedIcon />
+            </IconButton>
+          </Tooltip>
+          
+          <Tooltip title="Settings">
+            <IconButton>
+              <SettingsIcon />
+            </IconButton>
+          </Tooltip>
+        </Box>
       </Paper>
       
-      {/* Reader content area - simplified for testing */}
+      {/* Reader content area */}
       <Box 
         sx={{ 
           flex: 1, 
@@ -256,11 +343,44 @@ const BookReader = () => {
               fontSize={fontSize}
               theme={readerTheme}
               locationChanged={handleLocationChanged}
+              tocChanged={handleTocChanged}
+              getRendition={handleRenditionReady}
               initialLocation={currentLocation}
             />
           </Box>
         )}
       </Box>
+      
+      {/* Bookmark and TOC Drawer */}
+      <BookmarkDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        bookmarks={bookmarks}
+        toc={toc}
+        onBookmarkClick={handleBookmarkClick}
+        onTocClick={handleTocClick}
+        onAddBookmark={handleAddBookmark}
+        onRemoveBookmark={removeBookmark}
+        currentLocation={currentLocation}
+        bookTitle={book?.title}
+        bookAuthor={book?.author}
+      />
+      
+      {/* Notifications */}
+      <Snackbar
+        open={notification.open}
+        autoHideDuration={3000}
+        onClose={handleCloseNotification}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert 
+          onClose={handleCloseNotification} 
+          severity={notification.severity}
+          sx={{ width: '100%' }}
+        >
+          {notification.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
