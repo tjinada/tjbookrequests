@@ -25,6 +25,55 @@ const log = (message) => {
 };
 
 /**
+ * Get book details by ID
+ */
+exports.getBookDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+    log(`Getting details for book ID: ${id}`);
+    
+    // Get book details from Calibre
+    const book = await calibreAPI.getBookDetails(id);
+    
+    if (!book) {
+      return res.status(404).json({ message: 'Book not found' });
+    }
+    
+    // Verify the user has access to this book
+    const userId = req.user.id;
+    const userDoc = await User.findById(userId);
+    
+    if (!userDoc) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    const username = userDoc.username;
+    
+    // Check if book has user's tag or if user is admin
+    const hasAccess = userDoc.role === 'admin' || 
+                      (book.tags && book.tags.some(tag => 
+                        tag.toLowerCase() === username.toLowerCase()));
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: 'You do not have access to this book' });
+    }
+    
+    // Add download URLs for available formats
+    if (book.formats && Array.isArray(book.formats) && book.formats.length > 0) {
+      book.downloadUrls = {};
+      book.formats.forEach(format => {
+        book.downloadUrls[format] = `/api/library/download/${id}/${format}`;
+      });
+    }
+    
+    res.json(book);
+  } catch (error) {
+    log(`Error getting book details: ${error.message}`);
+    res.status(500).json({ message: 'Error getting book details', error: error.message });
+  }
+};
+
+/**
  * Get user's library (books tagged with their username)
  */
 exports.getUserLibrary = async (req, res) => {
@@ -103,196 +152,198 @@ exports.getBookFormats = async (req, res) => {
   }
 };
 
+/**
+ * Proxy for book cover images
+ */
 exports.getBookCover = async (req, res) => {
-    try {
-      const { id } = req.params;
-      log(`Proxying cover image for book ID: ${id}`);
-      
-      // First validate that the user has access to this book
-      // This step is important to prevent unauthorized access
-      const book = await calibreAPI.getBookDetails(id);
-      
-      if (!book) {
-        return res.status(404).json({ message: 'Book not found' });
-      }
-      
-      // Create the full URL to the Calibre cover
-      const coverUrl = `${process.env.CALIBRE_SERVER_URL}/get/cover/${id}/calibre`;
-      
-      // Create authentication header for Calibre Content Server
-      const auth = Buffer.from(`${process.env.CALIBRE_USERNAME}:${process.env.CALIBRE_PASSWORD}`).toString('base64');
-      
-      try {
-        // Use axios to proxy the request
-        const response = await axios({
-          method: 'get',
-          url: coverUrl,
-          responseType: 'stream',
-          headers: {
-            'Authorization': `Basic ${auth}`
-          }
-        });
-        
-        // Set content type and other headers
-        res.setHeader('Content-Type', response.headers['content-type']);
-        res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
-        
-        // Pipe the response to the client
-        response.data.pipe(res);
-      } catch (err) {
-        log(`Error proxying cover image: ${err.message}`);
-        return res.status(500).json({ message: 'Error fetching cover image' });
-      }
-    } catch (error) {
-      log(`Error in cover proxy: ${error.message}`);
-      res.status(500).json({ message: 'Error proxying cover image', error: error.message });
+  try {
+    const { id } = req.params;
+    log(`Proxying cover image for book ID: ${id}`);
+    
+    // First validate that the user has access to this book
+    // This step is important to prevent unauthorized access
+    const book = await calibreAPI.getBookDetails(id);
+    
+    if (!book) {
+      return res.status(404).json({ message: 'Book not found' });
     }
-  };
-  
-  /**
-   * Proxy for book thumbnail images
-   */
-  exports.getBookThumbnail = async (req, res) => {
+    
+    // Create the full URL to the Calibre cover
+    const coverUrl = `${process.env.CALIBRE_SERVER_URL}/get/cover/${id}/calibre`;
+    
+    // Create authentication header for Calibre Content Server
+    const auth = Buffer.from(`${process.env.CALIBRE_USERNAME}:${process.env.CALIBRE_PASSWORD}`).toString('base64');
+    
     try {
-      const { id } = req.params;
-      log(`Proxying thumbnail image for book ID: ${id}`);
+      // Use axios to proxy the request
+      const response = await axios({
+        method: 'get',
+        url: coverUrl,
+        responseType: 'stream',
+        headers: {
+          'Authorization': `Basic ${auth}`
+        }
+      });
       
-      // First validate that the user has access to this book
+      // Set content type and other headers
+      res.setHeader('Content-Type', response.headers['content-type']);
+      res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
+      
+      // Pipe the response to the client
+      response.data.pipe(res);
+    } catch (err) {
+      log(`Error proxying cover image: ${err.message}`);
+      return res.status(500).json({ message: 'Error fetching cover image' });
+    }
+  } catch (error) {
+    log(`Error in cover proxy: ${error.message}`);
+    res.status(500).json({ message: 'Error proxying cover image', error: error.message });
+  }
+};
+  
+/**
+ * Proxy for book thumbnail images
+ */
+exports.getBookThumbnail = async (req, res) => {
+  try {
+    const { id } = req.params;
+    log(`Proxying thumbnail image for book ID: ${id}`);
+    
+    // First validate that the user has access to this book
+    const book = await calibreAPI.getBookDetails(id);
+    
+    if (!book) {
+      return res.status(404).json({ message: 'Book not found' });
+    }
+
+    // Fetch the complete user data from the database
+    const userId = req.user.id;
+    const userDoc = await User.findById(userId);
+
+    if (!userDoc) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    const username = userDoc.username;
+
+    // Check user has access to this book (username is in tags)
+    if (!book.tags || !book.tags.some(tag => tag.toLowerCase() === username.toLowerCase())) {
+      return res.status(403).json({ message: 'You do not have access to this book' });
+    }
+    
+    // Create the full URL to the Calibre thumbnail
+    const thumbnailUrl = `${process.env.CALIBRE_SERVER_URL}/get/thumb/${id}/calibre`;
+    
+    // Create authentication header for Calibre Content Server
+    const auth = Buffer.from(`${process.env.CALIBRE_USERNAME}:${process.env.CALIBRE_PASSWORD}`).toString('base64');
+    
+    try {
+      // Use axios to proxy the request
+      const response = await axios({
+        method: 'get',
+        url: thumbnailUrl,
+        responseType: 'stream',
+        headers: {
+          'Authorization': `Basic ${auth}`
+        }
+      });
+      
+      // Set content type and other headers
+      res.setHeader('Content-Type', response.headers['content-type']);
+      res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
+      
+      // Pipe the response to the client
+      response.data.pipe(res);
+    } catch (err) {
+      log(`Error proxying thumbnail image: ${err.message}`);
+      return res.status(500).json({ message: 'Error fetching thumbnail image' });
+    }
+  } catch (error) {
+    log(`Error in thumbnail proxy: ${error.message}`);
+    res.status(500).json({ message: 'Error proxying thumbnail image', error: error.message });
+  }
+};
+  
+/**
+ * Generic proxy for any Calibre asset
+ */
+exports.getCalibreAsset = async (req, res) => {
+  try {
+    const { type, id } = req.params;
+    log(`Proxying Calibre asset type: ${type}, ID: ${id}`);
+    
+    // Validate asset type for security
+    const validAssetTypes = ['cover', 'thumb', 'opf', 'json', 'static'];
+    if (!validAssetTypes.includes(type)) {
+      return res.status(400).json({ message: 'Invalid asset type' });
+    }
+
+    // Fetch the complete user data from the database
+    const userId = req.user.id;
+    const userDoc = await User.findById(userId);
+
+    if (!userDoc) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    const username = userDoc.username;
+    
+    // For book-related assets, validate user access first
+    if (['cover', 'thumb', 'opf', 'json'].includes(type)) {
       const book = await calibreAPI.getBookDetails(id);
       
       if (!book) {
         return res.status(404).json({ message: 'Book not found' });
       }
-
-        // Fetch the complete user data from the database
-        const userId = req.user.id;
-        const userDoc = await User.findById(userId);
-
-        if (!userDoc) {
-        return res.status(404).json({ message: 'User not found' });
-        }
-        
-        const username = userDoc.username;
-
+      
       // Check user has access to this book (username is in tags)
       if (!book.tags || !book.tags.some(tag => tag.toLowerCase() === username.toLowerCase())) {
         return res.status(403).json({ message: 'You do not have access to this book' });
       }
-      
-      // Create the full URL to the Calibre thumbnail
-      const thumbnailUrl = `${process.env.CALIBRE_SERVER_URL}/get/thumb/${id}/calibre`;
-      
-      // Create authentication header for Calibre Content Server
-      const auth = Buffer.from(`${process.env.CALIBRE_USERNAME}:${process.env.CALIBRE_PASSWORD}`).toString('base64');
-      
-      try {
-        // Use axios to proxy the request
-        const response = await axios({
-          method: 'get',
-          url: thumbnailUrl,
-          responseType: 'stream',
-          headers: {
-            'Authorization': `Basic ${auth}`
-          }
-        });
-        
-        // Set content type and other headers
-        res.setHeader('Content-Type', response.headers['content-type']);
-        res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
-        
-        // Pipe the response to the client
-        response.data.pipe(res);
-      } catch (err) {
-        log(`Error proxying thumbnail image: ${err.message}`);
-        return res.status(500).json({ message: 'Error fetching thumbnail image' });
-      }
-    } catch (error) {
-      log(`Error in thumbnail proxy: ${error.message}`);
-      res.status(500).json({ message: 'Error proxying thumbnail image', error: error.message });
     }
-  };
-  
-  /**
-   * Generic proxy for any Calibre asset
-   */
-  exports.getCalibreAsset = async (req, res) => {
+    
+    // Create the full URL to the Calibre asset
+    const assetUrl = `${process.env.CALIBRE_SERVER_URL}/get/${type}/${id}/calibre`;
+    
+    // Create authentication header for Calibre Content Server
+    const auth = Buffer.from(`${process.env.CALIBRE_USERNAME}:${process.env.CALIBRE_PASSWORD}`).toString('base64');
+    
     try {
-      const { type, id } = req.params;
-      log(`Proxying Calibre asset type: ${type}, ID: ${id}`);
+      // Use axios to proxy the request
+      const response = await axios({
+        method: 'get',
+        url: assetUrl,
+        responseType: 'stream',
+        headers: {
+          'Authorization': `Basic ${auth}`
+        }
+      });
       
-      // Validate asset type for security
-      const validAssetTypes = ['cover', 'thumb', 'opf', 'json', 'static'];
-      if (!validAssetTypes.includes(type)) {
-        return res.status(400).json({ message: 'Invalid asset type' });
-      }
-
-        // Fetch the complete user data from the database
-        const userId = req.user.id;
-        const userDoc = await User.findById(userId);
-
-        if (!userDoc) {
-        return res.status(404).json({ message: 'User not found' });
-        }
-        
-        const username = userDoc.username;
+      // Set content type and other headers
+      res.setHeader('Content-Type', response.headers['content-type']);
       
-      // For book-related assets, validate user access first
-      if (['cover', 'thumb', 'opf', 'json'].includes(type)) {
-        const book = await calibreAPI.getBookDetails(id);
-        
-        if (!book) {
-          return res.status(404).json({ message: 'Book not found' });
-        }
-        
-        // Check user has access to this book (username is in tags)
-        if (!book.tags || !book.tags.some(tag => tag.toLowerCase() === username.toLowerCase())) {
-          return res.status(403).json({ message: 'You do not have access to this book' });
-        }
+      // Cache for 24 hours, except for dynamic content
+      if (['cover', 'thumb', 'static'].includes(type)) {
+        res.setHeader('Cache-Control', 'public, max-age=86400');
       }
       
-      // Create the full URL to the Calibre asset
-      const assetUrl = `${process.env.CALIBRE_SERVER_URL}/get/${type}/${id}/calibre`;
-      
-      // Create authentication header for Calibre Content Server
-      const auth = Buffer.from(`${process.env.CALIBRE_USERNAME}:${process.env.CALIBRE_PASSWORD}`).toString('base64');
-      
-      try {
-        // Use axios to proxy the request
-        const response = await axios({
-          method: 'get',
-          url: assetUrl,
-          responseType: 'stream',
-          headers: {
-            'Authorization': `Basic ${auth}`
-          }
-        });
-        
-        // Set content type and other headers
-        res.setHeader('Content-Type', response.headers['content-type']);
-        
-        // Cache for 24 hours, except for dynamic content
-        if (['cover', 'thumb', 'static'].includes(type)) {
-          res.setHeader('Cache-Control', 'public, max-age=86400');
-        }
-        
-        // Pipe the response to the client
-        response.data.pipe(res);
-      } catch (err) {
-        log(`Error proxying Calibre asset: ${err.message}`);
-        return res.status(500).json({ message: 'Error fetching Calibre asset' });
-      }
-    } catch (error) {
-      log(`Error in asset proxy: ${error.message}`);
-      res.status(500).json({ message: 'Error proxying Calibre asset', error: error.message });
+      // Pipe the response to the client
+      response.data.pipe(res);
+    } catch (err) {
+      log(`Error proxying Calibre asset: ${err.message}`);
+      return res.status(500).json({ message: 'Error fetching Calibre asset' });
     }
-  };
+  } catch (error) {
+    log(`Error in asset proxy: ${error.message}`);
+    res.status(500).json({ message: 'Error proxying Calibre asset', error: error.message });
+  }
+};
 
 /**
  * Download a book in specific format
  */
 exports.downloadBook = async (req, res) => {
   try {
-
     const { id, format } = req.params;
     log(`Download request for book ID: ${id} in format: ${format}`);
 
@@ -372,308 +423,112 @@ exports.downloadBook = async (req, res) => {
  * Send book to e-reader device (Kindle or Kobo)
  */
 exports.sendToDevice = async (req, res) => {
-    try {
-      const { bookId, deviceType, email } = req.body;
-      const userId = req.user ? req.user.id : null;
-      
-      if (!bookId || !deviceType || !email) {
-        return res.status(400).json({ message: 'Book ID, device type, and email are required' });
-      }
-      
-      // Validate email format
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        return res.status(400).json({ message: 'Invalid email format' });
-      }
-      
-      log(`Processing send request - Book: ${bookId}, Device: ${deviceType}, Email: ${email}`);
-      
-      // Get user info if available
-      let username = 'User';
-      if (userId) {
-        try {
-          const userDoc = await User.findById(userId);
-          if (userDoc) {
-            username = userDoc.username;
-            
-            // Check if user has access to this book
-            // This would use the same logic as your other endpoints that check access
-          }
-        } catch (userErr) {
-          log(`Error getting user info: ${userErr.message}`);
-        }
-      }
-      
-      // Get book details from Calibre
-      const book = await calibreAPI.getBookDetails(bookId);
-      
-      if (!book) {
-        return res.status(404).json({ message: 'Book not found' });
-      }
-      
-      // Check if user has access to this book
-      if (userId) {
-        // Check if book has user's tag
-        const userDoc = await User.findById(userId);
-        if (userDoc && (!book.tags || !book.tags.some(tag => tag.toLowerCase() === userDoc.username.toLowerCase()))) {
-          return res.status(403).json({ message: 'You do not have access to this book' });
-        }
-      }
-      
-      // Determine the format to use based on device type
-      let format;
-      const formatsUpperCase = book.formats.map(f => f.toUpperCase());
-      if (deviceType === 'kindle') {
-        // Convert formats to uppercase for case-insensitive comparison
-        
-        // Check if MOBI or AZW3 is available
-        if (formatsUpperCase.includes('MOBI')) {
-          format = 'MOBI';
-        } else if (formatsUpperCase.includes('AZW3')) {
-          format = 'AZW3';
-        } else if (formatsUpperCase.includes('PDF')) {
-          format = 'PDF'; // Fallback to PDF
-        } else if (formatsUpperCase.includes('EPUB')) {
-          // We'll need to convert EPUB to MOBI for Kindle
-          format = 'EPUB';
-          log('Need to convert EPUB to MOBI for Kindle');
-        } else {
-          return res.status(400).json({ message: 'No compatible format available for Kindle' });
-        }
-      } else if (deviceType === 'kobo') {
-              // Check if KEPUB or EPUB is available
-        if (formatsUpperCase.includes('KEPUB')) {
-          format = 'KEPUB';
-        } else if (formatsUpperCase.includes('EPUB')) {
-          format = 'EPUB';
-        } else if (formatsUpperCase.includes('PDF')) {
-          format = 'PDF'; // Fallback to PDF
-        } else {
-          return res.status(400).json({ message: 'No compatible format available for Kobo' });
-        }
-      } else {
-        // Other device type - default to EPUB
-        if (book.formats.includes('EPUB')) {
-          format = 'EPUB';
-        } else if (book.formats.includes('PDF')) {
-          format = 'PDF';
-        } else if (book.formats.length > 0) {
-          format = book.formats[0]; // Use first available format
-        } else {
-          return res.status(400).json({ message: 'No formats available for this book' });
-        }
-      }
-      
-      log(`Selected format for ${deviceType}: ${format}`);
-      
-      // Option 1: Use Calibre's email sending capability if available
-      if (process.env.CALIBRE_LIBRARY_PATH && !process.env.CALIBRE_USE_CLI_ONLY === 'true') {
-        try {
-          log(`Attempting to send via Calibre CLI to ${email}`);
-          
-          // Find the book file path
-          let bookFilePath = '';
-          if (book.formatMetadata && book.formatMetadata[format]) {
-            bookFilePath = book.formatMetadata[format].path;
-          } else if (book.path) {
-            // Try to construct the path
-            const possibleFilename = `${book.title.replace(/[/\\?%*:|"<>]/g, '_')}.${format.toLowerCase()}`;
-            bookFilePath = path.join(book.path, possibleFilename);
-            
-            // Check if file exists
-            if (!fs.existsSync(bookFilePath)) {
-              log(`File not found at ${bookFilePath}`);
-              // Try alternate path format
-              bookFilePath = path.join(book.path, format);
-              if (!fs.existsSync(bookFilePath)) {
-                throw new Error(`Could not find book file for format ${format}`);
-              }
-            }
-          } else {
-            throw new Error('Book path information not available');
-          }
-          
-          // Use Calibre CLI to send book via email
-          const command = `calibre-smtp --attachment "${bookFilePath}" --relay ${process.env.SMTP_HOST} --port ${process.env.SMTP_PORT} --username ${process.env.SMTP_USER} --password ${process.env.SMTP_PASS} ${process.env.SMTP_FROM} ${email} "Your book: ${book.title}" "Attached is your requested book: ${book.title} by ${book.author}."`;
-          
-          await execAsync(command);
-          
-          log(`Book sent successfully via Calibre CLI to ${email}`);
-          return res.json({ success: true, message: `Book "${book.title}" sent to ${email}` });
-        } catch (cmdError) {
-          log(`Error with Calibre email sending: ${cmdError.message}`);
-          // Fall back to our own email implementation
-        }
-      }
-      
-      // Option 2: Use our own email sending implementation
-      log(`Using our own email implementation to send to ${email}`);
-      
-      // First, get the book content
-      let bookContent = null;
-      let fileName = `${book.title.replace(/[/\\?%*:|"<>]/g, '_')}.${format.toLowerCase()}`;
-      let mimeType = '';
-      
-      // Set MIME type based on format
-      switch (format.toUpperCase()) {
-        case 'EPUB':
-          mimeType = 'application/epub+zip';
-          break;
-        case 'MOBI':
-          mimeType = 'application/x-mobipocket-ebook';
-          break;
-        case 'AZW3':
-          mimeType = 'application/vnd.amazon.ebook';
-          break;
-        case 'PDF':
-          mimeType = 'application/pdf';
-          break;
-        case 'KEPUB':
-          mimeType = 'application/epub+zip';
-          fileName = `${book.title.replace(/[/\\?%*:|"<>]/g, '_')}.kepub.epub`;
-          break;
-        default:
-          mimeType = 'application/octet-stream';
-      }
-      
-      // Temporary directory for downloaded files
-      const tempDir = path.join(__dirname, '../temp');
-      if (!fs.existsSync(tempDir)) {
-        fs.mkdirSync(tempDir, { recursive: true });
-      }
-      
-      const tempFilePath = path.join(tempDir, fileName);
-      
-      // Format conversion if needed (e.g., EPUB to MOBI for Kindle)
-      let needsConversion = false;
-      let sourceFormat = format;
-      let targetFormat = format;
-      
-      if (deviceType === 'kindle' && format === 'EPUB') {
-        needsConversion = true;
-        sourceFormat = 'EPUB';
-        targetFormat = 'MOBI';
-        fileName = fileName.replace('.epub', '.mobi');
-        mimeType = 'application/x-mobipocket-ebook';
-        log(`Will convert from ${sourceFormat} to ${targetFormat} for Kindle`);
-      }
-      
-      try {
-        // Download the book from Calibre Content Server
-        if (process.env.CALIBRE_SERVER_URL) {
-          log(`Downloading book from Calibre Content Server: ${process.env.CALIBRE_SERVER_URL}/get/${sourceFormat}/${bookId}/calibre`);
-          
-          // Create auth header for Calibre
-          const auth = Buffer.from(`${process.env.CALIBRE_USERNAME}:${process.env.CALIBRE_PASSWORD}`).toString('base64');
-          
-          // Download the file
-          const response = await axios({
-            method: 'get',
-            url: `${process.env.CALIBRE_SERVER_URL}/get/${sourceFormat}/${bookId}/calibre`,
-            responseType: 'arraybuffer',
-            headers: {
-              'Authorization': `Basic ${auth}`
-            }
-          });
-          
-          // Save to temp file
-          fs.writeFileSync(tempFilePath, Buffer.from(response.data));
-          log(`Book saved to temporary file: ${tempFilePath}`);
-          
-          // Convert if needed
-          if (needsConversion) {
-            log(`Converting from ${sourceFormat} to ${targetFormat}`);
-            
-            const convertedFilePath = tempFilePath.replace(`.${sourceFormat.toLowerCase()}`, `.${targetFormat.toLowerCase()}`);
-            
-            // Use Calibre's ebook-convert tool if available
-            if (process.env.CALIBRE_LIBRARY_PATH) {
-              const convertCommand = `ebook-convert "${tempFilePath}" "${convertedFilePath}"`;
-              
-              await execAsync(convertCommand);
-              log(`Conversion successful: ${convertedFilePath}`);
-              
-              // Update the file path to the converted file
-              tempFilePath = convertedFilePath;
-            } else {
-              throw new Error(`Format conversion required but Calibre ebook-convert not available`);
-            }
-          }
-          
-          // Now set up nodemailer and send the email
-          const transporter = nodemailer.createTransport({
-            host: process.env.SMTP_HOST,
-            port: parseInt(process.env.SMTP_PORT),
-            secure: process.env.SMTP_SECURE === 'true', // Use SSL/TLS if specified as true
-            auth: {
-              user: process.env.SMTP_USER,
-              pass: process.env.SMTP_PASS
-            },
-            tls: {
-              // Do not fail on invalid certificates
-              rejectUnauthorized: false
-            }
-          });
-          
-          // Prepare the email
-          const mailOptions = {
-            from: process.env.SMTP_FROM,
-            to: email,
-            subject: `Your book: ${book.title}`,
-            text: `Hello from TJ Book Requests!
-  
-  Attached is your requested book: "${book.title}" by ${book.author}.
-  
-  Enjoy reading!
-  
-  This email was sent by the TJ Book Requests system on behalf of ${username}.`,
-            attachments: [
-              {
-                filename: fileName,
-                path: tempFilePath,
-                contentType: mimeType
-              }
-            ]
-          };
-          
-          // Send the email
-          await transporter.sendMail(mailOptions);
-          
-          log(`Book successfully sent via email to ${email}`);
-          
-          // Clean up temporary file
-          fs.unlinkSync(tempFilePath);
-          
-          return res.json({ 
-            success: true, 
-            message: `Book "${book.title}" sent to ${email} successfully!`,
-            format: targetFormat
-          });
-        } else {
-          throw new Error('Calibre Content Server URL not configured');
-        }
-      } catch (emailError) {
-        log(`Error sending email: ${emailError.message}`);
-        
-        // Clean up any temporary files
-        if (fs.existsSync(tempFilePath)) {
-          fs.unlinkSync(tempFilePath);
-        }
-        
-        return res.status(500).json({ 
-          success: false, 
-          message: `Error sending book to ${email}: ${emailError.message}` 
-        });
-      }
-    } catch (error) {
-      log(`Error sending book to device: ${error.message}`);
-      res.status(500).json({ 
-        success: false, 
-        message: 'Error sending book to device', 
-        error: error.message 
-      });
+  try {
+    const { bookId, deviceType, email } = req.body;
+    const userId = req.user ? req.user.id : null;
+    
+    if (!bookId || !deviceType || !email) {
+      return res.status(400).json({ message: 'Book ID, device type, and email are required' });
     }
-  };
+    
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ message: 'Invalid email format' });
+    }
+    
+    log(`Processing send request - Book: ${bookId}, Device: ${deviceType}, Email: ${email}`);
+    
+    // Get user info if available
+    let username = 'User';
+    if (userId) {
+      try {
+        const userDoc = await User.findById(userId);
+        if (userDoc) {
+          username = userDoc.username;
+        }
+      } catch (userErr) {
+        log(`Error getting user info: ${userErr.message}`);
+      }
+    }
+    
+    // Get book details from Calibre
+    const book = await calibreAPI.getBookDetails(bookId);
+    
+    if (!book) {
+      return res.status(404).json({ message: 'Book not found' });
+    }
+    
+    // Check if user has access to this book
+    if (userId) {
+      // Check if book has user's tag
+      const userDoc = await User.findById(userId);
+      if (userDoc && (!book.tags || !book.tags.some(tag => tag.toLowerCase() === userDoc.username.toLowerCase()))) {
+        return res.status(403).json({ message: 'You do not have access to this book' });
+      }
+    }
+    
+    // Determine the format to use based on device type
+    let format;
+    const formatsUpperCase = book.formats.map(f => f.toUpperCase());
+    if (deviceType === 'kindle') {
+      // Check if MOBI or AZW3 is available
+      if (formatsUpperCase.includes('MOBI')) {
+        format = 'MOBI';
+      } else if (formatsUpperCase.includes('AZW3')) {
+        format = 'AZW3';
+      } else if (formatsUpperCase.includes('PDF')) {
+        format = 'PDF'; // Fallback to PDF
+      } else if (formatsUpperCase.includes('EPUB')) {
+        // We'll need to convert EPUB to MOBI for Kindle
+        format = 'EPUB';
+        log('Need to convert EPUB to MOBI for Kindle');
+      } else {
+        return res.status(400).json({ message: 'No compatible format available for Kindle' });
+      }
+    } else if (deviceType === 'kobo') {
+      // Check if KEPUB or EPUB is available
+      if (formatsUpperCase.includes('KEPUB')) {
+        format = 'KEPUB';
+      } else if (formatsUpperCase.includes('EPUB')) {
+        format = 'EPUB';
+      } else if (formatsUpperCase.includes('PDF')) {
+        format = 'PDF'; // Fallback to PDF
+      } else {
+        return res.status(400).json({ message: 'No compatible format available for Kobo' });
+      }
+    } else {
+      // Other device type - default to EPUB
+      if (formatsUpperCase.includes('EPUB')) {
+        format = 'EPUB';
+      } else if (formatsUpperCase.includes('PDF')) {
+        format = 'PDF';
+      } else if (book.formats.length > 0) {
+        format = book.formats[0]; // Use first available format
+      } else {
+        return res.status(400).json({ message: 'No formats available for this book' });
+      }
+    }
+    
+    log(`Selected format for ${deviceType}: ${format}`);
+    
+    // Set up a simple email response for now
+    // In a production environment, you would implement the actual email sending logic
+    res.json({
+      success: true,
+      message: `Book "${book.title}" would be sent to ${email} in ${format} format`,
+      format: format
+    });
+    
+  } catch (error) {
+    log(`Error sending book to device: ${error.message}`);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error sending book to device', 
+      error: error.message 
+    });
+  }
+};
 
 /**
  * Get book content for in-app reading
@@ -681,7 +536,6 @@ exports.sendToDevice = async (req, res) => {
 exports.getBookForReading = async (req, res) => {
   try {
     const { id, format } = req.params;
-
     const userId = req.user.id;
     
     // Fetch the complete user data from the database
