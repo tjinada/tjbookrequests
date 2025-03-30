@@ -4,7 +4,7 @@ import { ReactReader } from 'react-reader';
 import { Box, CircularProgress, Typography, Alert } from '@mui/material';
 import api from '../../utils/api';
 
-const EpubReader = ({ url, fontSize = 100 }) => {
+const EpubReader = ({ url, fontSize = 100, theme = 'light' }) => {
   const [location, setLocation] = useState(null);
   const [rendition, setRendition] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -12,6 +12,7 @@ const EpubReader = ({ url, fontSize = 100 }) => {
   const [totalPages, setTotalPages] = useState(0);
   const [currentPage, setCurrentPage] = useState(0);
   const [bookData, setBookData] = useState(null);
+  const tocRef = useRef(null);
   
   // Fetch the EPUB file using authentication
   useEffect(() => {
@@ -88,6 +89,41 @@ const EpubReader = ({ url, fontSize = 100 }) => {
     // Apply font size
     rendition.themes.fontSize(`${fontSize}%`);
     
+    // Register themes
+    rendition.themes.register('light', {
+      body: {
+        color: '#000',
+        background: '#fff'
+      }
+    });
+    
+    rendition.themes.register('sepia', {
+      body: {
+        color: '#5B4636',
+        background: '#FBF0D9'
+      }
+    });
+    
+    rendition.themes.register('dark', {
+      body: {
+        color: '#ccc',
+        background: '#222'
+      }
+    });
+    
+    // Apply theme
+    rendition.themes.select(theme);
+    
+    // Fix for TOC links - handle internal navigation
+    rendition.on('selected', function(cfiRange, contents) {
+      rendition.display(cfiRange);
+    });
+    
+    // Handle clicks on internal links
+    rendition.on('linkClicked', function(href) {
+      rendition.display(href);
+    });
+    
     // Loading is complete
     setLoading(false);
   };
@@ -98,6 +134,13 @@ const EpubReader = ({ url, fontSize = 100 }) => {
       rendition.themes.fontSize(`${fontSize}%`);
     }
   }, [fontSize, rendition]);
+  
+  // Update theme when it changes
+  useEffect(() => {
+    if (rendition) {
+      rendition.themes.select(theme);
+    }
+  }, [theme, rendition]);
   
   return (
     <Box sx={{ height: '100%', position: 'relative' }}>
@@ -144,18 +187,23 @@ const EpubReader = ({ url, fontSize = 100 }) => {
           locationChanged={locationChanged}
           getRendition={getRendition}
           showToc={false}
-          epubInitOptions={{
-            openAs: 'epub'
+          tocChanged={(toc) => {
+            tocRef.current = toc;
+          }}
+          epubOptions={{
+            flow: 'paginated',
+            manager: 'continuous'
           }}
           styles={{
             container: {
               height: '100%',
-              width: '100%'
+              width: '100%',
+              backgroundColor: theme === 'dark' ? '#222' : 
+                               theme === 'sepia' ? '#FBF0D9' : '#fff'
             },
             readerArea: {
               height: '100%',
-              width: '100%',
-              backgroundColor: '#fff'
+              width: '100%'
             }
           }}
         />
@@ -166,7 +214,8 @@ const EpubReader = ({ url, fontSize = 100 }) => {
           position: 'absolute', 
           bottom: 10, 
           right: 10, 
-          backgroundColor: 'rgba(255,255,255,0.8)', 
+          backgroundColor: theme === 'dark' ? 'rgba(50,50,50,0.8)' : 'rgba(255,255,255,0.8)', 
+          color: theme === 'dark' ? '#ccc' : 'inherit',
           borderRadius: 10, 
           px: 1.5, 
           py: 0.5,
