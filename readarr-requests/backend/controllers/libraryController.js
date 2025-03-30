@@ -539,9 +539,9 @@ exports.getBookForReading = async (req, res) => {
 
     // Check if user is authenticated
     if (!req.user) {
-      log('WARNING: Using fallback without authentication - REMOVE IN PRODUCTION');
-      const book = await calibreAPI.getBookDetails(id);
+      return res.status(401).json({ message: 'Authentication required' });
     }
+    
     const userId = req.user.id;
     
     // Fetch the complete user data from the database
@@ -577,7 +577,10 @@ exports.getBookForReading = async (req, res) => {
     }
     
     // Check if the requested format is available
-    if (!book.formats || !book.formats.some(f => f.toLowerCase() === format.toLowerCase())) {
+    const formatAvailable = book.formats && 
+                           book.formats.some(f => f.toLowerCase() === format.toLowerCase());
+    
+    if (!formatAvailable) {
       return res.status(404).json({ message: `Book is not available in ${format} format` });
     }
     
@@ -607,112 +610,57 @@ exports.getBookForReading = async (req, res) => {
         break;
     }
     
-    // Determine if we should use API or direct download from Calibre Content Server
-    const useContentServer = process.env.CALIBRE_SERVER_URL && !process.env.CALIBRE_USE_CLI_ONLY === 'true';
+    // Simply use the download URL from Calibre Content Server
+    const downloadUrl = `${process.env.CALIBRE_SERVER_URL}/get/${format}/${id}/calibre`;
     
-    if (useContentServer) {
-      // Create authentication header for Calibre Content Server
-      const auth = Buffer.from(`${process.env.CALIBRE_USERNAME}:${process.env.CALIBRE_PASSWORD}`).toString('base64');
-      
-      // Format the URL for the Calibre Content Server download
-      const downloadUrl = `${process.env.CALIBRE_SERVER_URL}/get/${format}/${id}/calibre`;
-      
-      log(`Fetching for reading from Calibre Content Server: ${downloadUrl}`);
-      
-      try {
-        // Use axios to proxy the download
-        const response = await axios({
-          method: 'get',
-          url: downloadUrl,
-          responseType: 'stream',
-          headers: {
-            'Authorization': `Basic ${auth}`
-          }
-        });
-        
-        // Set appropriate headers for CORS
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-        res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-        
-        // Set content type and cache for better performance
-        res.setHeader('Content-Type', contentType);
-        res.setHeader('Content-Disposition', `inline; filename="${book.title.replace(/[/\\?%*:|"<>]/g, '_')}.${format.toLowerCase()}"`);
-        res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
-        
-        // Pipe the download to the response
-        response.data.pipe(res);
-      } catch (downloadError) {
-        log(`Error fetching book for reading: ${downloadError.message}`);
-        return res.status(500).json({ message: 'Error fetching book for reading' });
+    log(`Fetching for reading from Calibre Content Server: ${downloadUrl}`);
+    
+    try {
+      // Create authentication header if credentials are provided
+      let headers = {};
+      if (process.env.CALIBRE_USERNAME && process.env.CALIBRE_PASSWORD) {
+        const auth = Buffer.from(`${process.env.CALIBRE_USERNAME}:${process.env.CALIBRE_PASSWORD}`).toString('base64');
+        headers['Authorization'] = `Basic ${auth}`;
       }
-    } else {
-      // If we have a direct path to the file in the Calibre library
-      if (book.formatMetadata && book.formatMetadata[format.toUpperCase()]) {
-        const filePath = book.formatMetadata[format.toUpperCase()].path;
+      
+      // Fetch the book content as a buffer (not a stream)
+      const response = await axios({
+        method: 'get',
+        url: downloadUrl,
+        responseType: 'arraybuffer',
+        headers
+      });
+      
+      // Set content type and other headers
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Disposition', `inline; filename="${book.title.replace(/[/\\?%*:|"<>]/g, '_')}.${format.toLowerCase()}"`);
+      res.setHeader('Content-Length', response.data.length);
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+      
+      // Send the buffer directly to the client
+      return res.send(response.data);
+    } catch (downloadError) {
+      log(`Error fetching book for reading: ${downloadError.message}`);
+      
+      let errorMessage = 'Error fetching book from Calibre Content Server';
+      let statusCode = 500;
+      
+      if (downloadError.code === 'ECONNREFUSED') {
+        errorMessage = 'Connection to Calibre Content Server refused. Please check if the server is running.';
+      } else if (downloadError.code === 'ENOTFOUND') {
+        errorMessage = 'Calibre Content Server hostname not found. Check CALIBRE_SERVER_URL.';
+      } else if (downloadError.response) {
+        statusCode = downloadError.response.status;
         
-        if (fs.existsSync(filePath)) {
-          log(`Streaming book file from path: ${filePath}`);
-          
-          // Set content type and headers
-          res.setHeader('Content-Type', contentType);
-          res.setHeader('Content-Disposition', `inline; filename="${book.title.replace(/[/\\?%*:|"<>]/g, '_')}.${format.toLowerCase()}"`);
-          
-          // Stream the file
-          const fileStream = fs.createReadStream(filePath);
-          fileStream.pipe(res);
-          return;
+        if (statusCode === 401 || statusCode === 403) {
+          errorMessage = 'Authentication failed for Calibre Content Server.';
+        } else if (statusCode === 404) {
+          errorMessage = `Book or format not found on Calibre Content Server. Book ID: ${id}, Format: ${format}`;
         }
       }
       
-      // Fallback to Calibre CLI
-      log('Using Calibre CLI to get book content');
-      try {
-        // Use calibredb export to get the book content
-        const tempDir = path.join(__dirname, '../temp');
-        if (!fs.existsSync(tempDir)) {
-          fs.mkdirSync(tempDir, { recursive: true });
-        }
-        
-        const outputPath = path.join(tempDir, `${book.title.replace(/[/\\?%*:|"<>]/g, '_')}_${Date.now()}.${format.toLowerCase()}`);
-        
-        // Export the book to the temp directory
-        await execAsync(`calibredb export --with-library="${process.env.CALIBRE_LIBRARY_PATH}" --formats=${format.toUpperCase()} --dont-save-cover --single-dir --to-dir="${tempDir}" ${id}`);
-        
-        // Find the exported file
-        const files = fs.readdirSync(tempDir);
-        const exportedFile = files.find(file => 
-          file.endsWith(`.${format.toLowerCase()}`) && 
-          file.includes(book.title.replace(/[/\\?%*:|"<>]/g, '_'))
-        );
-        
-        if (!exportedFile) {
-          throw new Error('Failed to export book file');
-        }
-        
-        const filePath = path.join(tempDir, exportedFile);
-        
-        // Set content type and headers
-        res.setHeader('Content-Type', contentType);
-        res.setHeader('Content-Disposition', `inline; filename="${exportedFile}"`);
-        
-        // Stream the file
-        const fileStream = fs.createReadStream(filePath);
-        
-        // Delete the file after sending
-        fileStream.on('close', () => {
-          try {
-            fs.unlinkSync(filePath);
-          } catch (e) {
-            log(`Error removing temp file: ${e.message}`);
-          }
-        });
-        
-        fileStream.pipe(res);
-      } catch (cliError) {
-        log(`Error using CLI to get book: ${cliError.message}`);
-        res.status(500).json({ message: 'Error retrieving book content', error: cliError.message });
-      }
+      return res.status(statusCode).json({ message: errorMessage });
     }
   } catch (error) {
     log(`Error getting book for reading: ${error.message}`);
