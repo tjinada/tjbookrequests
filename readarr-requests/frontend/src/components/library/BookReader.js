@@ -16,7 +16,8 @@ import {
   ListItemText,
   Divider,
   useTheme,
-  useMediaQuery
+  useMediaQuery,
+  Button
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -26,11 +27,14 @@ import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 import BrightnessHighIcon from '@mui/icons-material/BrightnessHigh';
 import BrightnessLowIcon from '@mui/icons-material/BrightnessLow';
 import SettingsIcon from '@mui/icons-material/Settings';
+import DownloadIcon from '@mui/icons-material/Download';
+import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
 import api from '../../utils/api';
 
-// This is a simple placeholder for a book reader component
-// In a real application, you would use a more sophisticated library for EPUB/PDF reading
-// such as epub.js, pdf.js, or a commercial solution
+// Import the specialized reader components
+import EpubReader from './EpubReader';
+import PdfReader from './PdfReader';
+
 const BookReader = () => {
   const { id, format = 'epub' } = useParams();
   const navigate = useNavigate();
@@ -41,6 +45,8 @@ const BookReader = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [book, setBook] = useState(null);
+  const [availableFormats, setAvailableFormats] = useState([]);
+  const [currentFormat, setCurrentFormat] = useState(format.toLowerCase());
   
   // Reader settings
   const [fontSize, setFontSize] = useState(100); // percentage
@@ -48,7 +54,7 @@ const BookReader = () => {
   const [settingsOpen, setSettingsOpen] = useState(false);
   
   // Content frame reference
-  const contentRef = useRef(null);
+  const readerContainerRef = useRef(null);
   
   // Load book data when component mounts
   useEffect(() => {
@@ -61,24 +67,43 @@ const BookReader = () => {
     // Function to load book data
     const loadBook = async () => {
       try {
+        setLoading(true);
         // Get book details
         const bookResponse = await api.get(`/library/book/${id}`);
         setBook(bookResponse.data);
         
-        // For a real reader, you would load the book content here
-        // This placeholder just simulates loading
-        setTimeout(() => {
-          setLoading(false);
-        }, 1500);
+        // Get available formats
+        const formatsResponse = await api.get(`/library/formats/${id}`);
+        setAvailableFormats(formatsResponse.data.formats || []);
+        
+        // Set current format if available, otherwise use the first available format
+        if (formatsResponse.data.formats && formatsResponse.data.formats.length > 0) {
+          const lowerFormat = format.toLowerCase();
+          if (formatsResponse.data.formats.some(fmt => fmt.toLowerCase() === lowerFormat)) {
+            setCurrentFormat(lowerFormat);
+          } else {
+            setCurrentFormat(formatsResponse.data.formats[0].toLowerCase());
+          }
+        }
+        
+        setLoading(false);
       } catch (err) {
         console.error('Error loading book:', err);
-        setError('Failed to load book. Please try again.');
+        setError('Failed to load book information. Please try again.');
         setLoading(false);
       }
     };
     
     loadBook();
   }, [id, format]);
+  
+  // Change book format
+  const changeFormat = (newFormat) => {
+    if (newFormat === currentFormat) return;
+    
+    setCurrentFormat(newFormat);
+    navigate(`/read/${id}/${newFormat}`);
+  };
   
   // Toggle settings drawer
   const toggleSettings = () => {
@@ -93,22 +118,28 @@ const BookReader = () => {
   // Update font size
   const handleFontSizeChange = (event, newValue) => {
     setFontSize(newValue);
-    
-    // Apply font size to content
-    if (contentRef.current) {
-      contentRef.current.style.fontSize = `${newValue}%`;
-    }
   };
   
   // Update brightness
   const handleBrightnessChange = (event, newValue) => {
     setBrightness(newValue);
     
-    // Apply brightness to content container
-    if (contentRef.current) {
-      const opacity = (100 - newValue) / 100;
-      contentRef.current.style.boxShadow = `inset 0 0 0 2000px rgba(0, 0, 0, ${opacity})`;
+    // Apply brightness to reader container
+    if (readerContainerRef.current) {
+      readerContainerRef.current.style.filter = `brightness(${newValue}%)`;
     }
+  };
+  
+  // Handle direct download
+  const handleDownload = () => {
+    // Create the download URL
+    const downloadUrl = `/api/library/download/${id}/${currentFormat}`;
+    window.open(downloadUrl, '_blank');
+  };
+  
+  // Get URL for reader
+  const getReaderUrl = () => {
+    return `/api/library/reading/${id}/${currentFormat}`;
   };
   
   // Render loading state
@@ -124,7 +155,7 @@ const BookReader = () => {
       }}>
         <CircularProgress />
         <Typography variant="body1" sx={{ mt: 2 }}>
-          Loading book...
+          Loading book information...
         </Typography>
       </Box>
     );
@@ -155,6 +186,14 @@ const BookReader = () => {
         <Typography variant="body1">
           Unable to load the book. Please try again or select a different format.
         </Typography>
+        <Button 
+          variant="contained" 
+          onClick={handleClose} 
+          startIcon={<ArrowBackIcon />}
+          sx={{ mt: 3 }}
+        >
+          Return to Library
+        </Button>
       </Box>
     );
   }
@@ -199,62 +238,73 @@ const BookReader = () => {
           {book?.title || 'Book Reader'}
         </Typography>
         
-        <IconButton onClick={toggleSettings}>
-          <SettingsIcon />
-        </IconButton>
+        <Box>
+          <Tooltip title="Download this book">
+            <IconButton onClick={handleDownload} sx={{ mr: 1 }}>
+              <DownloadIcon />
+            </IconButton>
+          </Tooltip>
+          <IconButton onClick={toggleSettings}>
+            <SettingsIcon />
+          </IconButton>
+        </Box>
       </Paper>
       
       {/* Reader content area */}
       <Box 
-        ref={contentRef}
+        ref={readerContainerRef}
         sx={{ 
           flex: 1, 
-          overflowY: 'auto',
-          p: 2,
+          overflow: 'hidden',
           transition: 'all 0.3s ease',
-          fontSize: `${fontSize}%`
+          position: 'relative'
         }}
       >
-        {/* This is a placeholder for actual book content */}
-        <Box sx={{ maxWidth: 800, mx: 'auto', p: 2 }}>
-          <Typography variant="h4" gutterBottom align="center">
-            {book?.title || 'Sample Book'}
-          </Typography>
-          
-          <Typography variant="h6" gutterBottom align="center" color="text.secondary">
-            {book?.author || 'Unknown Author'}
-          </Typography>
-          
-          <Divider sx={{ my: 3 }} />
-          
-          <Typography paragraph>
-            This is a placeholder for the actual book content. In a real implementation,
-            you would integrate an EPUB or PDF reader library to display the book content here.
-          </Typography>
-          
-          <Typography paragraph>
-            For EPUBs, you could use libraries like epub.js or Readium.
-            For PDFs, you could use libraries like PDF.js.
-          </Typography>
-          
-          <Typography paragraph>
-            The content would be loaded from the server using the endpoint:
-            <Box component="code" sx={{ display: 'block', bgcolor: 'background.paper', p: 1, mt: 1, borderRadius: 1 }}>
-              /api/library/reading/{id}/{format}
-            </Box>
-          </Typography>
-          
-          <Typography paragraph>
-            Adjust the font size and brightness using the settings panel to see how those controls work in this demo.
-          </Typography>
-          
-          {/* Create some dummy paragraphs to demonstrate scrolling */}
-          {Array.from({ length: 10 }).map((_, index) => (
-            <Typography key={index} paragraph>
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam in dui mauris. Vivamus hendrerit arcu sed erat molestie vehicula. Sed auctor neque eu tellus rhoncus ut eleifend nibh porttitor. Ut in nulla enim. Phasellus molestie magna non est bibendum non venenatis nisl tempor. Suspendisse dictum feugiat nisl ut dapibus. Mauris iaculis porttitor posuere.
+        {/* EPUB Reader */}
+        {currentFormat === 'epub' && (
+          <Box sx={{ height: '100%' }}>
+            <EpubReader 
+              url={getReaderUrl()} 
+              fontSize={fontSize}
+            />
+          </Box>
+        )}
+        
+        {/* PDF Reader */}
+        {currentFormat === 'pdf' && (
+          <Box sx={{ height: '100%' }}>
+            <PdfReader 
+              url={getReaderUrl()} 
+              initialScale={fontSize / 100}
+            />
+          </Box>
+        )}
+        
+        {/* Fallback for other formats */}
+        {currentFormat !== 'epub' && currentFormat !== 'pdf' && (
+          <Box sx={{ 
+            height: '100%', 
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            p: 3
+          }}>
+            <Alert severity="warning" sx={{ mb: 3 }}>
+              The format {currentFormat.toUpperCase()} cannot be viewed directly in the browser.
+            </Alert>
+            <Typography variant="body1" paragraph>
+              Please download the book to view it in an external reader application.
             </Typography>
-          ))}
-        </Box>
+            <Button 
+              variant="contained" 
+              startIcon={<DownloadIcon />}
+              onClick={handleDownload}
+            >
+              Download {currentFormat.toUpperCase()}
+            </Button>
+          </Box>
+        )}
       </Box>
       
       {/* Settings drawer */}
@@ -310,20 +360,31 @@ const BookReader = () => {
             Available Formats
           </Typography>
           <List dense>
-            {book?.formats?.map(fmt => (
+            {availableFormats.map(fmt => (
               <ListItem 
                 key={fmt}
                 button
-                selected={fmt.toLowerCase() === format.toLowerCase()}
-                onClick={() => navigate(`/read/${id}/${fmt.toLowerCase()}`)}
+                selected={fmt.toLowerCase() === currentFormat.toLowerCase()}
+                onClick={() => changeFormat(fmt.toLowerCase())}
               >
                 <ListItemText 
                   primary={fmt} 
-                  secondary={fmt.toLowerCase() === format.toLowerCase() ? 'Current' : null}
+                  secondary={fmt.toLowerCase() === currentFormat.toLowerCase() ? 'Current' : null}
                 />
               </ListItem>
             ))}
           </List>
+          
+          <Box sx={{ mt: 3 }}>
+            <Button 
+              variant="contained" 
+              startIcon={<DownloadIcon />}
+              fullWidth
+              onClick={handleDownload}
+            >
+              Download {currentFormat.toUpperCase()}
+            </Button>
+          </Box>
         </Box>
       </Drawer>
     </Box>

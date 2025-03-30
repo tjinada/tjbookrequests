@@ -549,7 +549,7 @@ exports.getBookForReading = async (req, res) => {
     log(`Reading request for book ID: ${id} in format: ${format} by user: ${username}`);
     
     // Validate the format (security measure)
-    const validFormats = ['EPUB', 'PDF', 'HTML', 'TXT'];
+    const validFormats = ['EPUB', 'PDF', 'HTML', 'TXT', 'MOBI', 'AZW3', 'KEPUB'];
     if (!validFormats.includes(format.toUpperCase())) {
       return res.status(400).json({ message: 'Invalid format requested for reading' });
     }
@@ -562,8 +562,17 @@ exports.getBookForReading = async (req, res) => {
     }
     
     // Check user has access to this book (username is in tags)
-    if (!book.tags || !book.tags.some(tag => tag.toLowerCase() === username.toLowerCase())) {
+    const hasAccess = userDoc.role === 'admin' || 
+                     (book.tags && book.tags.some(tag => 
+                       tag.toLowerCase() === username.toLowerCase()));
+    
+    if (!hasAccess) {
       return res.status(403).json({ message: 'You do not have access to this book' });
+    }
+    
+    // Check if the requested format is available
+    if (!book.formats || !book.formats.some(f => f.toLowerCase() === format.toLowerCase())) {
+      return res.status(404).json({ message: `Book is not available in ${format} format` });
     }
     
     // Set content type based on format
@@ -581,10 +590,19 @@ exports.getBookForReading = async (req, res) => {
       case 'TXT':
         contentType = 'text/plain';
         break;
+      case 'MOBI':
+        contentType = 'application/x-mobipocket-ebook';
+        break;
+      case 'AZW3':
+        contentType = 'application/vnd.amazon.ebook';
+        break;
+      case 'KEPUB':
+        contentType = 'application/epub+zip';
+        break;
     }
     
     // Determine if we should use API or direct download from Calibre Content Server
-    const useContentServer = process.env.CALIBRE_SERVER_URL && !process.env.CALIBRE_USE_CLI_ONLY;
+    const useContentServer = process.env.CALIBRE_SERVER_URL && !process.env.CALIBRE_USE_CLI_ONLY === 'true';
     
     if (useContentServer) {
       // Create authentication header for Calibre Content Server
@@ -606,8 +624,15 @@ exports.getBookForReading = async (req, res) => {
           }
         });
         
-        // Set content type for streaming
+        // Set appropriate headers for CORS
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+        
+        // Set content type and cache for better performance
         res.setHeader('Content-Type', contentType);
+        res.setHeader('Content-Disposition', `inline; filename="${book.title.replace(/[/\\?%*:|"<>]/g, '_')}.${format.toLowerCase()}"`);
+        res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
         
         // Pipe the download to the response
         response.data.pipe(res);
@@ -616,9 +641,72 @@ exports.getBookForReading = async (req, res) => {
         return res.status(500).json({ message: 'Error fetching book for reading' });
       }
     } else {
-      // Use Calibre CLI for getting the book content (this might need to be handled differently)
-      log('Calibre Content Server not available, using CLI');
-      res.status(501).json({ message: 'CLI reading not implemented yet' });
+      // If we have a direct path to the file in the Calibre library
+      if (book.formatMetadata && book.formatMetadata[format.toUpperCase()]) {
+        const filePath = book.formatMetadata[format.toUpperCase()].path;
+        
+        if (fs.existsSync(filePath)) {
+          log(`Streaming book file from path: ${filePath}`);
+          
+          // Set content type and headers
+          res.setHeader('Content-Type', contentType);
+          res.setHeader('Content-Disposition', `inline; filename="${book.title.replace(/[/\\?%*:|"<>]/g, '_')}.${format.toLowerCase()}"`);
+          
+          // Stream the file
+          const fileStream = fs.createReadStream(filePath);
+          fileStream.pipe(res);
+          return;
+        }
+      }
+      
+      // Fallback to Calibre CLI
+      log('Using Calibre CLI to get book content');
+      try {
+        // Use calibredb export to get the book content
+        const tempDir = path.join(__dirname, '../temp');
+        if (!fs.existsSync(tempDir)) {
+          fs.mkdirSync(tempDir, { recursive: true });
+        }
+        
+        const outputPath = path.join(tempDir, `${book.title.replace(/[/\\?%*:|"<>]/g, '_')}_${Date.now()}.${format.toLowerCase()}`);
+        
+        // Export the book to the temp directory
+        await execAsync(`calibredb export --with-library="${process.env.CALIBRE_LIBRARY_PATH}" --formats=${format.toUpperCase()} --dont-save-cover --single-dir --to-dir="${tempDir}" ${id}`);
+        
+        // Find the exported file
+        const files = fs.readdirSync(tempDir);
+        const exportedFile = files.find(file => 
+          file.endsWith(`.${format.toLowerCase()}`) && 
+          file.includes(book.title.replace(/[/\\?%*:|"<>]/g, '_'))
+        );
+        
+        if (!exportedFile) {
+          throw new Error('Failed to export book file');
+        }
+        
+        const filePath = path.join(tempDir, exportedFile);
+        
+        // Set content type and headers
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Content-Disposition', `inline; filename="${exportedFile}"`);
+        
+        // Stream the file
+        const fileStream = fs.createReadStream(filePath);
+        
+        // Delete the file after sending
+        fileStream.on('close', () => {
+          try {
+            fs.unlinkSync(filePath);
+          } catch (e) {
+            log(`Error removing temp file: ${e.message}`);
+          }
+        });
+        
+        fileStream.pipe(res);
+      } catch (cliError) {
+        log(`Error using CLI to get book: ${cliError.message}`);
+        res.status(500).json({ message: 'Error retrieving book content', error: cliError.message });
+      }
     }
   } catch (error) {
     log(`Error getting book for reading: ${error.message}`);

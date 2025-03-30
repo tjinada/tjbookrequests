@@ -14,6 +14,7 @@ import Layout from './components/layout/Layout';
 import AdminRoute from './components/routing/AdminRoute';
 import { LibraryProvider } from './context/LibraryContext';
 import Reader from './pages/Reader';
+import './pdfjs-worker'; // Initialize PDF.js worker
 
 
 // Lazy-loaded components
