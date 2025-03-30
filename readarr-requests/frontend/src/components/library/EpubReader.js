@@ -4,8 +4,16 @@ import { ReactReader } from 'react-reader';
 import { Box, CircularProgress, Typography, Alert } from '@mui/material';
 import api from '../../utils/api';
 
-const EpubReader = ({ url, fontSize = 100, theme = 'light' }) => {
-  const [location, setLocation] = useState(null);
+const EpubReader = ({ 
+  url, 
+  fontSize = 100, 
+  theme = 'light',
+  initialLocation = null,
+  locationChanged = () => {},
+  tocChanged = () => {},
+  getRendition = () => {}
+}) => {
+  const [location, setLocation] = useState(initialLocation);
   const [rendition, setRendition] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -56,9 +64,12 @@ const EpubReader = ({ url, fontSize = 100, theme = 'light' }) => {
   
   // Keep track of locator
   const renditionRef = useRef(null);
-  const locationChanged = (epubcifi) => {
+  const handleLocationChange = (epubcifi) => {
     // epubcifi is a string containing the current location in the book
     setLocation(epubcifi);
+    
+    // Notify parent component about location change
+    locationChanged(epubcifi);
     
     // If we have a rendition, we can get the current page
     if (renditionRef.current) {
@@ -81,10 +92,13 @@ const EpubReader = ({ url, fontSize = 100, theme = 'light' }) => {
   };
   
   // Set up rendition
-  const getRendition = (rendition) => {
+  const handleRenditionReady = (rendition) => {
     // Store rendition for later use
     renditionRef.current = rendition;
     setRendition(rendition);
+    
+    // Pass rendition to parent component
+    getRendition(rendition);
     
     // Apply font size
     rendition.themes.fontSize(`${fontSize}%`);
@@ -184,11 +198,12 @@ const EpubReader = ({ url, fontSize = 100, theme = 'light' }) => {
           url={bookData}
           title={""}
           location={location}
-          locationChanged={locationChanged}
-          getRendition={getRendition}
+          locationChanged={handleLocationChange}
+          getRendition={handleRenditionReady}
           showToc={false}
           tocChanged={(toc) => {
             tocRef.current = toc;
+            tocChanged(toc);
           }}
           epubOptions={{
             flow: 'paginated',

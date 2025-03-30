@@ -11,9 +11,9 @@ import {
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 
-const ReaderControls = ({ onPrev, onNext, currentPage, totalPages }) => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+const ReaderControls = ({ onPrev, onNext, currentPage, totalPages, theme = 'light' }) => {
+  const muiTheme = useTheme();
+  const isMobile = useMediaQuery(muiTheme.breakpoints.down('sm'));
   const [visible, setVisible] = useState(false);
   const [idleTimer, setIdleTimer] = useState(null);
   const [touchStartX, setTouchStartX] = useState(null);
@@ -122,10 +122,11 @@ const ReaderControls = ({ onPrev, onNext, currentPage, totalPages }) => {
           <IconButton
             onClick={onPrev}
             sx={{
-              bgcolor: 'background.paper',
+              bgcolor: theme === 'dark' ? 'rgba(50, 50, 50, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+              color: theme === 'dark' ? 'white' : 'inherit',
               boxShadow: 2,
               '&:hover': {
-                bgcolor: 'background.default',
+                bgcolor: theme === 'dark' ? 'rgba(70, 70, 70, 0.9)' : 'rgba(240, 240, 240, 0.9)',
               },
               pointerEvents: 'auto', // Make the button clickable
             }}
@@ -137,10 +138,11 @@ const ReaderControls = ({ onPrev, onNext, currentPage, totalPages }) => {
           <IconButton
             onClick={onNext}
             sx={{
-              bgcolor: 'background.paper',
+              bgcolor: theme === 'dark' ? 'rgba(50, 50, 50, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+              color: theme === 'dark' ? 'white' : 'inherit',
               boxShadow: 2,
               '&:hover': {
-                bgcolor: 'background.default',
+                bgcolor: theme === 'dark' ? 'rgba(70, 70, 70, 0.9)' : 'rgba(240, 240, 240, 0.9)',
               },
               pointerEvents: 'auto', // Make the button clickable
             }}
@@ -159,7 +161,7 @@ const ReaderControls = ({ onPrev, onNext, currentPage, totalPages }) => {
             bottom: 16,
             left: '50%',
             transform: 'translateX(-50%)',
-            bgcolor: 'rgba(0, 0, 0, 0.6)',
+            bgcolor: theme === 'dark' ? 'rgba(50, 50, 50, 0.8)' : 'rgba(0, 0, 0, 0.6)',
             color: 'white',
             px: 2,
             py: 0.5,

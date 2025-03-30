@@ -34,6 +34,11 @@ const useBookmarks = (bookId) => {
   const addBookmark = (cfi, title = 'Unnamed bookmark') => {
     if (!bookId || !cfi) return;
     
+    // Check if this location is already bookmarked
+    if (isBookmarked(cfi)) {
+      return null;
+    }
+    
     // Create a new bookmark with timestamp
     const newBookmark = {
       cfi,
