@@ -4,7 +4,7 @@ import { ReactReader } from 'react-reader';
 import { Box, CircularProgress, Typography, Alert } from '@mui/material';
 import api from '../../utils/api';
 
-const EpubReader = ({ url, fontSize = 100 }) => {
+const EpubReader = ({ url, fontSize = 100, theme = 'light' }) => {
   const [location, setLocation] = useState(null);
   const [rendition, setRendition] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -64,16 +64,16 @@ const EpubReader = ({ url, fontSize = 100 }) => {
       const currentLocation = renditionRef.current.location;
       if (currentLocation && currentLocation.start) {
         // Update current page (rough approximation)
-        const { displayed, total } = currentLocation.start.percentage ? 
-          {
-            displayed: Math.ceil(currentLocation.start.percentage * 100),
-            total: 100
-          } : 
-          currentLocation;
-        
-        if (displayed && total) {
-          setCurrentPage(displayed);
-          setTotalPages(total);
+        if (currentLocation.start.displayed && currentLocation.start.total) {
+          // Page-based tracking
+          const { displayed, total } = currentLocation.start;
+          setCurrentPage(displayed.page);
+          setTotalPages(total.pages);
+        } else if (currentLocation.start.percentage) {
+          // Percentage-based tracking
+          const percentage = currentLocation.start.percentage * 100;
+          setCurrentPage(Math.round(percentage));
+          setTotalPages(100);
         }
       }
     }
@@ -88,6 +88,88 @@ const EpubReader = ({ url, fontSize = 100 }) => {
     // Apply font size
     rendition.themes.fontSize(`${fontSize}%`);
     
+    // Register themes for different display modes
+    rendition.themes.register('light', {
+      body: { 
+        color: '#000', 
+        background: '#fff'
+      },
+      'a': { color: '#1e88e5' },
+      'h1, h2, h3, h4, h5, h6': { color: '#333' }
+    });
+    
+    rendition.themes.register('sepia', {
+      body: { 
+        color: '#5B4636', 
+        background: '#FBF0D9'
+      },
+      'a': { color: '#b7410e' }
+    });
+    
+    rendition.themes.register('dark', {
+      body: { 
+        color: '#e0e0e0', 
+        background: '#303030'
+      },
+      'a': { color: '#90caf9' },
+      'h1, h2, h3, h4, h5, h6': { color: '#e0e0e0' },
+      'img, image': { 'filter': 'brightness(.8) contrast(1.2)' },
+      'p': { color: '#e0e0e0' }
+    });
+    
+    // Apply theme based on setting
+    rendition.themes.select(theme);
+    
+    // Fix for TOC navigation in PWAs
+    rendition.hooks.content.register(contents => {
+      // Fix links to prevent navigation issues
+      contents.window.addEventListener('click', (event) => {
+        if (event.target.tagName.toLowerCase() === 'a' && event.target.href) {
+          // Prevent default navigation
+          event.preventDefault();
+          
+          // Get the href attribute
+          const href = event.target.getAttribute('href');
+          
+          // Only handle internal navigation
+          if (href && !href.startsWith('http')) {
+            try {
+              // Try to navigate internally
+              rendition.display(href);
+            } catch (error) {
+              console.error('Error navigating to link:', error);
+              
+              // Fallback navigation methods
+              try {
+                // Try parsing the href to extract chapter id
+                const hashIndex = href.indexOf('#');
+                if (hashIndex > -1) {
+                  const chapterId = href.substring(hashIndex + 1);
+                  rendition.display(chapterId);
+                } else {
+                  // Last resort: try direct navigation
+                  rendition.display(href);
+                }
+              } catch (fallbackError) {
+                console.error('Fallback navigation failed:', fallbackError);
+              }
+            }
+          }
+        }
+      });
+      
+      // Prevent additional issues with touch events on links
+      contents.window.addEventListener('touchend', (event) => {
+        if (event.target.tagName.toLowerCase() === 'a' && event.target.href) {
+          event.preventDefault();
+          const href = event.target.getAttribute('href');
+          if (href && !href.startsWith('http')) {
+            rendition.display(href);
+          }
+        }
+      }, { passive: false });
+    });
+    
     // Loading is complete
     setLoading(false);
   };
@@ -98,6 +180,13 @@ const EpubReader = ({ url, fontSize = 100 }) => {
       rendition.themes.fontSize(`${fontSize}%`);
     }
   }, [fontSize, rendition]);
+  
+  // Update theme when it changes
+  useEffect(() => {
+    if (rendition) {
+      rendition.themes.select(theme);
+    }
+  }, [theme, rendition]);
   
   return (
     <Box sx={{ height: '100%', position: 'relative' }}>
@@ -111,12 +200,12 @@ const EpubReader = ({ url, fontSize = 100 }) => {
           display: 'flex', 
           alignItems: 'center', 
           justifyContent: 'center',
-          backgroundColor: 'rgba(255,255,255,0.7)',
+          backgroundColor: theme === 'dark' ? 'rgba(48,48,48,0.7)' : 'rgba(255,255,255,0.7)',
           zIndex: 1,
           flexDirection: 'column'
         }}>
           <CircularProgress />
-          <Typography variant="body2" sx={{ mt: 2 }}>
+          <Typography variant="body2" sx={{ mt: 2, color: theme === 'dark' ? '#e0e0e0' : 'inherit' }}>
             Loading EPUB...
           </Typography>
         </Box>
@@ -144,36 +233,42 @@ const EpubReader = ({ url, fontSize = 100 }) => {
           locationChanged={locationChanged}
           getRendition={getRendition}
           showToc={false}
-          epubInitOptions={{
-            openAs: 'epub'
+          epubOptions={{
+            allowPopups: true,
+            flow: 'paginated',
+            manager: 'continuous'
           }}
           styles={{
             container: {
               height: '100%',
-              width: '100%'
+              width: '100%',
+              backgroundColor: theme === 'dark' ? '#303030' : 
+                              theme === 'sepia' ? '#FBF0D9' : '#fff'
             },
             readerArea: {
               height: '100%',
               width: '100%',
-              backgroundColor: '#fff'
+              padding: '20px 0'
             }
           }}
         />
       )}
       
-      {totalPages > 0 && (
+      {/* Page indicator */}
+      {totalPages > 0 && !loading && (
         <Box sx={{ 
           position: 'absolute', 
           bottom: 10, 
           right: 10, 
-          backgroundColor: 'rgba(255,255,255,0.8)', 
+          backgroundColor: theme === 'dark' ? 'rgba(60,60,60,0.8)' : 'rgba(255,255,255,0.8)', 
+          color: theme === 'dark' ? '#fff' : 'inherit',
           borderRadius: 10, 
           px: 1.5, 
           py: 0.5,
           fontSize: '0.8rem',
           boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
         }}>
-          {currentPage} / {totalPages}
+          {totalPages === 100 ? `${currentPage}%` : `${currentPage} / ${totalPages}`}
         </Box>
       )}
     </Box>

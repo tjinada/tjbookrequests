@@ -14,7 +14,8 @@ import {
   Select,
   MenuItem,
   useMediaQuery,
-  useTheme
+  useTheme,
+  Button
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import TextIncreaseIcon from '@mui/icons-material/TextIncrease';
@@ -23,34 +24,31 @@ import FormatLineSpacingIcon from '@mui/icons-material/FormatLineSpacing';
 import Brightness4Icon from '@mui/icons-material/Brightness4';
 import Brightness7Icon from '@mui/icons-material/Brightness7';
 import InvertColorsIcon from '@mui/icons-material/InvertColors';
+import RefreshIcon from '@mui/icons-material/Refresh';
 
 const ReaderSettings = ({
   open,
   onClose,
   fontSize,
   setFontSize,
-  theme: readerTheme,
-  setTheme: setReaderTheme,
+  theme = 'light',
+  setTheme,
   fontFamily,
   setFontFamily,
   lineSpacing,
   setLineSpacing
 }) => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const muiTheme = useTheme();
+  const isMobile = useMediaQuery(muiTheme.breakpoints.down('sm'));
   
   // Font size change handler
   const handleFontSizeChange = (event, newValue) => {
     setFontSize(newValue);
-    // Save to localStorage
-    localStorage.setItem('reader_fontSize', newValue);
   };
   
   // Line spacing change handler
   const handleLineSpacingChange = (event, newValue) => {
     setLineSpacing(newValue);
-    // Save to localStorage
-    localStorage.setItem('reader_lineSpacing', newValue);
   };
   
   // Theme change handler
@@ -58,16 +56,20 @@ const ReaderSettings = ({
     // Don't allow deselecting the theme
     if (newTheme === null) return;
     
-    setReaderTheme(newTheme);
-    // Save to localStorage
-    localStorage.setItem('reader_theme', newTheme);
+    setTheme(newTheme);
   };
   
   // Font family change handler
   const handleFontFamilyChange = (event) => {
     setFontFamily(event.target.value);
-    // Save to localStorage
-    localStorage.setItem('reader_fontFamily', event.target.value);
+  };
+
+  // Reset all settings to defaults
+  const handleResetSettings = () => {
+    setFontSize(100);
+    setLineSpacing(1.5);
+    setTheme('light');
+    setFontFamily('serif');
   };
 
   return (
@@ -125,7 +127,7 @@ const ReaderSettings = ({
               max={2}
               step={0.1}
               valueLabelDisplay="auto"
-              valueLabelFormat={(value) => `${value}`}
+              valueLabelFormat={(value) => `${value.toFixed(1)}`}
             />
             <FormatLineSpacingIcon sx={{ ml: 2 }} />
           </Box>
@@ -135,7 +137,7 @@ const ReaderSettings = ({
         <Box sx={{ mb: 4 }}>
           <Typography gutterBottom>Theme</Typography>
           <ToggleButtonGroup
-            value={readerTheme}
+            value={theme}
             exclusive
             onChange={handleThemeChange}
             aria-label="reader theme"
@@ -180,6 +182,17 @@ const ReaderSettings = ({
             </Select>
           </FormControl>
         </Box>
+        
+        {/* Reset button */}
+        <Button
+          variant="outlined"
+          startIcon={<RefreshIcon />}
+          onClick={handleResetSettings}
+          fullWidth
+          sx={{ mb: 3 }}
+        >
+          Reset to Defaults
+        </Button>
         
         <Divider sx={{ my: 2 }} />
         
