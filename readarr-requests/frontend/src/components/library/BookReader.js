@@ -114,23 +114,49 @@ const BookReader = () => {
 
   // Add CSS for dark mode header
   useEffect(() => {
+    // Create a style tag to inject CSS
     const style = document.createElement('style');
-    style.id = 'reader-header-styles';
-    style.textContent = `
-      .MuiPaper-root.reader-header {
-        background-color: ${readerTheme === 'dark' ? '#222' : '#fff'};
-        color: ${readerTheme === 'dark' ? '#fff' : '#000'};
-        border-bottom: 1px solid ${readerTheme === 'dark' ? '#444' : '#eee'};
-      }
-      .reader-header .MuiIconButton-root {
-        color: ${readerTheme === 'dark' ? '#fff' : 'inherit'};
-      }
-    `;
+    style.id = 'dark-mode-epub-fix';
+    
+    if (readerTheme === 'dark') {
+      style.textContent = `
+        /* Target the epub container and any iframes */
+        .epub-container {
+          background-color: black !important;
+        }
+        
+        .epub-view {
+          background-color: black !important;
+        }
+        
+        .epub-view iframe {
+          background-color: black !important;
+          border: none !important;
+        }
+        
+        /* Fix any possible borders on the reader area */
+        #viewer {
+          background-color: black !important;
+        }
+        
+        /* Target any potential margin creators */
+        body > div {
+          background-color: black !important;
+        }
+      `;
+    } else {
+      style.textContent = '';
+    }
+    
+    // Add the style to the document head
     document.head.appendChild(style);
     
+    // Clean up the style tag when component unmounts or theme changes
     return () => {
-      const element = document.getElementById('reader-header-styles');
-      if (element) element.remove();
+      const element = document.getElementById('dark-mode-epub-fix');
+      if (element) {
+        element.remove();
+      }
     };
   }, [readerTheme]);
   
