@@ -29,15 +29,37 @@ const BookmarkDrawer = ({
   onRemoveBookmark,
   currentLocation,
   bookTitle,
-  bookAuthor
+  bookAuthor,
+  theme = 'light'
 }) => {
+  // Get theme-specific styles
+  const getBackgroundColor = () => {
+    if (theme === 'dark') return '#333';
+    if (theme === 'sepia') return '#f5e6c8';
+    return '#fff';
+  };
+  
+  const getTextColor = () => {
+    if (theme === 'dark') return '#ddd';
+    return 'text.primary';
+  };
+  
+  const getSecondaryColor = () => {
+    if (theme === 'dark') return '#aaa';
+    return 'text.secondary';
+  };
+  
   return (
     <Drawer
       anchor="left"
       open={open}
       onClose={onClose}
       PaperProps={{
-        sx: { width: { xs: '80%', sm: 300 } }
+        sx: { 
+          width: { xs: '80%', sm: 300 },
+          bgcolor: getBackgroundColor(),
+          color: getTextColor()
+        }
       }}
     >
       <Box sx={{ 
@@ -47,18 +69,18 @@ const BookmarkDrawer = ({
         justifyContent: 'space-between' 
       }}>
         <Typography variant="h6">Contents & Bookmarks</Typography>
-        <IconButton onClick={onClose}>
+        <IconButton onClick={onClose} sx={{ color: getTextColor() }}>
           <CloseIcon />
         </IconButton>
       </Box>
       
-      <Divider />
+      <Divider sx={{ borderColor: theme === 'dark' ? 'rgba(255,255,255,0.12)' : 'divider' }} />
       
       <Box sx={{ p: 2 }}>
         <Typography variant="subtitle1" gutterBottom>
           {bookTitle || 'Book Reader'}
         </Typography>
-        <Typography variant="body2" color="text.secondary" gutterBottom>
+        <Typography variant="body2" color={getSecondaryColor()} gutterBottom>
           {bookAuthor || 'Unknown Author'}
         </Typography>
       </Box>
@@ -80,6 +102,13 @@ const BookmarkDrawer = ({
             startIcon={<BookmarkAddIcon />}
             onClick={onAddBookmark}
             disabled={!currentLocation}
+            sx={{ 
+              color: theme === 'dark' ? '#fff' : undefined,
+              borderColor: theme === 'dark' ? 'rgba(255,255,255,0.5)' : undefined,
+              '&.Mui-disabled': {
+                color: theme === 'dark' ? 'rgba(255,255,255,0.3)' : undefined,
+              }
+            }}
           >
             Add
           </Button>
@@ -94,7 +123,7 @@ const BookmarkDrawer = ({
                   py: 1, 
                   px: 1,
                   borderBottom: '1px solid',
-                  borderColor: 'divider',
+                  borderColor: theme === 'dark' ? 'rgba(255,255,255,0.12)' : 'divider',
                 }}
                 secondaryAction={
                   <IconButton 
@@ -102,13 +131,14 @@ const BookmarkDrawer = ({
                     aria-label="delete" 
                     size="small"
                     onClick={() => onRemoveBookmark(bookmark.cfi)}
+                    sx={{ color: theme === 'dark' ? '#aaa' : undefined }}
                   >
                     <DeleteIcon fontSize="small" />
                   </IconButton>
                 }
               >
-                <ListItemIcon sx={{ minWidth: 36 }}>
-                  <BookmarkIcon color="primary" fontSize="small" />
+                <ListItemIcon sx={{ minWidth: 36, color: theme === 'dark' ? '#80b3ff' : 'primary.main' }}>
+                  <BookmarkIcon fontSize="small" />
                 </ListItemIcon>
                 
                 <ListItemText 
@@ -116,7 +146,7 @@ const BookmarkDrawer = ({
                   primaryTypographyProps={{ 
                     noWrap: true,
                     variant: 'body2', 
-                    sx: { cursor: 'pointer' },
+                    sx: { cursor: 'pointer', color: getTextColor() },
                     onClick: () => onBookmarkClick(bookmark.cfi)
                   }}
                 />
@@ -124,13 +154,13 @@ const BookmarkDrawer = ({
             ))}
           </List>
         ) : (
-          <Typography variant="body2" color="text.secondary" sx={{ ml: 1, mb: 2 }}>
+          <Typography variant="body2" color={getSecondaryColor()} sx={{ ml: 1, mb: 2 }}>
             No bookmarks yet
           </Typography>
         )}
       </Box>
       
-      <Divider sx={{ my: 2 }} />
+      <Divider sx={{ my: 2, borderColor: theme === 'dark' ? 'rgba(255,255,255,0.12)' : 'divider' }} />
       
       {/* Table of Contents section */}
       {toc && toc.length > 0 && (
@@ -147,10 +177,10 @@ const BookmarkDrawer = ({
                   py: 1, 
                   px: 1,
                   borderBottom: '1px solid',
-                  borderColor: 'divider',
+                  borderColor: theme === 'dark' ? 'rgba(255,255,255,0.12)' : 'divider',
                 }}
               >
-                <ListItemIcon sx={{ minWidth: 36 }}>
+                <ListItemIcon sx={{ minWidth: 36, color: theme === 'dark' ? '#aaa' : undefined }}>
                   <MenuBookIcon fontSize="small" />
                 </ListItemIcon>
                 
@@ -159,7 +189,7 @@ const BookmarkDrawer = ({
                   primaryTypographyProps={{ 
                     noWrap: true,
                     variant: 'body2', 
-                    sx: { cursor: 'pointer' },
+                    sx: { cursor: 'pointer', color: getTextColor() },
                     onClick: () => onTocClick(chapter.href)
                   }}
                 />
