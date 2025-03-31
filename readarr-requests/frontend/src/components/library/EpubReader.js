@@ -24,6 +24,7 @@ const EpubReader = ({
   const [currentPage, setCurrentPage] = useState(0);
   const [bookData, setBookData] = useState(null);
   const tocRef = useRef(null);
+  const containerRef = useRef(null);
   
   // Fetch the EPUB file using authentication
   useEffect(() => {
@@ -133,11 +134,13 @@ const EpubReader = ({
     // Pass rendition to parent component
     getRendition(rendition);
     
-    // Apply global CSS to fix navigation elements
-    applyGlobalReaderCSS(theme);
-    
     // Loading is complete
     setLoading(false);
+
+    // Apply dark mode to iframe after a short delay to ensure it's loaded
+    setTimeout(() => {
+      applyDarkModeToIframe();
+    }, 500);
   };
   
   // Register all themes
@@ -199,83 +202,92 @@ const EpubReader = ({
     rendition.themes.override('line-height', `${spacing}`);
   };
   
-  // Apply global CSS to fix the ReactReader component styling
-  const applyGlobalReaderCSS = (theme) => {
-    // Check if the style element already exists
-    let styleElement = document.getElementById('epub-reader-style');
+  // Apply dark mode to iframes
+  const applyDarkModeToIframe = () => {
+    if (!containerRef.current) return;
     
-    // If not, create it
-    if (!styleElement) {
-      styleElement = document.createElement('style');
-      styleElement.id = 'epub-reader-style';
-      document.head.appendChild(styleElement);
+    try {
+      // Get all iframes inside the container
+      const iframes = containerRef.current.querySelectorAll('iframe');
+      
+      iframes.forEach(iframe => {
+        // Make sure the iframe is loaded
+        if (iframe.contentDocument && iframe.contentWindow) {
+          // Get background color based on current theme
+          const bgColor = theme === 'dark' ? '#222' : 
+                           theme === 'sepia' ? '#FBF0D9' : '#fff';
+          
+          // Apply background to the iframe's document
+          iframe.style.backgroundColor = bgColor;
+          iframe.contentDocument.body.style.backgroundColor = bgColor;
+          
+          // Apply to the parent elements
+          if (iframe.parentElement) {
+            iframe.parentElement.style.backgroundColor = bgColor;
+            
+            if (iframe.parentElement.parentElement) {
+              iframe.parentElement.parentElement.style.backgroundColor = bgColor;
+            }
+          }
+          
+          // Add a style tag to the iframe's document head
+          const style = document.createElement('style');
+          style.textContent = `
+            html, body { 
+              background-color: ${bgColor} !important; 
+            }
+            .epub-container {
+              background-color: ${bgColor} !important;
+            }
+          `;
+          
+          // Remove any existing style tag we added before
+          const existingStyle = iframe.contentDocument.getElementById('dark-mode-style');
+          if (existingStyle) {
+            existingStyle.remove();
+          }
+          
+          // Add the new style tag
+          style.id = 'dark-mode-style';
+          iframe.contentDocument.head.appendChild(style);
+          
+          console.log('Dark mode applied to iframe');
+        }
+      });
+      
+      // Also apply styling to the ReactReader containers
+      const readerElements = document.querySelectorAll('.ReactReader, .ReactReader__container, .ReactReader__viewer');
+      const bgColor = theme === 'dark' ? '#222' : 
+                       theme === 'sepia' ? '#FBF0D9' : '#fff';
+      const textColor = theme === 'dark' ? '#c4c4c4' : 
+                        theme === 'sepia' ? '#5B4636' : '#000';
+                        
+      readerElements.forEach(element => {
+        element.style.backgroundColor = bgColor;
+        element.style.color = textColor;
+      });
+      
+      // Style the arrows
+      const arrows = document.querySelectorAll('.ReactReader__arrow');
+      const arrowColor = theme === 'dark' ? '#fff' : '#000';
+      
+      arrows.forEach(arrow => {
+        arrow.style.color = arrowColor;
+        arrow.style.opacity = '0.7';
+        arrow.style.backgroundColor = 'transparent';
+      });
+      
+    } catch (error) {
+      console.error('Error applying dark mode to iframe:', error);
     }
-    
-    // Get background and text colors based on theme
-    const backgroundColor = theme === 'dark' ? '#222' : 
-                            theme === 'sepia' ? '#FBF0D9' : '#fff';
-    const textColor = theme === 'dark' ? '#c4c4c4' : 
-                      theme === 'sepia' ? '#5B4636' : '#000';
-    const arrowColor = theme === 'dark' ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.7)';
-    
-    // Define the CSS
-    styleElement.innerHTML = `
-      /* ReactReader container styles */
-      .ReactReader {
-        background-color: ${backgroundColor} !important;
-        color: ${textColor} !important;
-      }
-      
-      /* Navigation buttons (next, prev arrows) */
-      .ReactReader__arrow {
-        color: ${arrowColor} !important;
-        background-color: transparent !important;
-        box-shadow: none !important;
-      }
-      
-      /* Navigation container */
-      .ReactReader__container {
-        background-color: ${backgroundColor} !important;
-      }
-      
-      /* Navigation controls */
-      .ReactReader__control {
-        background-color: ${backgroundColor} !important;
-      }
-      
-      /* Pagination control */
-      .ReactReader__control > div {
-        color: ${textColor} !important;
-      }
-      
-      /* Hamburger menu button */
-      .ReactReader__menu-button {
-        color: ${arrowColor} !important;
-      }
-      
-      /* TOC panel */
-      .ReactReader__toc {
-        background-color: ${backgroundColor} !important;
-        color: ${textColor} !important;
-        border-right: 1px solid ${theme === 'dark' ? '#444' : '#ddd'} !important;
-      }
-      
-      /* TOC items */
-      .ReactReader__toc-item {
-        color: ${textColor} !important;
-      }
-      
-      /* TOC active item */
-      .ReactReader__toc-item--active {
-        color: ${theme === 'dark' ? '#88ccff' : '#0066cc'} !important;
-      }
-      
-      /* iframe, if any */
-      .ReactReader__container iframe {
-        background-color: ${backgroundColor} !important;
-      }
-    `;
   };
+  
+  // Update iframe styling when theme changes
+  useEffect(() => {
+    if (rendition) {
+      applyDarkModeToIframe();
+    }
+  }, [theme, rendition]);
   
   // Update font size when it changes
   useEffect(() => {
@@ -288,8 +300,6 @@ const EpubReader = ({
   useEffect(() => {
     if (rendition) {
       rendition.themes.select(theme);
-      // Also update the global reader CSS
-      applyGlobalReaderCSS(theme);
     }
   }, [theme, rendition]);
   
@@ -328,11 +338,22 @@ const EpubReader = ({
   };
   
   return (
-    <Box sx={{ 
-      height: '100%', 
-      position: 'relative',
-      bgcolor: getBackgroundColor()
-    }}>
+    <Box 
+      ref={containerRef}
+      sx={{ 
+        height: '100%', 
+        position: 'relative',
+        bgcolor: getBackgroundColor(),
+        '& .ReactReader, & .ReactReader__container, & .ReactReader__viewer': {
+          backgroundColor: getBackgroundColor()
+        },
+        '& .ReactReader__arrow': {
+          color: theme === 'dark' ? '#fff' : '#000',
+          opacity: 0.7,
+          backgroundColor: 'transparent'
+        }
+      }}
+    >
       {loading && (
         <Box sx={{ 
           position: 'absolute', 
@@ -402,7 +423,8 @@ const EpubReader = ({
             },
             arrow: {
               color: theme === 'dark' ? '#fff' : '#000',
-              opacity: 0.7
+              opacity: 0.7,
+              backgroundColor: 'transparent'
             }
           }}
           showToc={false} // Hide default TOC since we're using our own

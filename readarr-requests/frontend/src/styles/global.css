@@ -88,3 +88,55 @@ input[type="submit"] {
 .MuiBottomNavigation-root {
   padding-bottom: env(safe-area-inset-bottom);
 }
+
+/* General ReactReader container styles */
+.ReactReader,
+.ReactReader__container,
+.ReactReader__viewer {
+  transition: background-color 0.3s ease !important;
+}
+
+/* For dark mode specifically */
+.dark-mode .ReactReader,
+.dark-mode .ReactReader__container,
+.dark-mode .ReactReader__viewer {
+  background-color: #222 !important;
+  color: #c4c4c4 !important;
+}
+
+/* Navigation arrows */
+.dark-mode .ReactReader__arrow {
+  color: #fff !important;
+  opacity: 0.7 !important;
+  background-color: transparent !important;
+}
+
+/* Menu button */
+.dark-mode .ReactReader__menu-button {
+  color: #fff !important;
+  opacity: 0.7 !important;
+}
+
+/* Fix for any iframes used by the reader */
+.dark-mode iframe {
+  background-color: #222 !important;
+}
+
+/* For epubjs viewers */
+.dark-mode .epub-view iframe,
+.dark-mode .epub-container iframe {
+  background-color: #222 !important;
+}
+
+/* Force background on the epub containers */
+.dark-mode .epub-container,
+.dark-mode .epub-view {
+  background-color: #222 !important;
+}
+
+/* Ensure content within iframes has dark background */
+.dark-mode iframe html,
+.dark-mode iframe body {
+  background-color: #222 !important;
+  color: #c4c4c4 !important;
+}
