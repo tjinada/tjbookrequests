@@ -1,8 +1,79 @@
 // src/components/library/EpubReader.js
 import React, { useRef, useState, useEffect } from 'react';
-import { ReactReader } from 'react-reader';
+import { ReactReader, ReactReaderStyle } from 'react-reader';
 import { Box, CircularProgress, Typography, Alert } from '@mui/material';
 import api from '../../utils/api';
+
+// Define light and dark reader themes
+const lightReaderTheme = {
+  ...ReactReaderStyle,
+  readerArea: {
+    ...ReactReaderStyle.readerArea,
+    transition: undefined,
+  }
+};
+
+const darkReaderTheme = {
+  ...ReactReaderStyle,
+  arrow: {
+    ...ReactReaderStyle.arrow,
+    color: 'white',
+  },
+  arrowHover: {
+    ...ReactReaderStyle.arrowHover,
+    color: '#ccc',
+  },
+  readerArea: {
+    ...ReactReaderStyle.readerArea,
+    backgroundColor: '#222',
+    transition: undefined,
+  },
+  titleArea: {
+    ...ReactReaderStyle.titleArea,
+    color: '#ccc',
+  },
+  tocArea: {
+    ...ReactReaderStyle.tocArea,
+    background: '#333',
+  },
+  tocButtonExpanded: {
+    ...ReactReaderStyle.tocButtonExpanded,
+    background: '#444',
+  },
+  tocButtonBar: {
+    ...ReactReaderStyle.tocButtonBar,
+    background: '#fff',
+  },
+  tocButton: {
+    ...ReactReaderStyle.tocButton,
+    color: 'white',
+  }
+};
+
+// Helper function to update theme in rendition
+const updateTheme = (rendition, theme) => {
+  if (!rendition) return;
+  
+  const themes = rendition.themes;
+  switch (theme) {
+    case 'dark': {
+      themes.override('color', '#fff');
+      themes.override('background', '#222');
+      break;
+    }
+    case 'sepia': {
+      themes.override('color', '#5B4636');
+      themes.override('background', '#FBF0D9');
+      break;
+    }
+    case 'light':
+    default: {
+      themes.override('color', '#000');
+      themes.override('background', '#fff');
+      break;
+    }
+  }
+};
 
 const EpubReader = ({ 
   url, 
@@ -21,6 +92,18 @@ const EpubReader = ({
   const [currentPage, setCurrentPage] = useState(0);
   const [bookData, setBookData] = useState(null);
   const tocRef = useRef(null);
+  const renditionRef = useRef(null);
+  
+  // Get theme-dependent styles
+  const getReaderTheme = () => {
+    switch (theme) {
+      case 'dark':
+        return darkReaderTheme;
+      case 'light':
+      default:
+        return lightReaderTheme;
+    }
+  };
   
   // Fetch the EPUB file using authentication
   useEffect(() => {
@@ -67,7 +150,6 @@ const EpubReader = ({
   }, [url]);
   
   // Keep track of locator
-  const renditionRef = useRef(null);
   const handleLocationChange = (epubcifi) => {
     // epubcifi is a string containing the current location in the book
     setLocation(epubcifi);
@@ -105,30 +187,8 @@ const EpubReader = ({
     // Apply font size
     rendition.themes.fontSize(`${fontSize}%`);
     
-    // Register themes
-    rendition.themes.register('light', {
-      body: {
-        color: '#000',
-        background: '#fff'
-      }
-    });
-    
-    rendition.themes.register('sepia', {
-      body: {
-        color: '#5B4636',
-        background: '#FBF0D9'
-      }
-    });
-    
-    rendition.themes.register('dark', {
-      body: {
-        color: '#ccc',
-        background: '#222'
-      }
-    });
-    
     // Apply theme
-    rendition.themes.select(theme);
+    updateTheme(rendition, theme);
     
     // Fix for TOC links - handle internal navigation
     rendition.on('selected', function(cfiRange) {
@@ -156,10 +216,10 @@ const EpubReader = ({
   
   // Update theme when it changes
   useEffect(() => {
-    if (rendition) {
-      rendition.themes.select(theme);
+    if (renditionRef.current) {
+      updateTheme(renditionRef.current, theme);
     }
-  }, [theme, rendition]);
+  }, [theme]);
   
   const handleLoadError = (error) => {
     console.error('Error loading EPUB:', error);
@@ -225,14 +285,9 @@ const EpubReader = ({
             flow: 'paginated',
             manager: 'continuous'
           }}
+          readerStyles={getReaderTheme()}
           styles={{
             container: {
-              height: '100%',
-              width: '100%',
-              backgroundColor: theme === 'dark' ? '#222' : 
-                               theme === 'sepia' ? '#FBF0D9' : '#fff'
-            },
-            readerArea: {
               height: '100%',
               width: '100%'
             }

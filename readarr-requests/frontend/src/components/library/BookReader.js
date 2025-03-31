@@ -1,4 +1,4 @@
-// src/components/library/BookReader.js
+// src/components/reader/BookReader.js
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -20,9 +20,12 @@ import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
 import api from '../../utils/api';
 
 // Import our components
-import EpubReader from './EpubReader';
-import BookmarkDrawer from './BookmarkDrawer';
-import useBookmarks from '../../hooks/useBookmarks'; // Make sure to create this hook
+import EpubReader from '../library/EpubReader';
+import PdfReader from '../library/PdfReader';
+import BookmarkDrawer from '../library/BookmarkDrawer';
+import ReaderSettingsDrawer from '../library/ReaderSettingsDrawer';
+import useBookmarks from '../../hooks/useBookmarks';
+import useReaderSettings from '../../hooks/useReaderSettings';
 
 const BookReader = () => {
   const { id, format = 'epub' } = useParams();
@@ -34,26 +37,35 @@ const BookReader = () => {
   const [book, setBook] = useState(null);
   const [currentFormat, setCurrentFormat] = useState(format.toLowerCase());
   
-  // Reader settings
-  const [fontSize, setFontSize] = useState(() => {
-    return parseInt(localStorage.getItem('reader_fontSize') || '100', 10);
-  });
-  const [readerTheme, setReaderTheme] = useState(() => {
-    return localStorage.getItem('reader_theme') || 'light';
-  });
-  
-  // Table of contents and location tracking
-  const [toc, setToc] = useState([]);
-  const [currentLocation, setCurrentLocation] = useState(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  
-  // Use our bookmark hook
+  // Use our custom hooks for reader settings and bookmarks
   const { 
     bookmarks,
     addBookmark, 
     removeBookmark, 
     isBookmarked 
   } = useBookmarks(id);
+  
+  const {
+    fontSize,
+    theme,
+    fontFamily,
+    lineSpacing,
+    paginated,
+    margin,
+    setFontSize,
+    setTheme,
+    setFontFamily,
+    setLineSpacing,
+    setPaginated,
+    setMargin,
+    resetSettings
+  } = useReaderSettings();
+  
+  // Table of contents and location tracking
+  const [toc, setToc] = useState([]);
+  const [currentLocation, setCurrentLocation] = useState(null);
+  const [bookmarkDrawerOpen, setBookmarkDrawerOpen] = useState(false);
+  const [settingsDrawerOpen, setSettingsDrawerOpen] = useState(false);
   
   // Notification for user feedback
   const [notification, setNotification] = useState({
@@ -103,7 +115,7 @@ const BookReader = () => {
     loadBook();
   }, [id]);
   
-  // Handle location change from EPUB reader
+  // Handle location change from reader
   const handleLocationChanged = (newLocation) => {
     setCurrentLocation(newLocation);
     
@@ -111,19 +123,26 @@ const BookReader = () => {
     localStorage.setItem(`book_location_${id}`, newLocation);
   };
   
-  // Handle TOC change from EPUB reader
+  // Handle TOC change from reader
   const handleTocChanged = (newToc) => {
     setToc(newToc || []);
   };
   
-  // Set rendition reference from EPUB reader
+  // Set rendition reference from reader
   const handleRenditionReady = (rendition) => {
     renditionRef.current = rendition;
   };
   
   // Toggle bookmark drawer
-  const toggleDrawer = () => {
-    setDrawerOpen(!drawerOpen);
+  const toggleBookmarkDrawer = () => {
+    setBookmarkDrawerOpen(!bookmarkDrawerOpen);
+    if (settingsDrawerOpen) setSettingsDrawerOpen(false);
+  };
+  
+  // Toggle settings drawer
+  const toggleSettingsDrawer = () => {
+    setSettingsDrawerOpen(!settingsDrawerOpen);
+    if (bookmarkDrawerOpen) setBookmarkDrawerOpen(false);
   };
   
   // Handle bookmark toggle
@@ -174,7 +193,7 @@ const BookReader = () => {
   const handleBookmarkClick = (cfi) => {
     if (renditionRef.current && cfi) {
       renditionRef.current.display(cfi);
-      setDrawerOpen(false); // Close drawer after navigation
+      setBookmarkDrawerOpen(false); // Close drawer after navigation
     }
   };
   
@@ -182,7 +201,7 @@ const BookReader = () => {
   const handleTocClick = (href) => {
     if (renditionRef.current && href) {
       renditionRef.current.display(href);
-      setDrawerOpen(false); // Close drawer after navigation
+      setBookmarkDrawerOpen(false); // Close drawer after navigation
     }
   };
   
@@ -207,7 +226,7 @@ const BookReader = () => {
   
   // Get URL for reader
   const getReaderUrl = () => {
-    return `/library/reading/${id}/${currentFormat}`;
+    return `/api/library/reading/${id}/${currentFormat}`;
   };
   
   // Render loading state
@@ -219,10 +238,16 @@ const BookReader = () => {
         justifyContent: 'center', 
         alignItems: 'center', 
         height: '100vh',
-        bgcolor: 'background.default'
+        bgcolor: theme === 'dark' ? '#222' : theme === 'sepia' ? '#FBF0D9' : 'background.default'
       }}>
         <CircularProgress />
-        <Typography variant="body1" sx={{ mt: 2 }}>
+        <Typography 
+          variant="body1" 
+          sx={{ 
+            mt: 2,
+            color: theme === 'dark' ? '#ccc' : theme === 'sepia' ? '#5B4636' : 'text.primary'
+          }}
+        >
           Loading book...
         </Typography>
       </Box>
@@ -238,7 +263,7 @@ const BookReader = () => {
         flexDirection: 'column',
         alignItems: 'center', 
         height: '100vh',
-        bgcolor: 'background.default'
+        bgcolor: theme === 'dark' ? '#222' : theme === 'sepia' ? '#FBF0D9' : 'background.default'
       }}>
         <Alert 
           severity="error" 
@@ -268,7 +293,7 @@ const BookReader = () => {
       height: '100vh', 
       display: 'flex', 
       flexDirection: 'column',
-      bgcolor: 'background.default',
+      bgcolor: theme === 'dark' ? '#222' : theme === 'sepia' ? '#FBF0D9' : 'background.default',
       overflow: 'hidden'
     }}>
       {/* Reader header */}
@@ -281,10 +306,15 @@ const BookReader = () => {
           alignItems: 'center',
           borderRadius: 0,
           zIndex: 1,
+          bgcolor: theme === 'dark' ? '#333' : theme === 'sepia' ? '#E8DCBF' : 'background.paper',
+          color: theme === 'dark' ? '#fff' : theme === 'sepia' ? '#5B4636' : 'text.primary',
         }}
         elevation={1}
       >
-        <IconButton onClick={handleClose}>
+        <IconButton 
+          onClick={handleClose}
+          sx={{ color: theme === 'dark' ? '#fff' : theme === 'sepia' ? '#5B4636' : undefined }}
+        >
           <ArrowBackIcon />
         </IconButton>
         
@@ -308,19 +338,26 @@ const BookReader = () => {
             <IconButton 
               onClick={handleToggleBookmark}
               color={isBookmarked(currentLocation) ? 'primary' : 'default'}
+              sx={{ color: !isBookmarked(currentLocation) && theme === 'dark' ? '#fff' : theme === 'sepia' && !isBookmarked(currentLocation) ? '#5B4636' : undefined }}
             >
               {isBookmarked(currentLocation) ? <BookmarkIcon /> : <BookmarkBorderIcon />}
             </IconButton>
           </Tooltip>
           
           <Tooltip title="Contents & Bookmarks">
-            <IconButton onClick={toggleDrawer}>
+            <IconButton 
+              onClick={toggleBookmarkDrawer}
+              sx={{ color: theme === 'dark' ? '#fff' : theme === 'sepia' ? '#5B4636' : undefined }}
+            >
               <FormatListBulletedIcon />
             </IconButton>
           </Tooltip>
           
           <Tooltip title="Settings">
-            <IconButton>
+            <IconButton 
+              onClick={toggleSettingsDrawer}
+              sx={{ color: theme === 'dark' ? '#fff' : theme === 'sepia' ? '#5B4636' : undefined }}
+            >
               <SettingsIcon />
             </IconButton>
           </Tooltip>
@@ -341,20 +378,27 @@ const BookReader = () => {
             <EpubReader 
               url={getReaderUrl()} 
               fontSize={fontSize}
-              theme={readerTheme}
+              theme={theme}
+              initialLocation={currentLocation}
               locationChanged={handleLocationChanged}
               tocChanged={handleTocChanged}
               getRendition={handleRenditionReady}
-              initialLocation={currentLocation}
             />
+          </Box>
+        )}
+        
+        {/* PDF Reader */}
+        {currentFormat === 'pdf' && (
+          <Box sx={{ height: '100%' }}>
+            <PdfReader url={getReaderUrl()} initialScale={fontSize / 100} />
           </Box>
         )}
       </Box>
       
       {/* Bookmark and TOC Drawer */}
       <BookmarkDrawer
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
+        open={bookmarkDrawerOpen}
+        onClose={() => setBookmarkDrawerOpen(false)}
         bookmarks={bookmarks}
         toc={toc}
         onBookmarkClick={handleBookmarkClick}
@@ -381,6 +425,25 @@ const BookReader = () => {
           {notification.message}
         </Alert>
       </Snackbar>
+      
+      {/* Settings Drawer */}
+      <ReaderSettingsDrawer
+        open={settingsDrawerOpen}
+        onClose={() => setSettingsDrawerOpen(false)}
+        fontSize={fontSize}
+        onFontSizeChange={setFontSize}
+        theme={theme}
+        onThemeChange={setTheme}
+        paginated={paginated}
+        onPaginatedChange={setPaginated}
+        fontFamily={fontFamily}
+        onFontFamilyChange={setFontFamily}
+        lineSpacing={lineSpacing}
+        onLineSpacingChange={setLineSpacing}
+        margin={margin}
+        onMarginChange={setMargin}
+        onResetSettings={resetSettings}
+      />
     </Box>
   );
 };

@@ -1,0 +1,82 @@
+/* src/styles/ReaderTheme.css */
+/* Global theme styles for the reader */
+
+.dark-theme {
+    background-color: #222;
+    color: #ccc;
+  }
+  
+  .dark-theme .MuiPaper-root {
+    background-color: #333;
+    color: #fff;
+  }
+  
+  .dark-theme .MuiDrawer-paper {
+    background-color: #333;
+    color: #fff;
+  }
+  
+  .dark-theme .MuiDivider-root {
+    background-color: rgba(255, 255, 255, 0.12);
+  }
+  
+  .dark-theme .MuiIconButton-root {
+    color: #fff;
+  }
+  
+  .dark-theme .MuiTypography-root {
+    color: #ccc;
+  }
+  
+  .dark-theme .MuiAlert-standardSuccess {
+    background-color: rgba(56, 142, 60, 0.2);
+  }
+  
+  .dark-theme .MuiAlert-standardInfo {
+    background-color: rgba(2, 136, 209, 0.2);
+  }
+  
+  .dark-theme .MuiAlert-standardWarning {
+    background-color: rgba(237, 108, 2, 0.2);
+  }
+  
+  .dark-theme .MuiAlert-standardError {
+    background-color: rgba(211, 47, 47, 0.2);
+  }
+  
+  .sepia-theme {
+    background-color: #FBF0D9;
+    color: #5B4636;
+  }
+  
+  .sepia-theme .MuiPaper-root {
+    background-color: #E8DCBF;
+    color: #5B4636;
+  }
+  
+  .sepia-theme .MuiDrawer-paper {
+    background-color: #F0E6CF;
+    color: #5B4636;
+  }
+  
+  .sepia-theme .MuiDivider-root {
+    background-color: rgba(91, 70, 54, 0.12);
+  }
+  
+  .sepia-theme .MuiIconButton-root {
+    color: #5B4636;
+  }
+  
+  .sepia-theme .MuiTypography-root {
+    color: #5B4636;
+  }
+  
+  /* Override ReactReader default styles when in dark mode */
+  .dark-theme .epubjs-container iframe {
+    background-color: #222 !important;
+  }
+  
+  /* Override ReactReader default styles when in sepia mode */
+  .sepia-theme .epubjs-container iframe {
+    background-color: #FBF0D9 !important;
+  }
