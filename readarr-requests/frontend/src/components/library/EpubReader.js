@@ -133,6 +133,9 @@ const EpubReader = ({
     // Pass rendition to parent component
     getRendition(rendition);
     
+    // Apply global CSS to fix navigation elements
+    applyGlobalReaderCSS(theme);
+    
     // Loading is complete
     setLoading(false);
   };
@@ -196,6 +199,84 @@ const EpubReader = ({
     rendition.themes.override('line-height', `${spacing}`);
   };
   
+  // Apply global CSS to fix the ReactReader component styling
+  const applyGlobalReaderCSS = (theme) => {
+    // Check if the style element already exists
+    let styleElement = document.getElementById('epub-reader-style');
+    
+    // If not, create it
+    if (!styleElement) {
+      styleElement = document.createElement('style');
+      styleElement.id = 'epub-reader-style';
+      document.head.appendChild(styleElement);
+    }
+    
+    // Get background and text colors based on theme
+    const backgroundColor = theme === 'dark' ? '#222' : 
+                            theme === 'sepia' ? '#FBF0D9' : '#fff';
+    const textColor = theme === 'dark' ? '#c4c4c4' : 
+                      theme === 'sepia' ? '#5B4636' : '#000';
+    const arrowColor = theme === 'dark' ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.7)';
+    
+    // Define the CSS
+    styleElement.innerHTML = `
+      /* ReactReader container styles */
+      .ReactReader {
+        background-color: ${backgroundColor} !important;
+        color: ${textColor} !important;
+      }
+      
+      /* Navigation buttons (next, prev arrows) */
+      .ReactReader__arrow {
+        color: ${arrowColor} !important;
+        background-color: transparent !important;
+        box-shadow: none !important;
+      }
+      
+      /* Navigation container */
+      .ReactReader__container {
+        background-color: ${backgroundColor} !important;
+      }
+      
+      /* Navigation controls */
+      .ReactReader__control {
+        background-color: ${backgroundColor} !important;
+      }
+      
+      /* Pagination control */
+      .ReactReader__control > div {
+        color: ${textColor} !important;
+      }
+      
+      /* Hamburger menu button */
+      .ReactReader__menu-button {
+        color: ${arrowColor} !important;
+      }
+      
+      /* TOC panel */
+      .ReactReader__toc {
+        background-color: ${backgroundColor} !important;
+        color: ${textColor} !important;
+        border-right: 1px solid ${theme === 'dark' ? '#444' : '#ddd'} !important;
+      }
+      
+      /* TOC items */
+      .ReactReader__toc-item {
+        color: ${textColor} !important;
+      }
+      
+      /* TOC active item */
+      .ReactReader__toc-item--active {
+        color: ${theme === 'dark' ? '#88ccff' : '#0066cc'} !important;
+      }
+      
+      /* iframe, if any */
+      .ReactReader__container iframe {
+        background-color: ${backgroundColor} !important;
+      }
+    `;
+  };
+  
   // Update font size when it changes
   useEffect(() => {
     if (rendition) {
@@ -207,6 +288,8 @@ const EpubReader = ({
   useEffect(() => {
     if (rendition) {
       rendition.themes.select(theme);
+      // Also update the global reader CSS
+      applyGlobalReaderCSS(theme);
     }
   }, [theme, rendition]);
   
@@ -318,9 +401,12 @@ const EpubReader = ({
               backgroundColor: getBackgroundColor()
             },
             arrow: {
-              color: getTextColor()
+              color: theme === 'dark' ? '#fff' : '#000',
+              opacity: 0.7
             }
           }}
+          showToc={false} // Hide default TOC since we're using our own
+          swipeable={true}
           loadingView={<div style={{ display: 'none' }}></div>} // Hide default loading view
           epubInitOptions={{
             openAs: 'epub'
