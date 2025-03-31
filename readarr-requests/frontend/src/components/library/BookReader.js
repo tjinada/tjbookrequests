@@ -130,6 +130,20 @@ const BookReader = () => {
     loadBook();
   }, [id]);
   
+  // Add dark mode class to document body when using dark theme
+  useEffect(() => {
+    if (readerTheme === 'dark') {
+      document.body.classList.add('dark-mode');
+    } else {
+      document.body.classList.remove('dark-mode');
+    }
+    
+    return () => {
+      // Clean up when component unmounts
+      document.body.classList.remove('dark-mode');
+    };
+  }, [readerTheme]);
+  
   // Handle location change from EPUB reader
   const handleLocationChanged = (newLocation) => {
     setCurrentLocation(newLocation);
@@ -257,9 +271,12 @@ const BookReader = () => {
         justifyContent: 'center', 
         alignItems: 'center', 
         height: '100vh',
-        bgcolor: 'background.default'
+        bgcolor: readerTheme === 'dark' ? '#222' : 
+                 readerTheme === 'sepia' ? '#FBF0D9' : '#fff',
+        color: readerTheme === 'dark' ? '#c4c4c4' : 
+              readerTheme === 'sepia' ? '#5B4636' : 'text.primary'
       }}>
-        <CircularProgress />
+        <CircularProgress color={readerTheme === 'dark' ? 'secondary' : 'primary'} />
         <Typography variant="body1" sx={{ mt: 2 }}>
           Loading book...
         </Typography>
@@ -276,7 +293,10 @@ const BookReader = () => {
         flexDirection: 'column',
         alignItems: 'center', 
         height: '100vh',
-        bgcolor: 'background.default'
+        bgcolor: readerTheme === 'dark' ? '#222' : 
+                 readerTheme === 'sepia' ? '#FBF0D9' : '#fff',
+        color: readerTheme === 'dark' ? '#c4c4c4' : 
+              readerTheme === 'sepia' ? '#5B4636' : 'text.primary'
       }}>
         <Alert 
           severity="error" 
@@ -302,13 +322,19 @@ const BookReader = () => {
   }
   
   return (
-    <Box sx={{ 
-      height: '100vh', 
-      display: 'flex', 
-      flexDirection: 'column',
-      bgcolor: 'background.default',
-      overflow: 'hidden'
-    }}>
+    <Box 
+      sx={{ 
+        height: '100vh', 
+        display: 'flex', 
+        flexDirection: 'column',
+        bgcolor: readerTheme === 'dark' ? '#222' : 
+                 readerTheme === 'sepia' ? '#FBF0D9' : '#fff',
+        color: readerTheme === 'dark' ? '#c4c4c4' : 
+              readerTheme === 'sepia' ? '#5B4636' : 'text.primary',
+        overflow: 'hidden'
+      }}
+      className={readerTheme === 'dark' ? 'dark-mode' : ''}
+    >
       {/* Reader header */}
       <Paper 
         sx={{ 
@@ -319,10 +345,20 @@ const BookReader = () => {
           alignItems: 'center',
           borderRadius: 0,
           zIndex: 1,
+          bgcolor: readerTheme === 'dark' ? '#333' : 
+                   readerTheme === 'sepia' ? '#E8DAB2' : '#fff',
+          color: readerTheme === 'dark' ? '#c4c4c4' : 
+                readerTheme === 'sepia' ? '#5B4636' : 'text.primary',
+          borderBottom: '1px solid',
+          borderColor: readerTheme === 'dark' ? 'rgba(255,255,255,0.1)' : 
+                       readerTheme === 'sepia' ? '#D6C69A' : 'divider'
         }}
-        elevation={1}
+        elevation={readerTheme === 'dark' ? 0 : 1}
       >
-        <IconButton onClick={handleClose}>
+        <IconButton 
+          onClick={handleClose}
+          sx={{ color: readerTheme === 'dark' ? '#c4c4c4' : undefined }}
+        >
           <ArrowBackIcon />
         </IconButton>
         
@@ -346,25 +382,39 @@ const BookReader = () => {
             <IconButton 
               onClick={handleToggleBookmark}
               color={isBookmarked(currentLocation) ? 'primary' : 'default'}
+              sx={{ 
+                color: isBookmarked(currentLocation) 
+                  ? (readerTheme === 'dark' ? '#80b3ff' : undefined) 
+                  : (readerTheme === 'dark' ? '#c4c4c4' : undefined) 
+              }}
             >
               {isBookmarked(currentLocation) ? <BookmarkIcon /> : <BookmarkBorderIcon />}
             </IconButton>
           </Tooltip>
           
           <Tooltip title="Contents & Bookmarks">
-            <IconButton onClick={toggleDrawer}>
+            <IconButton 
+              onClick={toggleDrawer}
+              sx={{ color: readerTheme === 'dark' ? '#c4c4c4' : undefined }}
+            >
               <FormatListBulletedIcon />
             </IconButton>
           </Tooltip>
           
-          <Tooltip title="Theme">
-            <IconButton onClick={toggleTheme}>
+          <Tooltip title={readerTheme === 'dark' ? "Light Mode" : "Dark Mode"}>
+            <IconButton 
+              onClick={toggleTheme}
+              sx={{ color: readerTheme === 'dark' ? '#c4c4c4' : undefined }}
+            >
               {readerTheme === 'dark' ? <Brightness7Icon /> : <Brightness4Icon />}
             </IconButton>
           </Tooltip>
           
           <Tooltip title="Settings">
-            <IconButton onClick={toggleSettings}>
+            <IconButton 
+              onClick={toggleSettings}
+              sx={{ color: readerTheme === 'dark' ? '#c4c4c4' : undefined }}
+            >
               <SettingsIcon />
             </IconButton>
           </Tooltip>
@@ -376,7 +426,9 @@ const BookReader = () => {
         sx={{ 
           flex: 1, 
           overflow: 'hidden',
-          position: 'relative'
+          position: 'relative',
+          bgcolor: readerTheme === 'dark' ? '#222' : 
+                   readerTheme === 'sepia' ? '#FBF0D9' : '#fff'
         }}
       >
         {/* EPUB Reader */}
@@ -442,8 +494,10 @@ const BookReader = () => {
           sx: { 
             maxWidth: 400,
             width: '100%',
-            bgcolor: readerTheme === 'dark' ? '#333' : 'background.paper',
-            color: readerTheme === 'dark' ? '#fff' : 'text.primary',
+            bgcolor: readerTheme === 'dark' ? '#333' : 
+                     readerTheme === 'sepia' ? '#FBF0D9' : 'background.paper',
+            color: readerTheme === 'dark' ? '#fff' : 
+                  readerTheme === 'sepia' ? '#5B4636' : 'text.primary',
           }
         }}
       >
@@ -478,7 +532,10 @@ const BookReader = () => {
             </Box>
           </Box>
           
-          <Divider sx={{ my: 2 }} />
+          <Divider sx={{ 
+            my: 2, 
+            borderColor: readerTheme === 'dark' ? 'rgba(255,255,255,0.1)' : undefined 
+          }} />
           
           <Box sx={{ my: 2 }}>
             <Typography variant="subtitle2" gutterBottom id="font-size-slider">
@@ -498,11 +555,19 @@ const BookReader = () => {
             </Box>
           </Box>
           
-          <Divider sx={{ my: 2 }} />
+          <Divider sx={{ 
+            my: 2, 
+            borderColor: readerTheme === 'dark' ? 'rgba(255,255,255,0.1)' : undefined 
+          }} />
           
           <Box sx={{ my: 2 }}>
             <FormControl fullWidth variant="outlined" sx={{ mb: 2 }}>
-              <InputLabel id="font-family-label" sx={{ color: readerTheme === 'dark' ? '#fff' : undefined }}>Font Family</InputLabel>
+              <InputLabel 
+                id="font-family-label" 
+                sx={{ color: readerTheme === 'dark' ? '#fff' : undefined }}
+              >
+                Font Family
+              </InputLabel>
               <Select
                 labelId="font-family-label"
                 value={fontFamily}
