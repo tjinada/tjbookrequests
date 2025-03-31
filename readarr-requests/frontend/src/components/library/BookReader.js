@@ -226,7 +226,7 @@ const BookReader = () => {
   
   // Get URL for reader
   const getReaderUrl = () => {
-    return `/api/library/reading/${id}/${currentFormat}`;
+    return `/library/reading/${id}/${currentFormat}`;
   };
   
   // Render loading state
