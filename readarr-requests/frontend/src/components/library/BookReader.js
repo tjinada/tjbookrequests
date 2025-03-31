@@ -10,19 +10,34 @@ import {
   Tooltip,
   Alert,
   Button,
-  Snackbar
+  Snackbar,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Slider,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Divider
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import BookmarkIcon from '@mui/icons-material/Bookmark';
 import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
 import SettingsIcon from '@mui/icons-material/Settings';
 import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
+import Brightness4Icon from '@mui/icons-material/Brightness4';
+import Brightness7Icon from '@mui/icons-material/Brightness7';
+import TextIncreaseIcon from '@mui/icons-material/TextIncrease';
+import TextDecreaseIcon from '@mui/icons-material/TextDecrease';
 import api from '../../utils/api';
 
 // Import our components
 import EpubReader from './EpubReader';
 import BookmarkDrawer from './BookmarkDrawer';
-import useBookmarks from '../../hooks/useBookmarks'; // Make sure to create this hook
+import useBookmarks from '../../hooks/useBookmarks';
+import useReaderSettings from '../../hooks/useReaderSettings';
 
 const BookReader = () => {
   const { id, format = 'epub' } = useParams();
@@ -34,13 +49,25 @@ const BookReader = () => {
   const [book, setBook] = useState(null);
   const [currentFormat, setCurrentFormat] = useState(format.toLowerCase());
   
-  // Reader settings
-  const [fontSize, setFontSize] = useState(() => {
-    return parseInt(localStorage.getItem('reader_fontSize') || '100', 10);
-  });
-  const [readerTheme, setReaderTheme] = useState(() => {
-    return localStorage.getItem('reader_theme') || 'light';
-  });
+  // Use reader settings hook
+  const { 
+    fontSize, 
+    theme: readerTheme, 
+    fontFamily,
+    lineSpacing,
+    margin,
+    paginated,
+    setFontSize,
+    setTheme: setReaderTheme,
+    setFontFamily,
+    setLineSpacing,
+    setMargin,
+    setPaginated,
+    resetSettings
+  } = useReaderSettings();
+  
+  // Settings dialog
+  const [settingsOpen, setSettingsOpen] = useState(false);
   
   // Table of contents and location tracking
   const [toc, setToc] = useState([]);
@@ -210,6 +237,17 @@ const BookReader = () => {
     return `/library/reading/${id}/${currentFormat}`;
   };
   
+  // Toggle settings dialog
+  const toggleSettings = () => {
+    setSettingsOpen(!settingsOpen);
+  };
+  
+  // Toggle theme between light and dark
+  const toggleTheme = () => {
+    const newTheme = readerTheme === 'dark' ? 'light' : 'dark';
+    setReaderTheme(newTheme);
+  };
+  
   // Render loading state
   if (loading) {
     return (
@@ -319,8 +357,14 @@ const BookReader = () => {
             </IconButton>
           </Tooltip>
           
+          <Tooltip title="Theme">
+            <IconButton onClick={toggleTheme}>
+              {readerTheme === 'dark' ? <Brightness7Icon /> : <Brightness4Icon />}
+            </IconButton>
+          </Tooltip>
+          
           <Tooltip title="Settings">
-            <IconButton>
+            <IconButton onClick={toggleSettings}>
               <SettingsIcon />
             </IconButton>
           </Tooltip>
@@ -337,11 +381,18 @@ const BookReader = () => {
       >
         {/* EPUB Reader */}
         {currentFormat === 'epub' && (
-          <Box sx={{ height: '100%' }}>
+          <Box sx={{ 
+            height: '100%',
+            bgcolor: readerTheme === 'dark' ? '#222' : 
+                     readerTheme === 'sepia' ? '#FBF0D9' : '#fff' 
+          }}>
             <EpubReader 
               url={getReaderUrl()} 
               fontSize={fontSize}
               theme={readerTheme}
+              fontFamily={fontFamily}
+              lineSpacing={lineSpacing}
+              margin={margin}
               locationChanged={handleLocationChanged}
               tocChanged={handleTocChanged}
               getRendition={handleRenditionReady}
@@ -364,6 +415,7 @@ const BookReader = () => {
         currentLocation={currentLocation}
         bookTitle={book?.title}
         bookAuthor={book?.author}
+        theme={readerTheme}
       />
       
       {/* Notifications */}
@@ -381,6 +433,118 @@ const BookReader = () => {
           {notification.message}
         </Alert>
       </Snackbar>
+      
+      {/* Settings Dialog */}
+      <Dialog 
+        open={settingsOpen} 
+        onClose={() => setSettingsOpen(false)}
+        PaperProps={{
+          sx: { 
+            maxWidth: 400,
+            width: '100%',
+            bgcolor: readerTheme === 'dark' ? '#333' : 'background.paper',
+            color: readerTheme === 'dark' ? '#fff' : 'text.primary',
+          }
+        }}
+      >
+        <DialogTitle>Reader Settings</DialogTitle>
+        <DialogContent>
+          <Box sx={{ my: 2 }}>
+            <Typography variant="subtitle2" gutterBottom>
+              Theme
+            </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
+              <Button 
+                variant={readerTheme === 'light' ? 'contained' : 'outlined'}
+                onClick={() => setReaderTheme('light')}
+                sx={{ flex: 1, mr: 1, color: readerTheme === 'dark' ? '#fff' : undefined }}
+              >
+                Light
+              </Button>
+              <Button 
+                variant={readerTheme === 'sepia' ? 'contained' : 'outlined'}
+                onClick={() => setReaderTheme('sepia')}
+                sx={{ flex: 1, mx: 1, color: readerTheme === 'dark' ? '#fff' : undefined }}
+              >
+                Sepia
+              </Button>
+              <Button 
+                variant={readerTheme === 'dark' ? 'contained' : 'outlined'}
+                onClick={() => setReaderTheme('dark')}
+                sx={{ flex: 1, ml: 1, color: readerTheme === 'dark' ? '#fff' : undefined }}
+              >
+                Dark
+              </Button>
+            </Box>
+          </Box>
+          
+          <Divider sx={{ my: 2 }} />
+          
+          <Box sx={{ my: 2 }}>
+            <Typography variant="subtitle2" gutterBottom id="font-size-slider">
+              Font Size: {fontSize}%
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <TextDecreaseIcon sx={{ mr: 2 }} />
+              <Slider
+                value={fontSize}
+                onChange={(e, value) => setFontSize(value)}
+                min={50}
+                max={200}
+                step={10}
+                aria-labelledby="font-size-slider"
+              />
+              <TextIncreaseIcon sx={{ ml: 2 }} />
+            </Box>
+          </Box>
+          
+          <Divider sx={{ my: 2 }} />
+          
+          <Box sx={{ my: 2 }}>
+            <FormControl fullWidth variant="outlined" sx={{ mb: 2 }}>
+              <InputLabel id="font-family-label" sx={{ color: readerTheme === 'dark' ? '#fff' : undefined }}>Font Family</InputLabel>
+              <Select
+                labelId="font-family-label"
+                value={fontFamily}
+                onChange={(e) => setFontFamily(e.target.value)}
+                label="Font Family"
+                sx={{ color: readerTheme === 'dark' ? '#fff' : undefined }}
+              >
+                <MenuItem value="serif">Serif</MenuItem>
+                <MenuItem value="sans-serif">Sans-serif</MenuItem>
+                <MenuItem value="monospace">Monospace</MenuItem>
+              </Select>
+            </FormControl>
+            
+            <Typography variant="subtitle2" gutterBottom id="line-spacing-slider">
+              Line Spacing: {lineSpacing}
+            </Typography>
+            <Slider
+              value={lineSpacing}
+              onChange={(e, value) => setLineSpacing(value)}
+              min={1}
+              max={3}
+              step={0.1}
+              aria-labelledby="line-spacing-slider"
+            />
+          </Box>
+          
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={resetSettings} 
+            sx={{ color: readerTheme === 'dark' ? '#fff' : undefined }}
+          >
+            Reset to Default
+          </Button>
+          <Button 
+            onClick={() => setSettingsOpen(false)} 
+            variant="contained"
+          >
+            Done
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
