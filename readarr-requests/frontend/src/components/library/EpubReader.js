@@ -8,6 +8,9 @@ const EpubReader = ({
   url, 
   fontSize = 100, 
   theme = 'light',
+  fontFamily = 'serif',
+  lineSpacing = 1.5,
+  margin = 20,
   initialLocation = null,
   locationChanged = () => {},
   tocChanged = () => {},
@@ -102,33 +105,20 @@ const EpubReader = ({
     renditionRef.current = rendition;
     setRendition(rendition);
     
-    // Apply font size
-    rendition.themes.fontSize(`${fontSize}%`);
-    
     // Register themes
-    rendition.themes.register('light', {
-      body: {
-        color: '#000',
-        background: '#fff'
-      }
-    });
-    
-    rendition.themes.register('sepia', {
-      body: {
-        color: '#5B4636',
-        background: '#FBF0D9'
-      }
-    });
-    
-    rendition.themes.register('dark', {
-      body: {
-        color: '#ccc',
-        background: '#222'
-      }
-    });
+    registerThemes(rendition);
     
     // Apply theme
     rendition.themes.select(theme);
+    
+    // Apply font size
+    rendition.themes.fontSize(`${fontSize}%`);
+    
+    // Apply font family
+    rendition.themes.font(fontFamily);
+    
+    // Apply line spacing
+    applyLineSpacing(rendition, lineSpacing);
     
     // Fix for TOC links - handle internal navigation
     rendition.on('selected', function(cfiRange) {
@@ -147,6 +137,65 @@ const EpubReader = ({
     setLoading(false);
   };
   
+  // Register all themes
+  const registerThemes = (rendition) => {
+    // Light theme (default)
+    rendition.themes.register('light', {
+      body: {
+        color: '#000',
+        background: '#fff'
+      },
+      'img': {
+        filter: 'none'
+      },
+      'a': {
+        color: '#0066cc',
+        'text-decoration': 'none'
+      }
+    });
+    
+    // Sepia theme
+    rendition.themes.register('sepia', {
+      body: {
+        color: '#5B4636',
+        background: '#FBF0D9'
+      },
+      'img': {
+        filter: 'sepia(30%)'
+      },
+      'a': {
+        color: '#704214',
+        'text-decoration': 'none'
+      }
+    });
+    
+    // Dark theme
+    rendition.themes.register('dark', {
+      body: {
+        color: '#c4c4c4',
+        background: '#222'
+      },
+      '*': {
+        'color': '#c4c4c4 !important'
+      },
+      'h1, h2, h3, h4, h5, h6': {
+        color: '#eee !important'
+      },
+      'img': {
+        filter: 'brightness(0.8) contrast(1.2)'
+      },
+      'a': {
+        color: '#88ccff !important',
+        'text-decoration': 'none'
+      }
+    });
+  };
+  
+  // Apply line spacing
+  const applyLineSpacing = (rendition, spacing) => {
+    rendition.themes.override('line-height', `${spacing}`);
+  };
+  
   // Update font size when it changes
   useEffect(() => {
     if (rendition) {
@@ -161,6 +210,34 @@ const EpubReader = ({
     }
   }, [theme, rendition]);
   
+  // Update font family when it changes
+  useEffect(() => {
+    if (rendition) {
+      rendition.themes.font(fontFamily);
+    }
+  }, [fontFamily, rendition]);
+  
+  // Update line spacing when it changes
+  useEffect(() => {
+    if (rendition) {
+      applyLineSpacing(rendition, lineSpacing);
+    }
+  }, [lineSpacing, rendition]);
+  
+  // Get background color based on theme
+  const getBackgroundColor = () => {
+    if (theme === 'dark') return '#222';
+    if (theme === 'sepia') return '#FBF0D9';
+    return '#fff';
+  };
+  
+  // Get text color based on theme
+  const getTextColor = () => {
+    if (theme === 'dark') return '#c4c4c4';
+    if (theme === 'sepia') return '#5B4636';
+    return '#000';
+  };
+  
   const handleLoadError = (error) => {
     console.error('Error loading EPUB:', error);
     setError(`Error loading book: ${error.message}`);
@@ -168,7 +245,11 @@ const EpubReader = ({
   };
   
   return (
-    <Box sx={{ height: '100%', position: 'relative' }}>
+    <Box sx={{ 
+      height: '100%', 
+      position: 'relative',
+      bgcolor: getBackgroundColor()
+    }}>
       {loading && (
         <Box sx={{ 
           position: 'absolute', 
@@ -179,16 +260,16 @@ const EpubReader = ({
           display: 'flex', 
           alignItems: 'center', 
           justifyContent: 'center',
-          backgroundColor: theme === 'dark' ? 'rgba(34,34,34,0.9)' : 'rgba(255,255,255,0.9)',
+          backgroundColor: getBackgroundColor(),
           zIndex: 1,
           flexDirection: 'column'
         }}>
-          <CircularProgress />
+          <CircularProgress color={theme === 'dark' ? 'secondary' : 'primary'} />
           <Typography 
             variant="body2" 
             sx={{ 
               mt: 2,
-              color: theme === 'dark' ? '#ccc' : 'inherit'
+              color: getTextColor()
             }}
           >
             Loading book...
@@ -229,12 +310,15 @@ const EpubReader = ({
             container: {
               height: '100%',
               width: '100%',
-              backgroundColor: theme === 'dark' ? '#222' : 
-                               theme === 'sepia' ? '#FBF0D9' : '#fff'
+              backgroundColor: getBackgroundColor()
             },
             readerArea: {
               height: '100%',
-              width: '100%'
+              width: '100%',
+              backgroundColor: getBackgroundColor()
+            },
+            arrow: {
+              color: getTextColor()
             }
           }}
           loadingView={<div style={{ display: 'none' }}></div>} // Hide default loading view
@@ -250,8 +334,9 @@ const EpubReader = ({
           position: 'absolute', 
           bottom: 10, 
           right: 10, 
-          backgroundColor: theme === 'dark' ? 'rgba(50,50,50,0.8)' : 'rgba(255,255,255,0.8)', 
-          color: theme === 'dark' ? '#ccc' : 'inherit',
+          backgroundColor: theme === 'dark' ? 'rgba(50,50,50,0.8)' : 
+                            theme === 'sepia' ? 'rgba(251,240,217,0.8)' : 'rgba(255,255,255,0.8)', 
+          color: getTextColor(),
           borderRadius: 10, 
           px: 1.5, 
           py: 0.5,
