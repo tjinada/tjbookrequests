@@ -29,6 +29,7 @@ const Profile = lazy(() => import('./pages/Profile'));
 const CalibreManager = lazy(() => import('./pages/CalibreManager'));
 const MyLibrary = lazy(() => import('./pages/MyLibrary'));
 const BookReader = lazy(() => import('./components/library/BookReader'));
+const UserManagement = lazy(() => import('./pages/UserManagement')); // Add this line
 
 // Loading fallback
 const LoadingFallback = () => (
@@ -60,6 +61,7 @@ function App() {
                   <Route path="/profile" element={<Profile />} />
                   <Route path="/book/google/:id" element={<BookDetail source="google" />} />
                   <Route path="calibre-manager" element={<AdminRoute><CalibreManager /></AdminRoute>} />
+                  <Route path="admin/users" element={<AdminRoute><UserManagement /></AdminRoute>} /> {/* Add this line */}
                   <Route path="/library" element={<MyLibrary />} />
                   <Route path="/read/:id/:format" element={<BookReader />} />
                 </Route>

@@ -1,4 +1,4 @@
-// src/components/layout/ResponsiveAppBar.js
+// src/components/layout/ResponsiveAppBar.js - Update adminItems array
 import React, { useState, useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import AppBar from '@mui/material/AppBar';
@@ -40,6 +40,7 @@ const ResponsiveAppBar = ({ toggleSidebar }) => {
     if (path.startsWith('/book/')) return 'Book Details';
     if (path.startsWith('/requests')) return 'My Requests';
     if (path.startsWith('/admin/requests')) return 'Manage Requests';
+    if (path.startsWith('/admin/users')) return 'User Management';
     if (path.startsWith('/calibre-manager')) return 'Calibre Manager';
     if (path.startsWith('/profile')) return 'Profile';
     return 'TJ Book Requests';
@@ -56,6 +57,7 @@ const ResponsiveAppBar = ({ toggleSidebar }) => {
   const adminPages = user && user.role === 'admin' 
     ? [
         { name: 'Manage Requests', path: '/admin/requests' },
+        { name: 'User Management', path: '/admin/users' },
         { name: 'Calibre Manager', path: '/calibre-manager' }
       ] 
     : [];

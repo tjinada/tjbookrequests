@@ -13,6 +13,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import HistoryIcon from '@mui/icons-material/History';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import PersonIcon from '@mui/icons-material/Person';
+import PeopleIcon from '@mui/icons-material/People';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import AuthContext from '../../context/AuthContext';
@@ -33,6 +34,7 @@ const Sidebar = ({ open, drawerWidth }) => {
 
   const adminItems = [
     { text: 'Manage Requests', icon: <AdminPanelSettingsIcon />, path: '/admin/requests' },
+    { text: 'User Management', icon: <PeopleIcon />, path: '/admin/users' },
     { text: 'Calibre Manager', icon: <LocalLibraryIcon />, path: '/calibre-manager' },
   ];
 

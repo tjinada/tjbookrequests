@@ -40,6 +40,7 @@ app.use('/api/calibre-manager', calibreManagerRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/library', libraryRoutes);
+app.use('/api/admin', require('./routes/adminUsers')); 
 
 // Serve static files from the public directory
 app.use(express.static(path.join(__dirname, 'public')));
