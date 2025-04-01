@@ -1,4 +1,6 @@
 // controllers/requestController.js
+const User = require('../models/User');
+
 const Request = require('../models/Request');
 const readarrAPI = require('../config/readarr');
 const calibreAPI = require('../config/calibreAPI');
