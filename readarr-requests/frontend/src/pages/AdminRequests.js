@@ -39,6 +39,7 @@ import TextField from '@mui/material/TextField';
 import AuthContext from '../context/AuthContext';
 import api from '../utils/api';
 import StatusChecker from '../components/admin/StatusChecker';
+import CalibreMatcher from '../components/admin/CalibreMatcher';
 
 const statusColors = {
   pending: 'warning',
@@ -341,6 +342,8 @@ const AdminRequests = () => {
       </Typography>
 
       <StatusChecker onStatusChecked={fetchRequests} />
+
+      <CalibreMatcher onMatchingCompleted={fetchRequests} />
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>

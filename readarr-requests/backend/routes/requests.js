@@ -41,5 +41,10 @@ router.put('/:id/reset-readarr', auth, requestController.resetReadarrStatus);
 // @access  Private/Admin
 router.put('/:id/external-download', auth, requestController.markExternallyDownloaded);
 
+// @route   POST api/requests/calibre-match
+// @desc    Check all pending requests against Calibre library (admin only)
+// @access  Private/Admin
+router.post('/calibre-match', auth, requestController.calibreBatchMatch);
+
 
 module.exports = router;
