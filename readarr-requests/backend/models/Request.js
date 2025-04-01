@@ -44,7 +44,7 @@ const RequestSchema = new mongoose.Schema({
   },
   readarrStatus: {
     type: String,
-    enum: ['pending', 'added', 'downloaded', 'error'],
+    enum: ['pending', 'added', 'downloaded', 'error', 'externally-downloaded'],
     default: 'pending'
   },
   readarrMessage: {

@@ -95,7 +95,7 @@ exports.createRequest = async (req, res) => {
           
           // Set request as available
           newRequest.status = 'available';
-          newRequest.readarrStatus = 'externally-downloaded';
+          newRequest.readarrStatus = 'downloaded';
           newRequest.readarrMessage = 'Book already exists in library, automatically approved';
         }
       } catch (error) {
@@ -173,7 +173,7 @@ exports.updateRequestStatus = async (req, res) => {
                 
                 // Update request to available status immediately
                 request.status = 'available';
-                request.readarrStatus = 'externally-downloaded';
+                request.readarrStatus = 'downloaded'; // Use 'downloaded' instead of 'externally-downloaded'
                 request.readarrMessage = 'Book already exists in library, user granted access';
                 await request.save();
                 
@@ -192,7 +192,7 @@ exports.updateRequestStatus = async (req, res) => {
                   log(`Error sending notification: ${notifyError.message}`);
                 }
                 
-                // Return updated request to client
+                // Return updated request to client to avoid proceeding with Readarr
                 return res.json(request);
               } catch (tagError) {
                 log(`Error updating Calibre tags: ${tagError.message}`);
@@ -204,11 +204,11 @@ exports.updateRequestStatus = async (req, res) => {
               
               // Update request status directly
               request.status = 'available';
-              request.readarrStatus = 'externally-downloaded';
+              request.readarrStatus = 'downloaded'; // Use 'downloaded' instead of 'externally-downloaded'
               request.readarrMessage = 'User already has access to this book in library';
               await request.save();
               
-              // Return updated request
+              // Return updated request to avoid proceeding with Readarr
               return res.json(request);
             }
           }
@@ -649,7 +649,7 @@ exports.calibreBatchMatch = async (req, res) => {
                 
                 // Update request to available status
                 request.status = 'available';
-                request.readarrStatus = 'externally-downloaded';
+                request.readarrStatus = 'downloaded';
                 request.readarrMessage = 'Book already exists in library, user granted access';
                 await request.save();
                 
