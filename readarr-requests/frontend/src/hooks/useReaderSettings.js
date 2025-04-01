@@ -14,7 +14,7 @@ const useReaderSettings = () => {
   
   const [theme, setTheme] = useState(() => {
     const saved = localStorage.getItem('reader_theme');
-    return saved || 'light'; // default theme: light, options: light, sepia, dark
+    return saved || 'dark'; // default theme: light, options: light, sepia, dark
   });
   
   const [fontFamily, setFontFamily] = useState(() => {
