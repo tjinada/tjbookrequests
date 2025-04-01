@@ -272,19 +272,6 @@ const BookDetailDrawer = ({ book, open, onClose }) => {
         )}
       </List>
       
-      {book.tags && book.tags.length > 0 && (
-        <Box sx={{ mt: 2 }}>
-          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-            Tags
-          </Typography>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-            {book.tags.map(tag => (
-              <Chip key={tag} label={tag} size="small" />
-            ))}
-          </Box>
-        </Box>
-      )}
-      
       {book.comments && (
         <Box sx={{ mt: 3 }}>
           <Typography variant="subtitle1" fontWeight="bold">

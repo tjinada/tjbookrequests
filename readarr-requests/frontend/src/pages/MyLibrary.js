@@ -35,8 +35,8 @@ const MyLibrary = () => {
   const [selectedBook, setSelectedBook] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [filteredBooks, setFilteredBooks] = useState([]);
-  const [sortOption, setSortOption] = useState('title'); // 'title', 'author', 'added'
-  const [sortDirection, setSortDirection] = useState('asc'); // 'asc', 'desc'
+  const [sortOption, setSortOption] = useState('added'); // 'title', 'author', 'added'
+  const [sortDirection, setSortDirection] = useState('desc'); // 'asc', 'desc'
   
   // Filter and sort books when the dependencies change
   useEffect(() => {

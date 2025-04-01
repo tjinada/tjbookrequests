@@ -54,8 +54,8 @@ const CalibreManager = () => {
   const [editedTags, setEditedTags] = useState([]);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState(null);
-  const [sortBy, setSortBy] = useState('title');
-  const [sortOrder, setSortOrder] = useState('asc');
+  const [sortBy, setSortBy] = useState('added');
+  const [sortOrder, setSortOrder] = useState('desc');
 
   // Check if user is admin
   const isAdmin = user && user.role === 'admin';
