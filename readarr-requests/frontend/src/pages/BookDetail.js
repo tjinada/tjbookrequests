@@ -24,6 +24,7 @@ import LibraryBooksIcon from '@mui/icons-material/LibraryBooks';
 import noImage from '../assets/no-image.png';
 import api from '../utils/api';
 import EmailBookDialog from '../components/library/EmailBookDialog';
+import BookRequestDialog from '../components/books/BookRequestDialog';
 
 const BookDetail = () => {
   const { id } = useParams();
@@ -32,6 +33,7 @@ const BookDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [requestDialogOpen, setRequestDialogOpen] = useState(false);
 
   // Fetch book details on component mount
   useEffect(() => {
@@ -109,9 +111,8 @@ const BookDetail = () => {
   };
   
   const handleRequestBook = () => {
-    // Redirect to the request page or open request dialog
-    // This is for discovery books that aren't in the library yet
-    navigate(`/search?query=${encodeURIComponent(book.title)}`);
+    // Open the request dialog
+    setRequestDialogOpen(true);
   };
 
   if (loading) {
@@ -376,6 +377,12 @@ const BookDetail = () => {
       <EmailBookDialog
         open={emailDialogOpen}
         onClose={() => setEmailDialogOpen(false)}
+        book={book}
+      />
+      
+      <BookRequestDialog
+        open={requestDialogOpen}
+        onClose={() => setRequestDialogOpen(false)}
         book={book}
       />
     </Box>

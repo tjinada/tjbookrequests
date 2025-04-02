@@ -207,7 +207,7 @@ const BookRequestDialog = ({ open, onClose, book }) => {
         ) : null}
 
         {/* Book description if available */}
-        {book.overview && (
+        {(book.overview || book.description || book.comments) && (
           <Box sx={{ mt: 2, mb: 2 }}>
             <Divider sx={{ mb: 1 }}>
               <Chip label="Description" size="small" />
@@ -220,7 +220,7 @@ const BookRequestDialog = ({ open, onClose, book }) => {
                 fontSize: '0.85rem',
                 lineHeight: 1.5
               }}
-              dangerouslySetInnerHTML={{ __html: book.overview }}
+              dangerouslySetInnerHTML={{ __html: book.overview || book.description || book.comments }}
             />
           </Box>
         )}
