@@ -1,103 +1,83 @@
 // src/pages/BookDetail.js
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import Typography from '@mui/material/Typography';
-import Grid from '@mui/material/Grid';
-import Box from '@mui/material/Box';
-import Paper from '@mui/material/Paper';
-import Button from '@mui/material/Button';
-import Chip from '@mui/material/Chip';
-import CircularProgress from '@mui/material/CircularProgress';
-import Alert from '@mui/material/Alert';
+import React, { useState, useEffect, useContext } from 'react';
+import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
+import {
+  Box,
+  Typography,
+  Paper,
+  Grid,
+  Chip,
+  Button,
+  CircularProgress,
+  Alert,
+  Divider,
+  Breadcrumbs,
+  Link,
+  IconButton,
+  Tooltip
+} from '@mui/material';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
+import DownloadIcon from '@mui/icons-material/Download';
+import EmailIcon from '@mui/icons-material/Email';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import BookmarkAddIcon from '@mui/icons-material/BookmarkAdd';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import noImage from '../assets/no-image.png'; // You'll need this file
+import LibraryBooksIcon from '@mui/icons-material/LibraryBooks';
+import noImage from '../assets/no-image.png';
 import api from '../utils/api';
+import EmailBookDialog from '../components/library/EmailBookDialog';
 
 const BookDetail = () => {
-  const { id, source } = useParams()
+  const { id } = useParams();
   const navigate = useNavigate();
-
   const [book, setBook] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [requesting, setRequesting] = useState(false);
-  const [requested, setRequested] = useState(false);
-  const [requestError, setRequestError] = useState(null);
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
 
+  // Fetch book details on component mount
   useEffect(() => {
-    
-    if (!id) {
-      setError('Invalid book ID.');
-      return;
-    }
-    
     const fetchBookDetails = async () => {
       setLoading(true);
       setError(null);
-  
       try {
-        let response;
-  
-        if (source === 'google' || id.startsWith('google-')) {
-          const googleBookId = id.startsWith('google-') ? id.substring(7) : id;
-          response = await api.get(`/books/google/${googleBookId}`);
-        } else {
-          // OpenLibrary books
-          response = await api.get(`/books/${id}`);
-        }
-  
+        const response = await api.get(`/library/book/${id}`);
         setBook(response.data);
-  
-        // Check if book is already requested
-        try {
-          const requestRes = await api.get('/requests/me');
-          const isRequested = requestRes.data.some(
-            request => request.bookId === id
-          );
-          setRequested(isRequested);
-        } catch (reqErr) {
-          console.error('Error checking request status:', reqErr);
-        }
-  
-        setLoading(false);
       } catch (err) {
-        setError('Failed to load book details');
+        console.error('Error fetching book details:', err);
+        setError(err.response?.data?.message || 'Failed to load book details');
+      } finally {
         setLoading(false);
       }
     };
-  
-    fetchBookDetails();
-  }, [id, source]);
 
-  const handleRequestBook = async () => {
-    setRequesting(true);
-    setRequestError(null);
-
-    try {
-      await api.post('/requests', {
-        bookId: book.id,
-        title: book.title,
-        author: book.author,
-        cover: book.cover,
-        isbn: book.isbn,
-        source: source || (id.includes('google') ? 'google' : 'openLibrary')
-      });
-
-      setRequested(true);
-      setRequesting(false);
-    } catch (err) {
-      setRequestError(
-        err.response?.data?.message || 'Failed to request book. Please try again.'
-      );
-      setRequesting(false);
+    if (id) {
+      fetchBookDetails();
     }
+  }, [id]);
+
+  const handleDownload = () => {
+    // Use EPUB format if available, otherwise use the first available format
+    let downloadFormat = 'EPUB';
+    if (book && book.formats) {
+      if (!book.formats.includes('EPUB') && book.formats.length > 0) {
+        downloadFormat = book.formats[0];
+      }
+    }
+    
+    const downloadUrl = `/api/library/download/${id}/${downloadFormat}`;
+    window.open(downloadUrl, '_blank');
+  };
+
+  const handleReadOnline = () => {
+    navigate(`/read/${id}/EPUB`);
+  };
+
+  const handleEmailClick = () => {
+    setEmailDialogOpen(true);
   };
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
         <CircularProgress />
       </Box>
     );
@@ -105,125 +85,234 @@ const BookDetail = () => {
 
   if (error) {
     return (
-      <Box>
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
+      <Box sx={{ p: 3 }}>
+        <Alert severity="error">{error}</Alert>
         <Button 
           startIcon={<ArrowBackIcon />} 
-          onClick={() => navigate(-1)}
+          onClick={() => navigate('/library')}
+          sx={{ mt: 2 }}
         >
-          Go Back
+          Back to Library
+        </Button>
+      </Box>
+    );
+  }
+
+  if (!book) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Alert severity="info">Book not found</Alert>
+        <Button 
+          startIcon={<ArrowBackIcon />} 
+          onClick={() => navigate('/library')}
+          sx={{ mt: 2 }}
+        >
+          Back to Library
         </Button>
       </Box>
     );
   }
 
   return (
-    <Box>
-      <Button 
-        startIcon={<ArrowBackIcon />} 
-        onClick={() => navigate(-1)}
-        sx={{ mb: 2 }}
-      >
-        Go Back
-      </Button>
+    <Box sx={{ p: 3 }}>
+      {/* Breadcrumb navigation */}
+      <Breadcrumbs sx={{ mb: 3 }}>
+        <Link 
+          component={RouterLink} 
+          to="/"
+          underline="hover"
+          color="inherit"
+        >
+          Home
+        </Link>
+        <Link 
+          component={RouterLink} 
+          to="/library"
+          underline="hover"
+          color="inherit"
+        >
+          <LibraryBooksIcon sx={{ mr: 0.5, fontSize: '0.8rem', verticalAlign: 'middle' }} />
+          Library
+        </Link>
+        <Typography color="text.primary">
+          {book.title}
+        </Typography>
+      </Breadcrumbs>
 
-      <Paper elevation={3} sx={{ p: 3, mb: 4 }}>
-        <Grid container spacing={4}>
-          <Grid item xs={12} md={4}>
-            <Box
-              component="img"
-              sx={{
-                width: '100%',
-                maxHeight: 500,
-                objectFit: 'contain',
-                borderRadius: 1
-              }}
+      <Paper sx={{ p: 3, mb: 4 }}>
+        <Grid container spacing={3}>
+          {/* Book cover */}
+          <Grid item xs={12} sm={4} md={3}>
+            <Box 
+              component="img" 
+              src={book.cover || noImage} 
               alt={book.title}
-              src={book.cover || noImage}
+              sx={{ 
+                width: '100%',
+                borderRadius: 1,
+                boxShadow: 3,
+                maxHeight: { xs: 300, sm: 400 },
+                objectFit: 'contain'
+              }}
             />
+            
+            {/* Action buttons for small screens */}
+            <Box sx={{ mt: 2, display: { sm: 'none' } }}>
+              <Grid container spacing={1}>
+                <Grid item xs={4}>
+                  <Button 
+                    fullWidth
+                    variant="contained" 
+                    color="primary" 
+                    startIcon={<MenuBookIcon />}
+                    onClick={handleReadOnline}
+                  >
+                    Read
+                  </Button>
+                </Grid>
+                <Grid item xs={4}>
+                  <Button 
+                    fullWidth
+                    variant="outlined" 
+                    color="primary" 
+                    startIcon={<DownloadIcon />}
+                    onClick={handleDownload}
+                  >
+                    Download
+                  </Button>
+                </Grid>
+                <Grid item xs={4}>
+                  <Button 
+                    fullWidth
+                    variant="outlined" 
+                    color="primary" 
+                    startIcon={<EmailIcon />}
+                    onClick={handleEmailClick}
+                  >
+                    Email
+                  </Button>
+                </Grid>
+              </Grid>
+            </Box>
           </Grid>
 
-          <Grid item xs={12} md={8}>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-              <Typography variant="h4" component="h1" sx={{ mr: 2 }}>
-                {book.title}
-              </Typography>
-
-              {requested ? (
-                <Button
-                  variant="contained"
-                  color="success"
-                  startIcon={<CheckCircleIcon />}
-                  size="large"
-                  disabled
-                >
-                  Requested
-                </Button>
-              ) : (
-                <Button
-                  variant="contained"
-                  color="primary"
-                  startIcon={<BookmarkAddIcon />}
-                  onClick={handleRequestBook}
-                  disabled={requesting}
-                  size="large"
-                >
-                  {requesting ? 'Requesting...' : 'Request Book'}
-                </Button>
-              )}
-            </Box>
-
-            <Typography variant="h6" gutterBottom>
-              by {book.author}
-            </Typography>
-
-            {book.releaseDate && (
-              <Typography variant="subtitle1" color="text.secondary" gutterBottom>
-                Released: {new Date(book.releaseDate).toLocaleDateString()}
-              </Typography>
-            )}
-
-            {book.genres && book.genres.length > 0 && (
-              <Box sx={{ mt: 2, mb: 3 }}>
-                {book.genres.map((genre) => (
-                  <Chip 
-                    key={genre} 
-                    label={genre} 
-                    size="small" 
-                    sx={{ mr: 1, mb: 1 }} 
-                  />
-                ))}
-              </Box>
-            )}
-
-            {book.overview && (
-              <Box sx={{ mt: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                  Overview
+          {/* Book details */}
+          <Grid item xs={12} sm={8} md={9}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+              <Box>
+                <Typography variant="h4" component="h1" gutterBottom>
+                  {book.title}
                 </Typography>
-                <Typography 
-                  variant="body1" 
-                  paragraph
-                  component="div"
-                  dangerouslySetInnerHTML={{ __html: book.overview }}
-                />
+                <Typography variant="h6" color="text.secondary" gutterBottom>
+                  by {book.author}
+                </Typography>
               </Box>
+              
+              {/* Action buttons for larger screens */}
+              <Box sx={{ display: { xs: 'none', sm: 'flex' }, gap: 1 }}>
+                <Button 
+                  variant="contained" 
+                  color="primary" 
+                  startIcon={<MenuBookIcon />}
+                  onClick={handleReadOnline}
+                >
+                  Read
+                </Button>
+                <Button 
+                  variant="outlined" 
+                  color="primary" 
+                  startIcon={<DownloadIcon />}
+                  onClick={handleDownload}
+                >
+                  Download
+                </Button>
+                <Button 
+                  variant="outlined" 
+                  color="primary" 
+                  startIcon={<EmailIcon />}
+                  onClick={handleEmailClick}
+                >
+                  Email
+                </Button>
+              </Box>
+            </Box>
+            
+            <Divider sx={{ mb: 2 }} />
+            
+            {/* Book metadata */}
+            <Grid container spacing={2} sx={{ mb: 3 }}>
+              {book.publisher && (
+                <Grid item xs={6} sm={4}>
+                  <Typography variant="subtitle2">Publisher</Typography>
+                  <Typography variant="body2">{book.publisher}</Typography>
+                </Grid>
+              )}
+              
+              {book.added && (
+                <Grid item xs={6} sm={4}>
+                  <Typography variant="subtitle2">Added to Library</Typography>
+                  <Typography variant="body2">
+                    {new Date(book.added).toLocaleDateString()}
+                  </Typography>
+                </Grid>
+              )}
+              
+              {book.formats && book.formats.length > 0 && (
+                <Grid item xs={12} sm={4}>
+                  <Typography variant="subtitle2">Available Formats</Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                    {book.formats.map(format => (
+                      <Chip 
+                        key={format} 
+                        label={format}
+                        size="small"
+                        color={format === 'EPUB' ? 'primary' : 'default'}
+                      />
+                    ))}
+                  </Box>
+                </Grid>
+              )}
+            </Grid>
+            
+            {/* Book description */}
+            <Typography variant="h6" gutterBottom>
+              Description
+            </Typography>
+            {book.comments ? (
+              <div dangerouslySetInnerHTML={{ __html: book.comments }} />
+            ) : (
+              <Typography variant="body1" color="text.secondary">
+                No description available for this book.
+              </Typography>
             )}
-
-            {requestError && (
-              <Alert 
-                severity="error" 
-                sx={{ mt: 2, mb: 2 }}
-                onClose={() => setRequestError(null)}
-              >
-                {requestError}
-              </Alert>
+            
+            {/* Tags */}
+            {book.tags && book.tags.length > 0 && (
+              <Box sx={{ mt: 3 }}>
+                <Typography variant="subtitle2" gutterBottom>
+                  Tags
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                  {book.tags.map(tag => (
+                    <Chip 
+                      key={tag} 
+                      label={tag}
+                      size="small"
+                      variant="outlined"
+                    />
+                  ))}
+                </Box>
+              </Box>
             )}
           </Grid>
         </Grid>
       </Paper>
+      
+      <EmailBookDialog
+        open={emailDialogOpen}
+        onClose={() => setEmailDialogOpen(false)}
+        book={book}
+      />
     </Box>
   );
 };
