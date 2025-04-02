@@ -537,13 +537,11 @@ exports.sendToDevice = async (req, res) => {
     
     const tempFilePath = path.join(tempDir, fileName);
     
-    // Format conversion if needed (e.g., EPUB to MOBI for Kindle)
-    let needsConversion = false;
+    // Format conversion for Kindle if needed
     let sourceFormat = format;
     let targetFormat = format;
     
-    if (deviceType === 'kindle' && format === 'EPUB') {
-      needsConversion = true;
+    if (needsConversion) {
       sourceFormat = 'EPUB';
       targetFormat = 'MOBI';
       fileName = fileName.replace('.epub', '.mobi');
