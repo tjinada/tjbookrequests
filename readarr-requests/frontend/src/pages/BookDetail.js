@@ -357,8 +357,11 @@ const BookDetail = () => {
             <Typography variant="h6" gutterBottom>
               Description
             </Typography>
-            {book.comments ? (
-              <div dangerouslySetInnerHTML={{ __html: book.comments }} />
+            {/* Check multiple possible fields for description content */}
+            {book.comments || book.overview || book.description ? (
+              <div dangerouslySetInnerHTML={{ 
+                __html: book.comments || book.overview || book.description 
+              }} />
             ) : (
               <Typography variant="body1" color="text.secondary">
                 No description available for this book.
