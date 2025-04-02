@@ -1,259 +1,120 @@
 // src/pages/MyLibrary.js
-import React, { useContext, useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import {
+import React, { useState, useEffect, useContext } from 'react';
+import { 
   Box,
   Typography,
   Grid,
-  Paper,
+  Card,
+  CardMedia,
+  CardContent,
+  CardActions,
   CircularProgress,
   Alert,
-  Button,
-  TextField,
-  InputAdornment,
-  IconButton,
-  Divider
+  Divider,
+  Paper,
+  Chip
 } from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
-import RefreshIcon from '@mui/icons-material/Refresh';
-import LocalLibraryIcon from '@mui/icons-material/LocalLibrary';
-import SortIcon from '@mui/icons-material/Sort';
-import FilterListIcon from '@mui/icons-material/FilterList';
-import EmptyState from '../components/common/EmptyState';
 import LibraryContext from '../context/LibraryContext';
-import AuthContext from '../context/AuthContext';
-import LibraryBookCard from '../components/library/LibraryBookCard';
-import BookDetailDrawer from '../components/library/BookDetailDrawer';
+import LibraryBookActions from '../components/library/LibraryBookActions';
+import noImage from '../assets/no-image.png';
 
 const MyLibrary = () => {
-  const navigate = useNavigate();
-  const { myBooks, loading, error, refreshLibrary } = useContext(LibraryContext);
-  const { isAuthenticated } = useContext(AuthContext);
+  const { myBooks, loading, error, fetchMyLibrary } = useContext(LibraryContext);
   
-  // Local state
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedBook, setSelectedBook] = useState(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [filteredBooks, setFilteredBooks] = useState([]);
-  const [sortOption, setSortOption] = useState('added'); // 'title', 'author', 'added'
-  const [sortDirection, setSortDirection] = useState('desc'); // 'asc', 'desc'
-  
-  // Filter and sort books when the dependencies change
+  // Load library books on component mount
   useEffect(() => {
-    if (!myBooks || !Array.isArray(myBooks)) {
-      setFilteredBooks([]);
-      return;
-    }
-    
-    // Apply search filter
-    let filtered = myBooks;
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      filtered = myBooks.filter(book => 
-        book.title?.toLowerCase().includes(term) ||
-        book.author?.toLowerCase().includes(term)
-      );
-    }
-    
-    // Apply sorting
-    filtered = [...filtered].sort((a, b) => {
-      // Determine the values to compare based on sort option
-      let valA, valB;
-      switch (sortOption) {
-        case 'author':
-          valA = a.author?.toLowerCase() || '';
-          valB = b.author?.toLowerCase() || '';
-          break;
-        case 'added':
-          // Parse dates or use timestamps
-          valA = a.added ? new Date(a.added).getTime() : 0;
-          valB = b.added ? new Date(b.added).getTime() : 0;
-          break;
-        case 'title':
-        default:
-          valA = a.title?.toLowerCase() || '';
-          valB = b.title?.toLowerCase() || '';
-      }
-      
-      // Apply sort direction
-      if (sortDirection === 'asc') {
-        return valA > valB ? 1 : -1;
-      } else {
-        return valA < valB ? 1 : -1;
-      }
-    });
-    
-    setFilteredBooks(filtered);
-  }, [myBooks, searchTerm, sortOption, sortDirection]);
+    fetchMyLibrary();
+  }, [fetchMyLibrary]);
   
-  // Handle book selection
-  const handleBookSelect = (book) => {
-    setSelectedBook(book);
-    setDrawerOpen(true);
-  };
-  
-  // Toggle sort direction
-  const handleSortClick = () => {
-    setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
-  };
-  
-  // Change sort option
-  const handleSortOptionChange = (option) => {
-    if (sortOption === option) {
-      // Toggle direction if clicking the same option
-      handleSortClick();
-    } else {
-      setSortOption(option);
-      setSortDirection('asc'); // Reset to ascending when changing options
-    }
-  };
-  
-  // Handle search input
-  const handleSearchChange = (e) => {
-    setSearchTerm(e.target.value);
-  };
-  
-  // Clear search
-  const handleClearSearch = () => {
-    setSearchTerm('');
-  };
-  
-  // Handle refresh
-  const handleRefresh = () => {
-    refreshLibrary();
-  };
-  
-  // If not authenticated, show login prompt
-  if (!isAuthenticated) {
+  if (loading) {
     return (
-      <EmptyState
-        icon={LocalLibraryIcon}
-        title="Sign In to Access Your Library"
-        description="Please log in to view your books and manage your library."
-        actionText="Sign In"
-        onAction={() => navigate('/login')}
-      />
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+  
+  if (error) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Alert severity="error">{error}</Alert>
+      </Box>
     );
   }
   
   return (
-    <Box sx={{ p: 2 }}>
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="h4" component="h1">
-          My Library
-        </Typography>
-        
-        <Button 
-          variant="outlined" 
-          startIcon={<RefreshIcon />} 
-          onClick={handleRefresh}
-          disabled={loading}
-        >
-          Refresh
-        </Button>
-      </Box>
+    <Box sx={{ p: 3 }}>
+      <Typography variant="h4" component="h1" gutterBottom>
+        My Library
+      </Typography>
       
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }} onClose={() => {}}>
-          {error}
-        </Alert>
-      )}
+      <Typography variant="body1" color="text.secondary" paragraph>
+        Browse and read your available books
+      </Typography>
       
-      {/* Search and Sort Controls */}
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              placeholder="Search by title, author..."
-              value={searchTerm}
-              onChange={handleSearchChange}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-                endAdornment: searchTerm && (
-                  <InputAdornment position="end">
-                    <IconButton onClick={handleClearSearch} size="small">
-                      {/* You can use a ClearIcon here */}
-                      ✕
-                    </IconButton>
-                  </InputAdornment>
-                )
-              }}
-            />
-          </Grid>
-          
-          <Grid item xs={12} md={6}>
-            <Box sx={{ display: 'flex', gap: 1, justifyContent: { xs: 'flex-start', md: 'flex-end' } }}>
-              <Button
-                variant={sortOption === 'title' ? 'contained' : 'outlined'}
-                onClick={() => handleSortOptionChange('title')}
-                size="small"
-                startIcon={sortOption === 'title' && <SortIcon />}
-              >
-                Title {sortOption === 'title' && (sortDirection === 'asc' ? '↓' : '↑')}
-              </Button>
-              
-              <Button
-                variant={sortOption === 'author' ? 'contained' : 'outlined'}
-                onClick={() => handleSortOptionChange('author')}
-                size="small"
-                startIcon={sortOption === 'author' && <SortIcon />}
-              >
-                Author {sortOption === 'author' && (sortDirection === 'asc' ? '↓' : '↑')}
-              </Button>
-              
-              <Button
-                variant={sortOption === 'added' ? 'contained' : 'outlined'}
-                onClick={() => handleSortOptionChange('added')}
-                size="small"
-                startIcon={sortOption === 'added' && <SortIcon />}
-              >
-                Date Added {sortOption === 'added' && (sortDirection === 'asc' ? '↓' : '↑')}
-              </Button>
-            </Box>
-          </Grid>
-        </Grid>
-      </Paper>
-      
-      {/* Book Grid */}
-      {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
-          <CircularProgress />
-        </Box>
-      ) : filteredBooks.length > 0 ? (
-        <Grid container spacing={3}>
-          {filteredBooks.map((book) => (
+      {myBooks.length === 0 ? (
+        <Paper sx={{ p: 4, textAlign: 'center', mt: 4 }}>
+          <Typography variant="h6" gutterBottom>
+            Your library is empty
+          </Typography>
+          <Typography variant="body1">
+            Books you request will appear here once they're available.
+          </Typography>
+        </Paper>
+      ) : (
+        <Grid container spacing={3} sx={{ mt: 1 }}>
+          {myBooks.map(book => (
             <Grid item xs={12} sm={6} md={4} lg={3} key={book.id}>
-              <LibraryBookCard
-                book={book}
-                onClick={() => handleBookSelect(book)}
-              />
+              <Card sx={{ 
+                height: '100%', 
+                display: 'flex', 
+                flexDirection: 'column',
+                transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
+                '&:hover': {
+                  transform: 'translateY(-4px)',
+                  boxShadow: 6
+                }
+              }}>
+                <CardMedia
+                  component="img"
+                  image={book.cover || noImage}
+                  alt={book.title}
+                  sx={{ 
+                    height: 200, 
+                    objectFit: 'cover',
+                    objectPosition: 'center top'
+                  }}
+                />
+                <CardContent sx={{ flexGrow: 1 }}>
+                  <Typography variant="h6" component="div" gutterBottom>
+                    {book.title}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    by {book.author}
+                  </Typography>
+                  
+                  {book.formats && book.formats.length > 0 && (
+                    <Box sx={{ mt: 2, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      {book.formats.map(format => (
+                        <Chip 
+                          key={format} 
+                          label={format}
+                          size="small"
+                          color={format === 'EPUB' ? 'primary' : 'default'}
+                          variant="outlined"
+                        />
+                      ))}
+                    </Box>
+                  )}
+                </CardContent>
+                <Divider />
+                <CardActions sx={{ justifyContent: 'flex-end' }}>
+                  <LibraryBookActions book={book} />
+                </CardActions>
+              </Card>
             </Grid>
           ))}
         </Grid>
-      ) : (
-        <EmptyState
-          icon={LocalLibraryIcon}
-          title={searchTerm ? "No books match your search" : "Your library is empty"}
-          description={searchTerm 
-            ? "Try a different search term or clear the search" 
-            : "Books added to your Calibre library with your username tag will appear here"}
-          actionText={searchTerm ? "Clear Search" : undefined}
-          onAction={searchTerm ? handleClearSearch : undefined}
-        />
-      )}
-      
-      {/* Book Detail Drawer */}
-      {selectedBook && (
-        <BookDetailDrawer
-          book={selectedBook}
-          open={drawerOpen}
-          onClose={() => setDrawerOpen(false)}
-        />
       )}
     </Box>
   );

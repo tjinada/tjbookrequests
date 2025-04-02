@@ -468,45 +468,33 @@ exports.sendToDevice = async (req, res) => {
       }
     }
     
-    // Determine the format to use based on device type
-    let format;
+    // Simplified format selection (EPUB for email, potentially convert to MOBI for Kindle)
+    let format = 'EPUB'; // Default format
     const formatsUpperCase = book.formats.map(f => f.toUpperCase());
-    if (deviceType === 'kindle') {
-      // Check if MOBI or AZW3 is available
-      if (formatsUpperCase.includes('MOBI')) {
-        format = 'MOBI';
-      } else if (formatsUpperCase.includes('AZW3')) {
-        format = 'AZW3';
-      } else if (formatsUpperCase.includes('PDF')) {
-        format = 'PDF'; // Fallback to PDF
-      } else if (formatsUpperCase.includes('EPUB')) {
-        // We'll need to convert EPUB to MOBI for Kindle
-        format = 'EPUB';
-        log('Need to convert EPUB to MOBI for Kindle');
-      } else {
-        return res.status(400).json({ message: 'No compatible format available for Kindle' });
-      }
-    } else if (deviceType === 'kobo') {
-      // Check if KEPUB or EPUB is available
-      if (formatsUpperCase.includes('KEPUB')) {
-        format = 'KEPUB';
-      } else if (formatsUpperCase.includes('EPUB')) {
-        format = 'EPUB';
-      } else if (formatsUpperCase.includes('PDF')) {
-        format = 'PDF'; // Fallback to PDF
-      } else {
-        return res.status(400).json({ message: 'No compatible format available for Kobo' });
-      }
-    } else {
-      // Other device type - default to EPUB
-      if (formatsUpperCase.includes('EPUB')) {
-        format = 'EPUB';
-      } else if (formatsUpperCase.includes('PDF')) {
-        format = 'PDF';
-      } else if (book.formats.length > 0) {
-        format = book.formats[0]; // Use first available format
-      } else {
+    
+    // First check if EPUB is available (our preferred format)
+    if (!formatsUpperCase.includes('EPUB')) {
+      // No EPUB available, check what formats are available
+      if (formatsUpperCase.length === 0) {
         return res.status(400).json({ message: 'No formats available for this book' });
+      }
+      
+      // Use the first available format as fallback
+      format = book.formats[0].toUpperCase();
+      log(`EPUB not available, using ${format} as fallback`);
+    }
+    
+    // If sending to Kindle and we only have EPUB, we'll need to convert
+    let needsConversion = false;
+    if (deviceType === 'kindle' && format === 'EPUB') {
+      if (formatsUpperCase.includes('MOBI')) {
+        // Use MOBI directly if available
+        format = 'MOBI';
+        log('Using existing MOBI format for Kindle');
+      } else {
+        // Mark for conversion EPUB → MOBI
+        needsConversion = true;
+        log('Will convert EPUB to MOBI for Kindle');
       }
     }
     
