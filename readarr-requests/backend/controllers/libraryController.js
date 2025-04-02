@@ -512,13 +512,164 @@ exports.sendToDevice = async (req, res) => {
     
     log(`Selected format for ${deviceType}: ${format}`);
     
-    // Set up a simple email response for now
-    // In a production environment, you would implement the actual email sending logic
-    res.json({
-      success: true,
-      message: `Book "${book.title}" would be sent to ${email} in ${format} format`,
-      format: format
-    });
+    // Use our own email sending implementation
+    log(`Using our own email implementation to send to ${email}`);
+    
+    // First, get the book content
+    let fileName = `${book.title.replace(/[/\\?%*:|"<>]/g, '_')}.${format.toLowerCase()}`;
+    let mimeType = '';
+    
+    // Set MIME type based on format
+    switch (format.toUpperCase()) {
+      case 'EPUB':
+        mimeType = 'application/epub+zip';
+        break;
+      case 'MOBI':
+        mimeType = 'application/x-mobipocket-ebook';
+        break;
+      case 'AZW3':
+        mimeType = 'application/vnd.amazon.ebook';
+        break;
+      case 'PDF':
+        mimeType = 'application/pdf';
+        break;
+      case 'KEPUB':
+        mimeType = 'application/epub+zip';
+        fileName = `${book.title.replace(/[/\\?%*:|"<>]/g, '_')}.kepub.epub`;
+        break;
+      default:
+        mimeType = 'application/octet-stream';
+    }
+    
+    // Temporary directory for downloaded files
+    const tempDir = path.join(__dirname, '../temp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+    
+    const tempFilePath = path.join(tempDir, fileName);
+    
+    // Format conversion if needed (e.g., EPUB to MOBI for Kindle)
+    let needsConversion = false;
+    let sourceFormat = format;
+    let targetFormat = format;
+    
+    if (deviceType === 'kindle' && format === 'EPUB') {
+      needsConversion = true;
+      sourceFormat = 'EPUB';
+      targetFormat = 'MOBI';
+      fileName = fileName.replace('.epub', '.mobi');
+      mimeType = 'application/x-mobipocket-ebook';
+      log(`Will convert from ${sourceFormat} to ${targetFormat} for Kindle`);
+    }
+    
+    try {
+      // Download the book from Calibre Content Server
+      if (process.env.CALIBRE_SERVER_URL) {
+        log(`Downloading book from Calibre Content Server: ${process.env.CALIBRE_SERVER_URL}/get/${sourceFormat}/${bookId}/calibre`);
+        
+        // Create auth header for Calibre
+        const auth = Buffer.from(`${process.env.CALIBRE_USERNAME}:${process.env.CALIBRE_PASSWORD}`).toString('base64');
+        
+        // Download the file
+        const response = await axios({
+          method: 'get',
+          url: `${process.env.CALIBRE_SERVER_URL}/get/${sourceFormat}/${bookId}/calibre`,
+          responseType: 'arraybuffer',
+          headers: {
+            'Authorization': `Basic ${auth}`
+          }
+        });
+        
+        // Save to temp file
+        fs.writeFileSync(tempFilePath, Buffer.from(response.data));
+        log(`Book saved to temporary file: ${tempFilePath}`);
+        
+        // Convert if needed
+        if (needsConversion) {
+          log(`Converting from ${sourceFormat} to ${targetFormat}`);
+          
+          const convertedFilePath = tempFilePath.replace(`.${sourceFormat.toLowerCase()}`, `.${targetFormat.toLowerCase()}`);
+          
+          // Use Calibre's ebook-convert tool if available
+          if (process.env.CALIBRE_LIBRARY_PATH) {
+            const convertCommand = `ebook-convert "${tempFilePath}" "${convertedFilePath}"`;
+            
+            await execAsync(convertCommand);
+            log(`Conversion successful: ${convertedFilePath}`);
+            
+            // Update the file path to the converted file
+            tempFilePath = convertedFilePath;
+          } else {
+            throw new Error(`Format conversion required but Calibre ebook-convert not available`);
+          }
+        }
+        
+        // Now set up nodemailer and send the email
+        const transporter = nodemailer.createTransport({
+          host: process.env.SMTP_HOST,
+          port: parseInt(process.env.SMTP_PORT),
+          secure: process.env.SMTP_SECURE === 'true', // Use SSL/TLS if specified as true
+          auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS
+          },
+          tls: {
+            // Do not fail on invalid certificates
+            rejectUnauthorized: false
+          }
+        });
+        
+        // Prepare the email
+        const mailOptions = {
+          from: process.env.SMTP_FROM,
+          to: email,
+          subject: `Your book: ${book.title}`,
+          text: `Hello from TJ Book Requests!
+
+Attached is your requested book: "${book.title}" by ${book.author}.
+
+Enjoy reading!
+
+This email was sent by the TJ Book Requests system on behalf of ${username}.`,
+          attachments: [
+            {
+              filename: fileName,
+              path: tempFilePath,
+              contentType: mimeType
+            }
+          ]
+        };
+        
+        // Send the email
+        await transporter.sendMail(mailOptions);
+        
+        log(`Book successfully sent via email to ${email}`);
+        
+        // Clean up temporary file
+        fs.unlinkSync(tempFilePath);
+        
+        return res.json({ 
+          success: true, 
+          message: `Book "${book.title}" sent to ${email} successfully!`,
+          format: targetFormat
+        });
+      } else {
+        throw new Error('Calibre Content Server URL not configured');
+      }
+    } catch (emailError) {
+      log(`Error sending email: ${emailError.message}`);
+      
+      // Clean up any temporary files
+      if (fs.existsSync(tempFilePath)) {
+        fs.unlinkSync(tempFilePath);
+      }
+      
+      return res.status(500).json({ 
+        success: false, 
+        message: `Error sending book to ${email}: ${emailError.message}` 
+      });
+    }
     
   } catch (error) {
     log(`Error sending book to device: ${error.message}`);
@@ -529,7 +680,6 @@ exports.sendToDevice = async (req, res) => {
     });
   }
 };
-
 /**
  * Get book content for in-app reading
  */
