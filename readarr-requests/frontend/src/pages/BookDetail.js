@@ -39,7 +39,19 @@ const BookDetail = () => {
       setLoading(true);
       setError(null);
       try {
-        const response = await api.get(`/library/book/${id}`);
+        // First, try to get details from library API (for library books)
+        try {
+          const response = await api.get(`/library/book/${id}`);
+          setBook(response.data);
+          setLoading(false);
+          return; // Success - exit early
+        } catch (libErr) {
+          // If it fails, this might be a discovery book, not a library book
+          console.log('Not a library book, trying discovery source...', libErr);
+        }
+        
+        // Try fetching from books API (for discovery/search books)
+        const response = await api.get(`/books/${id}`);
         setBook(response.data);
       } catch (err) {
         console.error('Error fetching book details:', err);
@@ -55,9 +67,16 @@ const BookDetail = () => {
   }, [id]);
 
   const handleDownload = () => {
+    // Only library books can be downloaded
+    if (!book.formats || !book.formats.length) {
+      // This is a discovery book - show error message or dialog for requesting the book
+      alert('This book is not in your library yet. Please request it first.');
+      return;
+    }
+    
     // Use EPUB format if available, otherwise use the first available format
     let downloadFormat = 'EPUB';
-    if (book && book.formats) {
+    if (book.formats) {
       if (!book.formats.includes('EPUB') && book.formats.length > 0) {
         downloadFormat = book.formats[0];
       }
@@ -68,11 +87,31 @@ const BookDetail = () => {
   };
 
   const handleReadOnline = () => {
+    // Only library books can be read online
+    if (!book.formats || !book.formats.length) {
+      // This is a discovery book - show error message or dialog for requesting the book
+      alert('This book is not in your library yet. Please request it first.');
+      return;
+    }
+    
     navigate(`/read/${id}/EPUB`);
   };
 
   const handleEmailClick = () => {
+    // Only library books can be emailed
+    if (!book.formats || !book.formats.length) {
+      // This is a discovery book - show error message or dialog for requesting the book
+      alert('This book is not in your library yet. Please request it first.');
+      return;
+    }
+    
     setEmailDialogOpen(true);
+  };
+  
+  const handleRequestBook = () => {
+    // Redirect to the request page or open request dialog
+    // This is for discovery books that aren't in the library yet
+    navigate(`/search?query=${encodeURIComponent(book.title)}`);
   };
 
   if (loading) {
@@ -125,15 +164,28 @@ const BookDetail = () => {
         >
           Home
         </Link>
-        <Link 
-          component={RouterLink} 
-          to="/library"
-          underline="hover"
-          color="inherit"
-        >
-          <LibraryBooksIcon sx={{ mr: 0.5, fontSize: '0.8rem', verticalAlign: 'middle' }} />
-          Library
-        </Link>
+        {book.formats && book.formats.length > 0 ? (
+          // Library book breadcrumb
+          <Link 
+            component={RouterLink} 
+            to="/library"
+            underline="hover"
+            color="inherit"
+          >
+            <LibraryBooksIcon sx={{ mr: 0.5, fontSize: '0.8rem', verticalAlign: 'middle' }} />
+            Library
+          </Link>
+        ) : (
+          // Discovery book breadcrumb
+          <Link 
+            component={RouterLink} 
+            to="/search"
+            underline="hover"
+            color="inherit"
+          >
+            Search
+          </Link>
+        )}
         <Typography color="text.primary">
           {book.title}
         </Typography>
@@ -158,41 +210,54 @@ const BookDetail = () => {
             
             {/* Action buttons for small screens */}
             <Box sx={{ mt: 2, display: { sm: 'none' } }}>
-              <Grid container spacing={1}>
-                <Grid item xs={4}>
-                  <Button 
-                    fullWidth
-                    variant="contained" 
-                    color="primary" 
-                    startIcon={<MenuBookIcon />}
-                    onClick={handleReadOnline}
-                  >
-                    Read
-                  </Button>
+              {book.formats && book.formats.length > 0 ? (
+                // Library book actions
+                <Grid container spacing={1}>
+                  <Grid item xs={4}>
+                    <Button 
+                      fullWidth
+                      variant="contained" 
+                      color="primary" 
+                      startIcon={<MenuBookIcon />}
+                      onClick={handleReadOnline}
+                    >
+                      Read
+                    </Button>
+                  </Grid>
+                  <Grid item xs={4}>
+                    <Button 
+                      fullWidth
+                      variant="outlined" 
+                      color="primary" 
+                      startIcon={<DownloadIcon />}
+                      onClick={handleDownload}
+                    >
+                      Download
+                    </Button>
+                  </Grid>
+                  <Grid item xs={4}>
+                    <Button 
+                      fullWidth
+                      variant="outlined" 
+                      color="primary" 
+                      startIcon={<EmailIcon />}
+                      onClick={handleEmailClick}
+                    >
+                      Email
+                    </Button>
+                  </Grid>
                 </Grid>
-                <Grid item xs={4}>
-                  <Button 
-                    fullWidth
-                    variant="outlined" 
-                    color="primary" 
-                    startIcon={<DownloadIcon />}
-                    onClick={handleDownload}
-                  >
-                    Download
-                  </Button>
-                </Grid>
-                <Grid item xs={4}>
-                  <Button 
-                    fullWidth
-                    variant="outlined" 
-                    color="primary" 
-                    startIcon={<EmailIcon />}
-                    onClick={handleEmailClick}
-                  >
-                    Email
-                  </Button>
-                </Grid>
-              </Grid>
+              ) : (
+                // Discovery book actions
+                <Button 
+                  fullWidth
+                  variant="contained" 
+                  color="primary" 
+                  onClick={handleRequestBook}
+                >
+                  Request This Book
+                </Button>
+              )}
             </Box>
           </Grid>
 
@@ -210,30 +275,44 @@ const BookDetail = () => {
               
               {/* Action buttons for larger screens */}
               <Box sx={{ display: { xs: 'none', sm: 'flex' }, gap: 1 }}>
-                <Button 
-                  variant="contained" 
-                  color="primary" 
-                  startIcon={<MenuBookIcon />}
-                  onClick={handleReadOnline}
-                >
-                  Read
-                </Button>
-                <Button 
-                  variant="outlined" 
-                  color="primary" 
-                  startIcon={<DownloadIcon />}
-                  onClick={handleDownload}
-                >
-                  Download
-                </Button>
-                <Button 
-                  variant="outlined" 
-                  color="primary" 
-                  startIcon={<EmailIcon />}
-                  onClick={handleEmailClick}
-                >
-                  Email
-                </Button>
+                {book.formats && book.formats.length > 0 ? (
+                  // Library book actions
+                  <>
+                    <Button 
+                      variant="contained" 
+                      color="primary" 
+                      startIcon={<MenuBookIcon />}
+                      onClick={handleReadOnline}
+                    >
+                      Read
+                    </Button>
+                    <Button 
+                      variant="outlined" 
+                      color="primary" 
+                      startIcon={<DownloadIcon />}
+                      onClick={handleDownload}
+                    >
+                      Download
+                    </Button>
+                    <Button 
+                      variant="outlined" 
+                      color="primary" 
+                      startIcon={<EmailIcon />}
+                      onClick={handleEmailClick}
+                    >
+                      Email
+                    </Button>
+                  </>
+                ) : (
+                  // Discovery book actions
+                  <Button 
+                    variant="contained" 
+                    color="primary" 
+                    onClick={handleRequestBook}
+                  >
+                    Request This Book
+                  </Button>
+                )}
               </Box>
             </Box>
             

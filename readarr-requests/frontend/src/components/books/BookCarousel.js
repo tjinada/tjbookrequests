@@ -66,8 +66,9 @@ const BookCarousel = ({
     }
   };
   
-  // Handle book click - Navigate to details page
+  // Handle book click - Navigate to details page using client-side route
   const handleBookClick = (book) => {
+    // FIXED: Use the client-side route, not the API endpoint
     navigate(`/book/${book.id}`);
   };
   
