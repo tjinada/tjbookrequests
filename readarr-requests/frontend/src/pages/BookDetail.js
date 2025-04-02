@@ -286,24 +286,7 @@ const BookDetail = () => {
               </Typography>
             )}
             
-            {/* Tags */}
-            {book.tags && book.tags.length > 0 && (
-              <Box sx={{ mt: 3 }}>
-                <Typography variant="subtitle2" gutterBottom>
-                  Tags
-                </Typography>
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                  {book.tags.map(tag => (
-                    <Chip 
-                      key={tag} 
-                      label={tag}
-                      size="small"
-                      variant="outlined"
-                    />
-                  ))}
-                </Box>
-              </Box>
-            )}
+{/* Tags section removed as requested */}
           </Grid>
         </Grid>
       </Paper>
