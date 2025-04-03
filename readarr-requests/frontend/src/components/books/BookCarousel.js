@@ -66,10 +66,15 @@ const BookCarousel = ({
     }
   };
   
-  // Handle book click - Navigate to details page using client-side route
+  // Handle book click - For discovery books, open request dialog directly
   const handleBookClick = (book) => {
-    // FIXED: Use the client-side route, not the API endpoint
-    navigate(`/book/${book.id}`);
+    // If onRequestBook is provided, use that instead of navigation
+    if (onRequestBook) {
+      onRequestBook(book);
+    } else {
+      // Otherwise navigate to book detail page (for library books)
+      navigate(`/book/${book.id}`);
+    }
   };
   
   // Handle resize to check arrow visibility

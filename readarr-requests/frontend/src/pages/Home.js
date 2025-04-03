@@ -34,7 +34,7 @@ const Home = () => {
     error: contextError,
   } = useContext(AppContext);
 
-  // Handle book request
+  // Handle book click in discovery section - directly open the request dialog
   const handleRequestBook = (book) => {
     setSelectedBook(book);
     setRequestDialogOpen(true);
@@ -69,13 +69,11 @@ const Home = () => {
     );
   }
 
-  // We're no longer filtering for non-fiction books
-
   // Check if we have personalized recommendations
   const hasPersonalizedBooks = isAuthenticated && personalizedBooks && personalizedBooks.length > 0;
 
   return (
-    <Box sx={{ px: { xs: 2, sm: 2, md: 3 }, pb: 4 }}> {/* Reduced side margins */}
+    <Box sx={{ px: { xs: 2, sm: 2, md: 3 }, pb: 4 }}>
       <Box
         sx={{
           display: 'flex',
@@ -129,8 +127,6 @@ const Home = () => {
           emptyMessage="No bestsellers available."
         />
         
-        {/* Non-Fiction section removed */}
-        
         {/* Award Winners */}
         <BookCarousel
           title="Award Winners"
@@ -171,7 +167,10 @@ const Home = () => {
       {selectedBook && (
         <BookRequestDialog
           open={requestDialogOpen}
-          onClose={() => setRequestDialogOpen(false)}
+          onClose={() => {
+            setRequestDialogOpen(false);
+            setSelectedBook(null);
+          }}
           book={selectedBook}
         />
       )}
