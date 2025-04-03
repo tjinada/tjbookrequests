@@ -185,12 +185,18 @@ const BookReader = () => {
       } else {
         const currentCfi = locationRef.current;
         let pageTitle = '';
+        let pageNumber = '';
         
-        // Try to get the current chapter title
+        // Try to get the current chapter title and page number
         if (renditionRef.current) {
           try {
             const currentLocation = renditionRef.current.currentLocation();
             pageTitle = currentLocation?.start?.href || 'Unknown page';
+            
+            // Get current page number if available
+            if (currentLocation?.start?.displayed && currentLocation?.start?.displayed.page) {
+              pageNumber = `Page ${currentLocation.start.displayed.page}`;
+            }
             
             // Try to get a better title from TOC if available
             if (tocRef.current) {
@@ -206,7 +212,10 @@ const BookReader = () => {
           }
         }
         
-        addBookmark(currentCfi, pageTitle);
+        // Combine title and page number if both are available
+        const bookmarkName = pageNumber ? `${pageTitle} (${pageNumber})` : pageTitle;
+        
+        addBookmark(currentCfi, bookmarkName);
         showNotification('Bookmark added', 'success');
       }
     }
