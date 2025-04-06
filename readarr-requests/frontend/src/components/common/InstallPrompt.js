@@ -1,17 +1,31 @@
 // src/components/common/InstallPrompt.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import Snackbar from '@mui/material/Snackbar';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import CloseIcon from '@mui/icons-material/Close';
 import AddToHomeScreenIcon from '@mui/icons-material/AddToHomeScreen';
+import NotificationsIcon from '@mui/icons-material/Notifications';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogTitle from '@mui/material/DialogTitle';
+import AuthContext from '../../context/AuthContext';
+import api from '../../utils/api';
 
 const InstallPrompt = () => {
+  const { isAuthenticated } = useContext(AuthContext);
   const [showIOSPrompt, setShowIOSPrompt] = useState(false);
   const [showAndroidPrompt, setShowAndroidPrompt] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [notificationDialog, setNotificationDialog] = useState(false);
+  const [notificationPermission, setNotificationPermission] = useState(
+    'Notification' in window ? Notification.permission : 'denied'
+  );
+  const [isInstalled, setIsInstalled] = useState(false);
 
   useEffect(() => {
     // Check if iOS
@@ -19,7 +33,7 @@ const InstallPrompt = () => {
       return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
     };
 
-    // Check if user has already seen the prompt
+    // Check if user has already seen the install prompt
     const hasSeenPrompt = localStorage.getItem('installPromptSeen');
 
     // Show iOS prompt if on iOS device and not seen before
@@ -40,10 +54,47 @@ const InstallPrompt = () => {
       }
     });
 
+    // Detect when the app is successfully installed
+    window.addEventListener('appinstalled', (e) => {
+      setIsInstalled(true);
+      setShowAndroidPrompt(false);
+      setShowIOSPrompt(false);
+      
+      // Show notification prompt if the user is authenticated
+      if (isAuthenticated && notificationPermission !== 'granted') {
+        setTimeout(() => setNotificationDialog(true), 1500);
+      }
+    });
+
     return () => {
       window.removeEventListener('beforeinstallprompt', () => {});
+      window.removeEventListener('appinstalled', () => {});
     };
-  }, []);
+  }, [isAuthenticated, notificationPermission]);
+
+  // Get VAPID public key from the server
+  const getVapidPublicKey = async () => {
+    try {
+      const response = await api.get('/notifications/vapid-public-key');
+      return response.data.vapidPublicKey;
+    } catch (error) {
+      console.error('Error getting VAPID key:', error);
+      throw error;
+    }
+  };
+
+  // Save subscription to the server
+  const saveSubscription = async (subscription) => {
+    try {
+      console.log('Saving subscription to server:', subscription);
+      const response = await api.post('/notifications/subscribe', { subscription });
+      console.log('Subscription saved successfully:', response.data);
+      return true;
+    } catch (error) {
+      console.error('Failed to save subscription:', error);
+      return false;
+    }
+  };
 
   const handleClose = () => {
     setShowIOSPrompt(false);
@@ -68,7 +119,103 @@ const InstallPrompt = () => {
       localStorage.setItem('installPromptSeen', 'true');
 
       console.log(`User ${outcome === 'accepted' ? 'accepted' : 'dismissed'} the install prompt`);
+      
+      // If installed, prompt for notifications after a short delay
+      if (outcome === 'accepted') {
+        setIsInstalled(true);
+        if (isAuthenticated && notificationPermission !== 'granted') {
+          setTimeout(() => setNotificationDialog(true), 1500);
+        }
+      }
     }
+  };
+
+  // Request notification permission
+  const requestNotificationPermission = async () => {
+    try {
+      if (!('Notification' in window)) {
+        console.warn('Notifications not supported in this browser');
+        return;
+      }
+
+      const permission = await Notification.requestPermission();
+      setNotificationPermission(permission);
+      
+      if (permission === 'granted') {
+        // Register service worker if not already registered
+        if ('serviceWorker' in navigator) {
+          try {
+            let registration = await navigator.serviceWorker.getRegistration();
+            if (!registration) {
+              registration = await navigator.serviceWorker.register('/service-worker.js');
+              console.log('Service Worker registered:', registration);
+            }
+            
+            // Wait for the service worker to be active
+            await navigator.serviceWorker.ready;
+            
+            // Get VAPID public key from your server
+            const vapidPublicKey = await getVapidPublicKey();
+            
+            if (!vapidPublicKey) {
+              throw new Error('Failed to get VAPID public key');
+            }
+            
+            // Convert VAPID key to Uint8Array for the subscription
+            function urlBase64ToUint8Array(base64String) {
+              const padding = '='.repeat((4 - base64String.length % 4) % 4);
+              const base64 = (base64String + padding)
+                .replace(/-/g, '+')
+                .replace(/_/g, '/');
+            
+              const rawData = window.atob(base64);
+              const outputArray = new Uint8Array(rawData.length);
+            
+              for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
+              }
+              return outputArray;
+            }
+            
+            // Get existing subscription or create a new one
+            let subscription = await registration.pushManager.getSubscription();
+            
+            if (!subscription) {
+              console.log('Creating new push subscription...');
+              subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
+              });
+              console.log('New subscription created:', subscription);
+            } else {
+              console.log('Using existing subscription:', subscription);
+            }
+            
+            // Save the subscription to the server
+            await saveSubscription(subscription);
+            
+            // Send a test notification
+            try {
+              await api.post('/notifications/test');
+              console.log('Test notification sent');
+            } catch (testError) {
+              console.error('Error sending test notification:', testError);
+            }
+          } catch (error) {
+            console.error('Service Worker or subscription error:', error);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error requesting notification permission:', error);
+    } finally {
+      setNotificationDialog(false);
+    }
+  };
+
+  // Close notification dialog without enabling
+  const handleCloseNotificationDialog = () => {
+    setNotificationDialog(false);
   };
 
   const IOSInstructions = (
@@ -133,6 +280,36 @@ const InstallPrompt = () => {
           </>
         }
       />
+
+      {/* Notification Permission Dialog */}
+      <Dialog
+        open={notificationDialog}
+        onClose={handleCloseNotificationDialog}
+        aria-labelledby="notification-dialog-title"
+      >
+        <DialogTitle id="notification-dialog-title">
+          Enable Notifications
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Would you like to receive notifications about your book requests? 
+            We'll let you know when your requested books become available or when there 
+            are updates to your requests.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseNotificationDialog}>Not Now</Button>
+          <Button 
+            onClick={requestNotificationPermission} 
+            variant="contained" 
+            color="primary"
+            startIcon={<NotificationsIcon />}
+            autoFocus
+          >
+            Enable Notifications
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 };
