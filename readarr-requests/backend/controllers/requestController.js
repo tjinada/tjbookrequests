@@ -27,8 +27,6 @@ const log = (message) => {
   console.log(message);
 };
 
-
-
 // Create direct Readarr API client for internal use
 const readarrDirectAPI = axios.create({
   baseURL: process.env.READARR_API_URL,
@@ -107,9 +105,33 @@ exports.createRequest = async (req, res) => {
     // Save the request
     await newRequest.save();
     
+    // Get user information for the notification
+    const userInfo = await User.findById(req.user.id).select('username');
+    
     // Send notification to admins about the new request
     try {
-      // Notification logic...
+      const adminNotification = {
+        title: 'New Book Request',
+        body: `${userInfo.username} requested "${title}" by ${author}`,
+        icon: '/icon-192x192.png',
+        badge: '/badge-72x72.png',
+        data: {
+          url: '/admin/requests',
+          bookId: bookId,
+          requestId: newRequest._id.toString(),
+          type: 'new-request'
+        },
+        actions: [
+          {
+            action: 'view-requests',
+            title: 'View Requests'
+          }
+        ]
+      };
+      
+      // Send notification to all admins
+      await notificationService.sendAdminNotification(adminNotification);
+      log(`Admin notification sent for new book request: "${title}" by ${author}`);
     } catch (notifyError) {
       // Don't fail if notification fails
       log(`Failed to send admin notification: ${notifyError.message}`);
@@ -276,7 +298,44 @@ exports.updateRequestStatus = async (req, res) => {
     // Send notification to user about status change
     try {
       if (previousStatus !== status) {
-        // Notification logic here...
+        // Get user details
+        const user = await User.findById(request.user).select('username');
+        
+        // Only send notifications for status changes that are important to users
+        if (status === 'approved' || status === 'denied' || status === 'available') {
+          let statusMessage = '';
+          let notificationType = '';
+          
+          switch(status) {
+            case 'approved':
+              statusMessage = 'has been approved and will be downloaded soon';
+              notificationType = 'request-approved';
+              break;
+            case 'denied':
+              statusMessage = 'has been denied by an administrator';
+              notificationType = 'request-denied';
+              break;
+            case 'available':
+              statusMessage = 'is now available in the library';
+              notificationType = 'book-available';
+              break;
+          }
+          
+          const userNotification = {
+            title: 'Book Request Update',
+            body: `Your request for "${request.title}" ${statusMessage}`,
+            icon: '/icon-192x192.png',
+            badge: '/badge-72x72.png',
+            data: {
+              url: '/requests',
+              requestId: request._id.toString(),
+              type: notificationType
+            }
+          };
+          
+          await notificationService.sendUserNotification(request.user, userNotification);
+          log(`User notification sent for request status change: ${request.title} -> ${status}`);
+        }
       }
     } catch (notifyError) {
       // Don't fail if notification fails
@@ -549,8 +608,7 @@ exports.markExternallyDownloaded = async (req, res) => {
       const userData = await Request.findById(id)
         .populate('user', 'username email');
       
-      // If you have notification service implemented, you can use it here
-      /*
+      // Notify user about book availability
       const userNotification = {
         title: 'Book Now Available',
         body: `Your requested book "${request.title}" is now available in the library.`,
@@ -567,11 +625,10 @@ exports.markExternallyDownloaded = async (req, res) => {
         userData.user._id, 
         userNotification
       );
-      */
       
-      console.log(`Book marked as available: ${request.title} for user ${userData.user.username}`);
+      log(`Book marked as available: ${request.title} for user ${userData.user.username}`);
     } catch (notifyError) {
-      console.error('Failed to send book availability notification:', notifyError);
+      log(`Failed to send book availability notification: ${notifyError.message}`);
     }
 
     res.json(request);
