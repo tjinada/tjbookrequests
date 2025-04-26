@@ -32,6 +32,11 @@ RUN echo 'server { \
     include /etc/nginx/mime.types; \
     default_type application/octet-stream; \
     \
+    # TEMPORARY (Remove after ~2-4 weeks): Force no caching globally to recover users with white screens \
+    add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0"; \
+    add_header Pragma "no-cache"; \
+    expires -1; \
+    \
     add_header Service-Worker-Allowed "/"; \
     \
     # Ensure proper cache control for PWA files \
