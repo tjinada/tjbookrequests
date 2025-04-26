@@ -2,6 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const adminUserController = require('../controllers/adminUserController');
+const userActivityController = require('../controllers/userActivityController');
 const auth = require('../middleware/auth');
 
 // @route   GET api/admin/users
