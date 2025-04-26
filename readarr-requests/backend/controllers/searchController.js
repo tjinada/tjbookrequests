@@ -147,6 +147,25 @@ exports.searchBooks = async (req, res) => {
       return res.status(400).json({ message: 'Search query is required' });
     }
 
+    // Add activity tracking if user is authenticated
+    if (req.user) {
+      try {
+        const UserActivity = require('../models/UserActivity');
+        const searchActivity = new UserActivity({
+          user: req.user.id,
+          activity: 'search',
+          details: {
+            query,
+            source
+          }
+        });
+        await searchActivity.save();
+      } catch (trackError) {
+        console.error('Error tracking search activity:', trackError);
+        // Continue with search even if tracking fails
+      }
+    }
+
     log(`Searching for books with query: "${query}", source: ${source}, limit: ${limit}`);
     
     let results = { google: [], openLibrary: [], combined: [] };

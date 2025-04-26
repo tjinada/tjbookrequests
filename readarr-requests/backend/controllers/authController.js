@@ -1,6 +1,7 @@
 // controllers/authController.js
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const UserActivity = require('../models/UserActivity');
 
 exports.register = async (req, res) => {
   try {
@@ -59,6 +60,21 @@ exports.login = async (req, res) => {
     if (!isMatch) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
+
+    // Update last seen
+    user.lastSeen = new Date();
+    await user.save();
+
+    // Create a record of login activity
+    const loginActivity = new UserActivity({
+      user: user.id,
+      activity: 'login',
+      details: {
+        userAgent: req.headers['user-agent'] || 'unknown'
+      }
+    });
+
+    await loginActivity.save();
 
     // Create JWT token
     const payload = {
@@ -139,11 +155,14 @@ exports.register_admin = async (req, res) => {
   }
 };
 
-
-
 exports.getMe = async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select('-password');
+    
+    // Update last seen timestamp
+    user.lastSeen = new Date();
+    await user.save();
+    
     res.json(user);
   } catch (err) {
     console.error(err.message);

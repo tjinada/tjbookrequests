@@ -3,14 +3,28 @@ import React, { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Box } from '@mui/material';
 import BookReader from '../components/reader/BookReader';
+import api from '../utils/api';
 
 /**
  * Reader page component that hosts the BookReader
- * This is a simple wrapper that handles cleanup on unmount
+ * This component handles cleanup on unmount and tracks reading activity
  */
 const Reader = () => {
   const { id, format } = useParams();
   const navigate = useNavigate();
+  
+  // Track reading activity once when the component mounts
+  useEffect(() => {
+    if (id) {
+      // Track that the user is reading this book
+      try {
+        api.post(`/api/reader/${id}/track`);
+      } catch (error) {
+        console.error('Failed to track reading activity:', error);
+        // Don't show error to user, just log it
+      }
+    }
+  }, [id]);
   
   // On mount, hide any app UI elements that might interfere with reading
   useEffect(() => {

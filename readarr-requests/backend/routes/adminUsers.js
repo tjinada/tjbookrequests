@@ -19,4 +19,19 @@ router.delete('/users/:id', auth, adminUserController.deleteUser);
 // @access  Private (Admin)
 router.get('/users/stats', auth, adminUserController.getUserStats);
 
+// @route   GET api/admin/users/activity/metrics
+// @desc    Get user activity metrics
+// @access  Private (Admin)
+router.get('/users/activity/metrics', auth, adminUserController.getUserActivityMetrics);
+
+// @route   GET api/admin/users/:userId/activities
+// @desc    Get activities for a specific user
+// @access  Private (Admin)
+router.get('/users/:userId/activities', auth, userActivityController.getUserActivities);
+
+// @route   GET api/admin/users/:userId/activity-summary
+// @desc    Get activity summary for a specific user
+// @access  Private (Admin)
+router.get('/users/:userId/activity-summary', auth, userActivityController.getUserActivitySummary);
+
 module.exports = router;

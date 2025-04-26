@@ -26,6 +26,10 @@ const UserSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   },
+  lastSeen: {
+    type: Date,
+    default: Date.now
+  },
   // Add push notification subscriptions
   pushSubscriptions: [{
     endpoint: String,

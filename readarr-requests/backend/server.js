@@ -8,6 +8,7 @@ const calibreManagerRoutes = require('./routes/calibreManager');
 const searchRoutes = require('./routes/search');
 const notificationRoutes = require('./routes/notifications');
 const libraryRoutes = require('./routes/library');
+const userActivityController = require('./controllers/userActivityController');
 const path = require('path');
 
 // Load environment variables
@@ -18,6 +19,7 @@ const authRoutes = require('./routes/auth');
 const bookRoutes = require('./routes/books');
 const requestRoutes = require('./routes/requests');
 const adminRoutes = require('./routes/admin');
+const readerRoutes = require('./routes/reader');
 
 const app = express();
 
@@ -40,7 +42,10 @@ app.use('/api/calibre-manager', calibreManagerRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/library', libraryRoutes);
-app.use('/api/admin', require('./routes/adminUsers')); 
+app.use('/api/admin', require('./routes/adminUsers'));
+app.use(userActivityController.trackActivity);
+app.use('/api/reader', readerRoutes);
+
 
 // Serve static files from the public directory
 app.use(express.static(path.join(__dirname, 'public')));

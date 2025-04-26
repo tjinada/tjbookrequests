@@ -105,6 +105,29 @@ exports.createRequest = async (req, res) => {
     // Save the request
     await newRequest.save();
     
+    // Track the request activity
+    try {
+      const UserActivity = require('../models/UserActivity');
+      const requestActivity = new UserActivity({
+        user: req.user.id,
+        activity: 'request_book',
+        details: {
+          requestId: newRequest._id,
+          bookId,
+          title,
+          author,
+          timestamp: new Date()
+        }
+      });
+      await requestActivity.save();
+      
+      // Update user's last seen timestamp
+      await User.findByIdAndUpdate(req.user.id, { lastSeen: new Date() });
+    } catch (activityError) {
+      console.error('Error tracking request activity:', activityError);
+      // Don't fail the request if activity tracking fails
+    }
+    
     // Get user information for the notification
     const userInfo = await User.findById(req.user.id).select('username');
     

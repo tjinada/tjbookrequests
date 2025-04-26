@@ -182,3 +182,51 @@ exports.searchBooks = async (req, res) => {
     res.status(500).send('Server error');
   }
 };
+
+exports.getBookDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Original book fetching logic here
+    const bookDetails = await someBookFetchingLogic(id);
+    
+    // Track the view if authenticated
+    if (req.user) {
+      trackBookView(req.user.id, bookDetails);
+    }
+    
+    res.json(bookDetails);
+  } catch (err) {
+    console.error('Error fetching book details:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+const trackBookView = async (userId, bookInfo) => {
+  try {
+    if (!userId) return;
+    
+    const UserActivity = require('../models/UserActivity');
+    const User = require('../models/User');
+    
+    // Create activity record
+    const viewActivity = new UserActivity({
+      user: userId,
+      activity: 'view_book',
+      details: {
+        bookId: bookInfo.id || bookInfo.bookId,
+        title: bookInfo.title,
+        author: bookInfo.author,
+        timestamp: new Date()
+      }
+    });
+    await viewActivity.save();
+    
+    // Update user's last seen timestamp
+    await User.findByIdAndUpdate(userId, { lastSeen: new Date() });
+  } catch (error) {
+    console.error('Error tracking book view activity:', error);
+    // Don't throw, just log the error
+  }
+};
+
