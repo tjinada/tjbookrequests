@@ -39,8 +39,11 @@ self.addEventListener('install', (event) => {
     })
   );
   
-  // Don't force skip waiting - let user decide when to update
-  // self.skipWaiting();
+  // Skip waiting on initial installation (not updates)
+  if (!self.registration.active) {
+    console.log('[Service Worker] Initial installation - skipWaiting');
+    self.skipWaiting();
+  }
 });
 
 // Activate event - clean up old caches

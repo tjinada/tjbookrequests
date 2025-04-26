@@ -7,9 +7,11 @@ import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
 import Alert from '@mui/material/Alert';
 import Grid from '@mui/material/Grid';
+import Divider from '@mui/material/Divider';
 import AuthContext from '../context/AuthContext';
 import api from '../utils/api';
 import NotificationPermissionButton from '../components/notifications/NotificationPermissionButton';
+import ForceUpdateButton from '../components/common/ForceUpdateButton';
 
 const Profile = () => {
   const { user, setUser } = useContext(AuthContext);
@@ -216,6 +218,23 @@ const Profile = () => {
           <NotificationPermissionButton 
             variant="outlined" 
             size="small"
+          />
+        </Box>
+      </Paper>
+
+      {/* App Maintenance Card */}
+      <Paper elevation={3} sx={{ p: 4, mt: 4, maxWidth: 600, mx: 'auto' }}>
+        <Typography variant="h6" gutterBottom>
+          App Maintenance
+        </Typography>
+        <Divider sx={{ mb: 2 }} />
+        <Box sx={{ mt: 2 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            If you're experiencing issues with the app or seeing white screens, try refreshing it to get the latest version.
+          </Typography>
+          <ForceUpdateButton 
+            variant="contained" 
+            color="primary"
           />
         </Box>
       </Paper>

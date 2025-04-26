@@ -1,5 +1,105 @@
 <!DOCTYPE html>
 <html lang="en">
+  <!-- White screen recovery script -->
+  <script>
+    // WhiteScreenRecovery: This runs before the app loads to detect and recover from white screens
+    (function() {
+      // Function to clear all caches and reload
+      function forceClearCacheAndReload() {
+        console.log('[Recovery] Clearing caches and reloading...');
+        // Store a flag to prevent infinite reload loops
+        localStorage.setItem('recovery_attempt', Date.now());
+        
+        // 1. Unregister all service workers
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(function(registrations) {
+            for (let registration of registrations) {
+              registration.unregister();
+            }
+          }).catch(function(err) {
+            console.error('[Recovery] Service worker unregister failed:', err);
+          });
+        }
+        
+        // 2. Clear all caches
+        if ('caches' in window) {
+          caches.keys().then(function(cacheNames) {
+            cacheNames.forEach(function(cacheName) {
+              caches.delete(cacheName);
+            });
+          }).catch(function(err) {
+            console.error('[Recovery] Cache clear failed:', err);
+          });
+        }
+        
+        // 3. Add a random query parameter to bust any remaining caches
+        setTimeout(function() {
+          const bustCache = Math.random().toString(36).substring(2, 15);
+          window.location.href = window.location.pathname + '?recovery=' + bustCache;
+        }, 1000);
+      }
+      
+      // Check if we need to prevent infinite loops
+      var lastRecovery = parseInt(localStorage.getItem('recovery_attempt') || '0');
+      var now = Date.now();
+      var MAX_RECOVERY_ATTEMPTS = 2;
+      var RECOVERY_WINDOW_MS = 30000; // 30 seconds
+      
+      // If we've tried recovering recently, count it as an attempt
+      if (now - lastRecovery < RECOVERY_WINDOW_MS) {
+        var attempts = parseInt(localStorage.getItem('recovery_attempts') || '0') + 1;
+        localStorage.setItem('recovery_attempts', attempts);
+        
+        // Stop trying after MAX_RECOVERY_ATTEMPTS
+        if (attempts >= MAX_RECOVERY_ATTEMPTS) {
+          console.log('[Recovery] Maximum recovery attempts reached. Adding manual recovery button.');
+          
+          // Add a visible recovery button for the user after the page loads
+          document.addEventListener('DOMContentLoaded', function() {
+            if (!document.getElementById('root').children.length) {
+              var recoveryButton = document.createElement('button');
+              recoveryButton.innerText = 'Repair App';
+              recoveryButton.style.position = 'fixed';
+              recoveryButton.style.top = '50%';
+              recoveryButton.style.left = '50%';
+              recoveryButton.style.transform = 'translate(-50%, -50%)';
+              recoveryButton.style.padding = '12px 20px';
+              recoveryButton.style.backgroundColor = '#4CAF50';
+              recoveryButton.style.color = 'white';
+              recoveryButton.style.border = 'none';
+              recoveryButton.style.borderRadius = '4px';
+              recoveryButton.style.fontSize = '16px';
+              recoveryButton.style.cursor = 'pointer';
+              recoveryButton.style.zIndex = '9999';
+              recoveryButton.onclick = function() {
+                localStorage.removeItem('recovery_attempts');
+                forceClearCacheAndReload();
+              };
+              document.body.appendChild(recoveryButton);
+            }
+          });
+          return;
+        }
+      } else {
+        // Reset counter if we're outside the window
+        localStorage.setItem('recovery_attempts', '0');
+      }
+      
+      // Listen for white screen - app should render quickly
+      var whiteScreenTimeout = setTimeout(function() {
+        // If #root is empty after timeout, we likely have a white screen
+        if (!document.getElementById('root') || !document.getElementById('root').children.length) {
+          console.log('[Recovery] White screen detected, initiating recovery...');
+          forceClearCacheAndReload();
+        }
+      }, 5000); // Wait 5 seconds for app to load
+      
+      // Cancel the timer if content renders successfully
+      window.addEventListener('load', function() {
+        clearTimeout(whiteScreenTimeout);
+      });
+    })();
+  </script>
   <head>
     <meta charset="utf-8" />
     <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />

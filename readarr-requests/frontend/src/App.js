@@ -1,5 +1,5 @@
 // src/App.js
-import React, { lazy, Suspense } from 'react';
+import React, { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import CircularProgress from '@mui/material/CircularProgress';
 import Box from '@mui/material/Box';
@@ -16,6 +16,7 @@ import AdminRoute from './components/routing/AdminRoute';
 import { LibraryProvider } from './context/LibraryContext';
 import Reader from './pages/Reader';
 import './pdfjs-worker'; // Initialize PDF.js worker
+import { detectWhiteScreen, forceUpdatePWA } from './utils/pwaRecovery';
 
 
 // Lazy-loaded components
@@ -40,6 +41,31 @@ const LoadingFallback = () => (
 );
 
 function App() {
+  // This effect handles recovery from white screens after the app attempts to load
+  useEffect(() => {
+    // Check URL for recovery parameter
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('recovery')) {
+      console.log('[App] Recovery mode detected');
+      // Clean up URL by removing recovery parameter
+      const newUrl = window.location.pathname + 
+                   (params.toString() ? '?' + params.toString().replace(/recovery=[^&]+(&|$)/, '') : '');
+      window.history.replaceState({}, document.title, newUrl);
+    }
+    
+    // Set a flag to track if the app is fully rendered
+    let appRendered = false;
+    
+    // Mark the app as rendered after a short delay
+    const markAsRendered = setTimeout(() => {
+      appRendered = true;
+    }, 2000);
+    
+    return () => {
+      clearTimeout(markAsRendered);
+    };
+  }, []);
+
   return (
     <ThemeProvider>
       <CssBaseline />
