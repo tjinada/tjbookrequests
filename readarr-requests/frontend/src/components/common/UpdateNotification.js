@@ -16,24 +16,54 @@ const UpdateNotification = () => {
   useEffect(() => {
     // Add listener for service worker update event
     const handleServiceWorkerUpdate = (event) => {
-      console.log('Service worker update detected');
+      console.log('Service worker update detected via event');
       setShowUpdateNotification(true);
     };
 
+    // Add listener for service worker messages
+    const handleServiceWorkerMessage = (event) => {
+      if (event.data && event.data.type === 'SERVICE_WORKER_UPDATED') {
+        console.log('Service worker update detected via message');
+        setShowUpdateNotification(true);
+      }
+    };
+
+    // Listen for both update events and direct messages
     window.addEventListener('serviceWorkerUpdate', handleServiceWorkerUpdate);
+    navigator.serviceWorker?.addEventListener('message', handleServiceWorkerMessage);
     
     // Also check if there's an update waiting when component mounts
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistration().then(registration => {
         if (registration && registration.waiting) {
+          console.log('Update waiting on component mount');
           // If there's a waiting service worker, show update notification
           setShowUpdateNotification(true);
         }
       });
+
+      // Check for updates every 5 minutes
+      const updateCheckInterval = setInterval(() => {
+        console.log('Checking for service worker updates...');
+        navigator.serviceWorker.getRegistration().then(registration => {
+          if (registration) {
+            registration.update().catch(error => {
+              console.error('Error checking for service worker updates:', error);
+            });
+          }
+        });
+      }, 5 * 60 * 1000);
+
+      return () => {
+        clearInterval(updateCheckInterval);
+        window.removeEventListener('serviceWorkerUpdate', handleServiceWorkerUpdate);
+        navigator.serviceWorker?.removeEventListener('message', handleServiceWorkerMessage);
+      };
     }
 
     return () => {
       window.removeEventListener('serviceWorkerUpdate', handleServiceWorkerUpdate);
+      navigator.serviceWorker?.removeEventListener('message', handleServiceWorkerMessage);
     };
   }, []);
 
@@ -52,7 +82,8 @@ const UpdateNotification = () => {
       anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       sx={{ 
         mb: 8, // Position above bottom navigation
-        maxWidth: 400
+        maxWidth: 400,
+        zIndex: 9999 // Ensure it appears above everything else
       }}
     >
       <Alert 

@@ -37,13 +37,22 @@ RUN echo 'server { \
     # Ensure proper cache control for PWA files \
     location = /service-worker.js { \
         add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0"; \
-        expires off; \
+        add_header Pragma "no-cache"; \
+        expires -1; \
         proxy_no_cache 1; \
     } \
     \
     location = /manifest.json { \
         add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0"; \
-        expires off; \
+        add_header Pragma "no-cache"; \
+        expires -1; \
+        proxy_no_cache 1; \
+    } \
+    \
+    location = /index.html { \
+        add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0"; \
+        add_header Pragma "no-cache"; \
+        expires -1; \
         proxy_no_cache 1; \
     } \
     \

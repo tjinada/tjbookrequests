@@ -21,7 +21,8 @@ export function register(config) {
     window.addEventListener('load', () => {
       // Add timestamp to force cache busting of the service worker itself
       const timestamp = new Date().getTime();
-      const swUrl = `${process.env.PUBLIC_URL}/service-worker.js?v=${timestamp}`;
+      const cacheBuster = Math.random().toString(36).substring(2, 8);
+      const swUrl = `${process.env.PUBLIC_URL}/service-worker.js?v=${timestamp}&cb=${cacheBuster}`;
 
       if (isLocalhost) {
         checkValidServiceWorker(swUrl, config);

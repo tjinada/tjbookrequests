@@ -7,6 +7,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { AuthProvider } from './context/AuthContext';
 import { AppProvider } from './context/AppContext';
 import InstallPrompt from './components/common/InstallPrompt';
+import UpdateNotification from './components/common/UpdateNotification';
 import { ThemeProvider } from './context/ThemeContext';
 import { SearchProvider } from './context/SearchContext';
 import PrivateRoute from './components/routing/PrivateRoute';
@@ -71,6 +72,7 @@ function App() {
                 <Route path="/read/:id/:format" element={<Reader />} />
               </Routes>
               <InstallPrompt />
+              <UpdateNotification />
             </Suspense>
           </Router>
           </LibraryProvider>
