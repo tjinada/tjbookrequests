@@ -130,21 +130,60 @@ export function getRegistration() {
   return registration;
 }
 
-// Force update and refresh
+// Force update and refresh with improved reliability
 export function updateAndRefresh() {
-  if (registration && registration.waiting) {
-    // Send message to waiting service worker to skipWaiting
-    registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+  if (!registration) {
+    console.warn('No service worker registration found, reloading page');
+    window.location.reload();
+    return;
+  }
+
+  if (registration.waiting) {
+    console.log('Found waiting service worker, sending skipWaiting message');
     
-    // Once the service worker is activated, reload the page
+    // Track if we need to manually reload
+    let manualReloadTimeout = setTimeout(() => {
+      console.log('No controllerchange event received, manually reloading');
+      // Add cache busting parameter
+      window.location.href = window.location.href + 
+        (window.location.href.includes('?') ? '&' : '?') + 
+        'ts=' + Date.now();
+    }, 3000); // Wait 3 seconds for controllerchange before forcing reload
+    
+    // Set up listener for controllerchange
     let refreshing = false;
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
+    const controllerChangeHandler = () => {
       if (!refreshing) {
         refreshing = true;
+        clearTimeout(manualReloadTimeout);
         console.log('New service worker activated, reloading page');
         window.location.reload();
       }
+    };
+    
+    navigator.serviceWorker.addEventListener('controllerchange', controllerChangeHandler);
+    
+    // Send message to waiting service worker
+    registration.waiting.postMessage({ 
+      type: 'SKIP_WAITING', 
+      timestamp: Date.now() 
     });
+  } else {
+    console.log('No waiting service worker found, checking for updates');
+    registration.update()
+      .then(() => {
+        if (registration.waiting) {
+          console.log('Update found, now sending skipWaiting');
+          updateAndRefresh(); // Call self again now that we have a waiting worker
+        } else {
+          console.log('No update found, reloading page');
+          window.location.reload();
+        }
+      })
+      .catch(err => {
+        console.error('Error updating service worker:', err);
+        window.location.reload();
+      });
   }
 }
 

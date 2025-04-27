@@ -39,9 +39,10 @@ self.addEventListener('install', (event) => {
     })
   );
   
-  // Skip waiting on initial installation (not updates)
-  if (!self.registration.active) {
-    console.log('[Service Worker] Initial installation - skipWaiting');
+    // Skip waiting on initial installation or when explicitly asked
+  const skipWaitingParam = new URL(self.location).searchParams.get('skipWaiting');
+  if (!self.registration.active || skipWaitingParam === 'true') {
+    console.log('[Service Worker] skipWaiting - immediate activation');
     self.skipWaiting();
   }
 });
@@ -191,17 +192,43 @@ self.addEventListener('notificationclick', (event) => {
   }
 });
 
-// Add message event handler for SKIP_WAITING
+// Add message event handler with improved reliability
 self.addEventListener('message', (event) => {
+  console.log('[Service Worker] Received message:', event.data);
+  
   if (event.data && event.data.type === 'SKIP_WAITING') {
     console.log('[Service Worker] Skip waiting and activate immediately');
+    
+    // First notify clients before skipping waiting
+    self.clients.matchAll().then(clients => {
+      const notifyPromises = clients.map(client => {
+        return client.postMessage({ 
+          type: 'SERVICE_WORKER_UPDATED',
+          timestamp: new Date().toISOString() 
+        });
+      });
+      
+      // After notifying, skip waiting
+      Promise.all(notifyPromises).then(() => {
+        console.log('[Service Worker] All clients notified, now skipping waiting');
+        self.skipWaiting();
+      });
+    });
+  }
+  
+  // Also handle force update requests
+  if (event.data && event.data.type === 'FORCE_UPDATE') {
+    console.log('[Service Worker] Force update requested');
     self.skipWaiting();
     
-    // Notify all clients about update
-    self.clients.matchAll().then(clients => {
-      clients.forEach(client => {
-        client.postMessage({ type: 'SERVICE_WORKER_UPDATED' });
-      });
+    // Clear all caches
+    caches.keys().then(cacheNames => {
+      return Promise.all(
+        cacheNames.map(cacheName => {
+          console.log('[Service Worker] Clearing cache:', cacheName);
+          return caches.delete(cacheName);
+        })
+      );
     });
   }
 });

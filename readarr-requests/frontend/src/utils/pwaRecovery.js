@@ -9,6 +9,28 @@ export function forceUpdatePWA() {
   return new Promise((resolve, reject) => {
     console.log('[PWA Recovery] Starting force update process...');
     
+    // Try to communicate with service worker first (more graceful)
+    const tryMessageServiceWorker = () => {
+      if (!('serviceWorker' in navigator)) {
+        return Promise.resolve(false);
+      }
+      
+      return navigator.serviceWorker.getRegistration()
+        .then(registration => {
+          if (registration && registration.active) {
+            // First try to send a force update message
+            console.log('[PWA Recovery] Sending FORCE_UPDATE message to service worker');
+            registration.active.postMessage({ type: 'FORCE_UPDATE' });
+            return true;
+          }
+          return false;
+        })
+        .catch(err => {
+          console.warn('[PWA Recovery] Error messaging service worker:', err);
+          return false;
+        });
+    };
+    
     const unregisterServiceWorkers = () => {
       if (!('serviceWorker' in navigator)) {
         console.log('[PWA Recovery] Service worker not supported');
@@ -41,18 +63,43 @@ export function forceUpdatePWA() {
         });
     };
     
+    const clearLocalStorage = () => {
+      // Clear just the update-related flags
+      localStorage.removeItem('update_notification_shown');
+      localStorage.removeItem('last_update_check');
+      return Promise.resolve();
+    };
+    
     // Execute recovery steps in sequence
-    unregisterServiceWorkers()
+    tryMessageServiceWorker()
+      .then(messagedSuccessfully => {
+        // If we successfully messaged the service worker, we can proceed more gracefully
+        if (messagedSuccessfully) {
+          console.log('[PWA Recovery] Service worker notified, waiting brief period before continuing');
+          // Wait a brief period to allow service worker to process message
+          return new Promise(resolve => setTimeout(resolve, 500));
+        }
+        return Promise.resolve();
+      })
+      .then(() => clearLocalStorage())
       .then(() => clearCaches())
+      .then(() => unregisterServiceWorkers())
       .then(() => {
         console.log('[PWA Recovery] Recovery completed, reloading page...');
         
-        // Add a cache-busting parameter to the URL
-        const cacheBust = `recovery=${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+        // More comprehensive cache busting
+        const timestamp = Date.now();
+        const random = Math.random().toString(36).substring(2, 10);
         
-        // Check if URL already has parameters
-        const separator = window.location.href.includes('?') ? '&' : '?';
-        window.location.href = window.location.href + separator + cacheBust;
+        // Create URL with cache busting parameters
+        const url = new URL(window.location.href);
+        url.searchParams.set('recovery', `${timestamp}-${random}`);
+        url.searchParams.set('ts', timestamp);
+        
+        // For service worker, explicitly request skipWaiting
+        url.searchParams.set('skipWaiting', 'true');
+        
+        window.location.href = url.toString();
         
         resolve(true);
       })

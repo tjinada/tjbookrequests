@@ -14,17 +14,42 @@ const UpdateNotification = () => {
   const [showUpdateNotification, setShowUpdateNotification] = useState(false);
 
   useEffect(() => {
+    // Track if we've shown the notification recently to avoid spamming
+    const hasShownRecentlyKey = 'update_notification_shown';
+    const checkIfShownRecently = () => {
+      const lastShown = localStorage.getItem(hasShownRecentlyKey);
+      if (lastShown) {
+        const timeSince = Date.now() - parseInt(lastShown);
+        // Don't show again if shown in the last hour
+        if (timeSince < 60 * 60 * 1000) {
+          return true;
+        }
+      }
+      return false;
+    };
+
+    // Mark that we've shown the notification
+    const markAsShown = () => {
+      localStorage.setItem(hasShownRecentlyKey, Date.now().toString());
+    };
+
     // Add listener for service worker update event
     const handleServiceWorkerUpdate = (event) => {
       console.log('Service worker update detected via event');
-      setShowUpdateNotification(true);
+      if (!checkIfShownRecently()) {
+        setShowUpdateNotification(true);
+        markAsShown();
+      }
     };
 
     // Add listener for service worker messages
     const handleServiceWorkerMessage = (event) => {
       if (event.data && event.data.type === 'SERVICE_WORKER_UPDATED') {
         console.log('Service worker update detected via message');
-        setShowUpdateNotification(true);
+        if (!checkIfShownRecently()) {
+          setShowUpdateNotification(true);
+          markAsShown();
+        }
       }
     };
 
@@ -32,17 +57,18 @@ const UpdateNotification = () => {
     window.addEventListener('serviceWorkerUpdate', handleServiceWorkerUpdate);
     navigator.serviceWorker?.addEventListener('message', handleServiceWorkerMessage);
     
-    // Also check if there's an update waiting when component mounts
-    if ('serviceWorker' in navigator) {
+    // Check if there's an update waiting when component mounts, but not if shown recently
+    if ('serviceWorker' in navigator && !checkIfShownRecently()) {
       navigator.serviceWorker.getRegistration().then(registration => {
         if (registration && registration.waiting) {
           console.log('Update waiting on component mount');
           // If there's a waiting service worker, show update notification
           setShowUpdateNotification(true);
+          markAsShown();
         }
       });
 
-      // Check for updates every 5 minutes
+      // Check for updates every 30 minutes (reduced frequency)
       const updateCheckInterval = setInterval(() => {
         console.log('Checking for service worker updates...');
         navigator.serviceWorker.getRegistration().then(registration => {
@@ -52,7 +78,7 @@ const UpdateNotification = () => {
             });
           }
         });
-      }, 5 * 60 * 1000);
+      }, 30 * 60 * 1000);
 
       return () => {
         clearInterval(updateCheckInterval);
@@ -69,7 +95,17 @@ const UpdateNotification = () => {
 
   const handleUpdateClick = () => {
     setShowUpdateNotification(false);
-    updateAndRefresh();
+    // Use our more robust force update method instead
+    import('../../utils/pwaRecovery')
+      .then(module => {
+        console.log('Forcing complete PWA update');
+        module.forceUpdatePWA();
+      })
+      .catch(err => {
+        console.error('Error importing pwaRecovery:', err);
+        // Fallback to the old method if import fails
+        updateAndRefresh();
+      });
   };
 
   const handleDismiss = () => {
