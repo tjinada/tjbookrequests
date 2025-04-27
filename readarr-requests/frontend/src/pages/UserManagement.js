@@ -50,12 +50,22 @@ import api from '../utils/api';
 import { formatDistance } from 'date-fns';
 
 // Helper function to format dates relative to now
-const formatRelativeTime = (dateString) => {
+const formatRelativeTime = (dateString, createdAtString) => {
+  // If dateString is null or undefined, return 'Never'
   if (!dateString) return 'Never';
+  
   try {
+    // If lastSeen is exactly equal to createdAt (or very close), the user hasn't logged in
+    // since the lastSeen tracking was added
+    if (dateString === createdAtString) {
+      return 'Never';
+    }
+    
+    // Format the date as a relative time
     return formatDistance(new Date(dateString), new Date(), { addSuffix: true });
   } catch (e) {
-    return 'Invalid date';
+    console.error('Date formatting error:', e);
+    return 'Unknown';
   }
 };
 
@@ -651,7 +661,7 @@ const UserManagement = () => {
                   </TableCell>
                   <TableCell align="center">
                     <Tooltip title={user.lastSeen ? new Date(user.lastSeen).toLocaleString() : 'Never'}>
-                      <Typography>{formatRelativeTime(user.lastSeen)}</Typography>
+                      <Typography>{formatRelativeTime(user.lastSeen, user.createdAt)}</Typography>
                     </Tooltip>
                   </TableCell>
                   <TableCell align="right">
