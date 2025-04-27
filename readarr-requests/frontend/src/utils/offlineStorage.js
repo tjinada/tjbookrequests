@@ -1,5 +1,6 @@
 // src/utils/offlineStorage.js
 import api from './api';
+import { validateEpub, repairEpub } from './epubValidator';
 
 /**
  * IndexedDB setup for storing books for offline reading
@@ -388,6 +389,23 @@ export const downloadBook = async (id, format) => {
   const cachedData = await getBookData(id, format);
   if (cachedData) {
     console.log(`Using cached book: ${id} (${format})`);
+    
+    // For EPUB format, validate and repair if needed
+    if (format.toLowerCase() === 'epub') {
+      try {
+        const validation = await validateEpub(cachedData);
+        if (!validation.isValid) {
+          console.warn(`Cached EPUB has issues:`, validation.issues);
+          // Try to repair the EPUB
+          const repairedData = await repairEpub(cachedData);
+          return URL.createObjectURL(repairedData);
+        }
+      } catch (validationError) {
+        console.error('Error validating cached EPUB:', validationError);
+        // Continue with original if validation fails
+      }
+    }
+    
     return URL.createObjectURL(cachedData);
   }
   
@@ -397,7 +415,22 @@ export const downloadBook = async (id, format) => {
       responseType: 'blob'
     });
     
-    const bookData = response.data;
+    let bookData = response.data;
+    
+    // For EPUB format, validate and repair before storing
+    if (format.toLowerCase() === 'epub') {
+      try {
+        const validation = await validateEpub(bookData);
+        if (!validation.isValid) {
+          console.warn(`Downloaded EPUB has issues:`, validation.issues);
+          // Try to repair the EPUB
+          bookData = await repairEpub(bookData);
+        }
+      } catch (validationError) {
+        console.error('Error validating downloaded EPUB:', validationError);
+        // Continue with original if validation fails
+      }
+    }
     
     // Save to IndexedDB for offline reading
     await saveBookData(id, format, bookData);

@@ -1,4 +1,4 @@
-// src/components/reader/BookReader.js
+// src/components/reader/BookReader.js - Updated with improved EPUB handling
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -11,19 +11,22 @@ import {
   useMediaQuery,
   Snackbar,
   Alert,
-  Paper
+  Paper,
+  Button
 } from '@mui/material';
 import { ReactReader } from 'react-reader';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SettingsIcon from '@mui/icons-material/Settings';
-import BookmarkIcon from '@mui/icons-material/Bookmark';
-import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
+import BookmarkIcon from '@mui/icons-material/BookmarkBorder';
+import BookmarkAddedIcon from '@mui/icons-material/BookmarkAdded';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
+import DownloadIcon from '@mui/icons-material/Download';
 import ReaderControls from './ReaderControls';
 import ReaderSettings from './ReaderSettings';
 import useBookmarks from '../../hooks/useBookmarks';
 import useReaderSettings from '../../hooks/useReaderSettings';
 import { downloadBook, fetchBook } from '../../utils/offlineStorage';
+import api from '../../utils/api';
 
 const BookReader = () => {
   const { id, format = 'epub' } = useParams();
@@ -47,6 +50,8 @@ const BookReader = () => {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [tocOpen, setTocOpen] = useState(false);
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'info' });
+  const [renderError, setRenderError] = useState(false);
+  const [altFormats, setAltFormats] = useState([]);
   
   // Custom hooks
   const { bookmarks, addBookmark, removeBookmark, isBookmarked } = useBookmarks(id);
@@ -66,10 +71,16 @@ const BookReader = () => {
     const loadBook = async () => {
       try {
         setLoading(true);
+        setRenderError(false);
         
         // Try to load book metadata
         const bookMetadata = await fetchBook(id);
         setBook(bookMetadata);
+        
+        // Get alternative formats
+        if (bookMetadata && bookMetadata.formats) {
+          setAltFormats(bookMetadata.formats.filter(f => f.toLowerCase() !== format.toLowerCase()));
+        }
         
         // Load last location if available
         const lastLocation = localStorage.getItem(`book_location_${id}`);
@@ -96,83 +107,106 @@ const BookReader = () => {
   const handleRenditionReady = (rendition) => {
     renditionRef.current = rendition;
     
-    // Apply styles based on settings
-    rendition.themes.fontSize(`${fontSize}%`);
-    rendition.themes.font(fontFamily);
-    
-    // Register themes
-    rendition.themes.register('light', {
-      body: { 
-        color: '#000', 
-        background: '#fff',
-        'line-height': `${lineSpacing}`
-      }
-    });
-    
-    rendition.themes.register('sepia', {
-      body: { 
-        color: '#5B4636', 
-        background: '#FBF0D9',
-        'line-height': `${lineSpacing}`
-      }
-    });
-    
-    rendition.themes.register('dark', {
-      body: { 
-        color: '#ccc', 
-        background: '#222',
-        'line-height': `${lineSpacing}`
-      }
-    });
-    
-    // Apply theme
-    rendition.themes.select(readerTheme);
-    
-    // Handle key events for navigation
-    rendition.on('keyup', (e) => {
-      if (e.key === 'ArrowLeft') {
-        rendition.prev();
-      }
-      if (e.key === 'ArrowRight') {
-        rendition.next();
-      }
-    });
-    
-    // Create swipe event handlers for mobile
-    let touchstart = null;
-    rendition.on('touchstart', (e) => {
-      touchstart = e.changedTouches[0];
-    });
-    
-    rendition.on('touchend', (e) => {
-      if (!touchstart) return;
-      const touchend = e.changedTouches[0];
-      const deltaX = touchend.screenX - touchstart.screenX;
-      const deltaY = touchend.screenY - touchstart.screenY;
+    try {
+      // Add error handler for content display issues
+      rendition.on('rendered', (section) => {
+        // Check if any content was actually rendered
+        if (section && section.document) {
+          const contentLength = section.document.body.innerHTML.length;
+          if (contentLength < 10) { // Arbitrary threshold for "empty" content
+            console.warn('Possibly empty content detected in section:', section.href);
+          }
+        }
+      });
       
-      if (Math.abs(deltaX) > Math.abs(deltaY)) {
-        if (deltaX > 50) {
+      // Apply styles based on settings
+      rendition.themes.fontSize(`${fontSize}%`);
+      rendition.themes.font(fontFamily);
+      
+      // Register themes
+      rendition.themes.register('light', {
+        body: { 
+          color: '#000', 
+          background: '#fff',
+          'line-height': `${lineSpacing}`
+        }
+      });
+      
+      rendition.themes.register('sepia', {
+        body: { 
+          color: '#5B4636', 
+          background: '#FBF0D9',
+          'line-height': `${lineSpacing}`
+        }
+      });
+      
+      rendition.themes.register('dark', {
+        body: { 
+          color: '#ccc', 
+          background: '#222',
+          'line-height': `${lineSpacing}`
+        }
+      });
+      
+      // Apply theme
+      rendition.themes.select(readerTheme);
+      
+      // Handle key events for navigation
+      rendition.on('keyup', (e) => {
+        if (e.key === 'ArrowLeft') {
           rendition.prev();
-        } else if (deltaX < -50) {
+        }
+        if (e.key === 'ArrowRight') {
           rendition.next();
         }
-      }
-    });
+      });
+      
+      // Create swipe event handlers for mobile
+      let touchstart = null;
+      rendition.on('touchstart', (e) => {
+        touchstart = e.changedTouches[0];
+      });
+      
+      rendition.on('touchend', (e) => {
+        if (!touchstart) return;
+        const touchend = e.changedTouches[0];
+        const deltaX = touchend.screenX - touchstart.screenX;
+        const deltaY = touchend.screenY - touchstart.screenY;
+        
+        if (Math.abs(deltaX) > Math.abs(deltaY)) {
+          if (deltaX > 50) {
+            rendition.prev();
+          } else if (deltaX < -50) {
+            rendition.next();
+          }
+        }
+      });
+    } catch (err) {
+      console.error('Error setting up rendition:', err);
+      setRenderError(true);
+    }
   };
 
   // Handle location change
   const handleLocationChanged = (newLocation) => {
-    locationRef.current = newLocation;
-    setLocation(newLocation);
-    
-    // Save current location to localStorage
-    localStorage.setItem(`book_location_${id}`, newLocation);
-    
-    // Update current page display
-    if (renditionRef.current && tocRef.current) {
-      const { displayed, total } = renditionRef.current.location.start;
-      setCurrentPage(displayed.page);
-      setTotalPages(total.pages);
+    try {
+      locationRef.current = newLocation;
+      setLocation(newLocation);
+      
+      // Save current location to localStorage
+      localStorage.setItem(`book_location_${id}`, newLocation);
+      
+      // Update current page display
+      if (renditionRef.current && tocRef.current) {
+        const { displayed, total } = renditionRef.current.location.start;
+        if (displayed && total) {
+          setCurrentPage(displayed.page);
+          setTotalPages(total.pages);
+        }
+      }
+    } catch (err) {
+      console.error('Error handling location change:', err);
+      // Don't set error state here to avoid breaking the reader
     }
   };
 
@@ -219,6 +253,21 @@ const BookReader = () => {
         showNotification('Bookmark added', 'success');
       }
     }
+  };
+
+  // Handle direct download
+  const handleDirectDownload = async () => {
+    try {
+      window.open(`/api/library/download/${id}/${format}`, '_blank');
+    } catch (err) {
+      console.error('Error triggering direct download:', err);
+      showNotification('Failed to start download', 'error');
+    }
+  };
+
+  // Switch to alternative format
+  const switchFormat = (newFormat) => {
+    navigate(`/reader/${id}/${newFormat}`);
   };
 
   // Handle settings open/close
@@ -313,9 +362,95 @@ const BookReader = () => {
         >
           {error}
         </Alert>
-        <Typography variant="body1">
+        <Typography variant="body1" sx={{ mb: 3 }}>
           Unable to load the book. Please try again or select a different format.
         </Typography>
+        
+        {altFormats.length > 0 && (
+          <Box>
+            <Typography variant="subtitle1" sx={{ mb: 1 }}>
+              Try another format:
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'center' }}>
+              {altFormats.map(altFormat => (
+                <Button 
+                  key={altFormat}
+                  variant="outlined" 
+                  onClick={() => switchFormat(altFormat)}
+                >
+                  {altFormat.toUpperCase()}
+                </Button>
+              ))}
+            </Box>
+          </Box>
+        )}
+        
+        <Button 
+          variant="contained" 
+          sx={{ mt: 3 }}
+          onClick={handleDirectDownload}
+          startIcon={<DownloadIcon />}
+        >
+          Download {format.toUpperCase()} directly
+        </Button>
+      </Box>
+    );
+  }
+
+  // Render content rendering error
+  if (renderError) {
+    return (
+      <Box sx={{ 
+        p: 3,
+        display: 'flex', 
+        flexDirection: 'column',
+        alignItems: 'center', 
+        height: '100vh',
+        bgcolor: 'background.default'
+      }}>
+        <Alert 
+          severity="warning" 
+          sx={{ width: '100%', maxWidth: 500, mb: 2 }}
+          action={
+            <IconButton color="inherit" size="small" onClick={handleClose}>
+              <ArrowBackIcon />
+            </IconButton>
+          }
+        >
+          There was an issue displaying this book
+        </Alert>
+        <Typography variant="body1" sx={{ mb: 3, textAlign: 'center' }}>
+          This EPUB file appears to be corrupted or has compatibility issues with the reader.
+          You can try downloading it directly to open in another reader app like Calibre.
+        </Typography>
+        
+        {altFormats.length > 0 && (
+          <Box>
+            <Typography variant="subtitle1" sx={{ mb: 1, textAlign: 'center' }}>
+              Try another format:
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'center' }}>
+              {altFormats.map(altFormat => (
+                <Button 
+                  key={altFormat}
+                  variant="outlined" 
+                  onClick={() => switchFormat(altFormat)}
+                >
+                  {altFormat.toUpperCase()}
+                </Button>
+              ))}
+            </Box>
+          </Box>
+        )}
+        
+        <Button 
+          variant="contained" 
+          sx={{ mt: 3 }}
+          onClick={handleDirectDownload}
+          startIcon={<DownloadIcon />}
+        >
+          Download {format.toUpperCase()} directly
+        </Button>
       </Box>
     );
   }
@@ -365,7 +500,7 @@ const BookReader = () => {
             onClick={toggleBookmark}
             color={isBookmarked(location) ? 'primary' : 'default'}
           >
-            {isBookmarked(location) ? <BookmarkIcon /> : <BookmarkBorderIcon />}
+            {isBookmarked(location) ? <BookmarkAddedIcon /> : <BookmarkIcon />}
           </IconButton>
           <IconButton onClick={toggleToc}>
             <MenuBookIcon />
@@ -466,6 +601,34 @@ const BookReader = () => {
             {book?.author || 'Unknown Author'}
           </Typography>
           
+          {/* Available formats */}
+          {altFormats.length > 0 && (
+            <>
+              <Typography variant="subtitle1" sx={{ mt: 2, mb: 1, fontWeight: 'bold' }}>
+                Other Formats
+              </Typography>
+              <Box 
+                sx={{ 
+                  display: 'flex', 
+                  gap: 1, 
+                  flexWrap: 'wrap', 
+                  mb: 2 
+                }}
+              >
+                {altFormats.map(altFormat => (
+                  <Button 
+                    key={altFormat}
+                    size="small"
+                    variant="outlined" 
+                    onClick={() => switchFormat(altFormat)}
+                  >
+                    {altFormat.toUpperCase()}
+                  </Button>
+                ))}
+              </Box>
+            </>
+          )}
+          
           {/* Table of Contents */}
           {tocRef.current && tocRef.current.length > 0 && (
             <>
@@ -539,7 +702,7 @@ const BookReader = () => {
                   }}
                   onClick={() => goToBookmark(bookmark.cfi)}
                 >
-                  <BookmarkIcon sx={{ mr: 1, color: 'primary.main' }} />
+                  <BookmarkAddedIcon sx={{ mr: 1, color: 'primary.main' }} />
                   <Typography variant="body2">
                     {bookmark.title || 'Unnamed bookmark'}
                   </Typography>
@@ -551,6 +714,18 @@ const BookReader = () => {
               No bookmarks yet. Add bookmarks by clicking the bookmark icon.
             </Typography>
           )}
+          
+          {/* Direct download option */}
+          <Box sx={{ mt: 3 }}>
+            <Button 
+              variant="contained" 
+              fullWidth
+              onClick={handleDirectDownload}
+              startIcon={<DownloadIcon />}
+            >
+              Download {format.toUpperCase()}
+            </Button>
+          </Box>
         </Box>
       </Drawer>
       
