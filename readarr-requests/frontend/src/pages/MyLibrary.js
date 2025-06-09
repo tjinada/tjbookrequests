@@ -113,13 +113,135 @@ const MyLibrary = () => {
     setEmailDialogOpen(true);
   };
   
-  // Render a book card with appropriate indicators
-  const renderBookCard = (book) => {
+  // Render a book card with appropriate indicators for Continue Reading (horizontal scroll)
+  const renderCurrentlyReadingCard = (book) => {
     const bookRead = isBookRead(book);
     const bookCurrentlyReading = isBookCurrentlyReading(book);
     
     return (
-      <Grid item xs={12} sm={6} md={4} lg={3} key={book.id}>
+      <Card 
+        key={book.id}
+        sx={{ 
+          minWidth: 160,
+          maxWidth: 160,
+          height: 260,
+          display: 'flex', 
+          flexDirection: 'column',
+          transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
+          '&:hover': {
+            transform: 'translateY(-4px)',
+            boxShadow: 6
+          },
+          cursor: 'pointer',
+          position: 'relative',
+          mr: 2,
+          flexShrink: 0
+        }}
+        onClick={() => handleBookClick(book)}
+      >
+        <Box sx={{ position: 'relative' }}>
+          <CardMedia
+            component="img"
+            image={book.cover || noImage}
+            alt={book.title}
+            sx={{ 
+              height: 180, 
+              objectFit: 'cover',
+              objectPosition: 'center top'
+            }}
+          />
+          {/* Status indicators */}
+          {bookCurrentlyReading && (
+            <Box
+              sx={{
+                position: 'absolute',
+                top: 6,
+                left: 6,
+                backgroundColor: 'warning.main',
+                borderRadius: '50%',
+                padding: 0.3,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: 2
+              }}
+            >
+              <BookmarkIcon 
+                sx={{ 
+                  color: 'white', 
+                  fontSize: '1rem' 
+                }} 
+              />
+            </Box>
+          )}
+          {bookRead && (
+            <Box
+              sx={{
+                position: 'absolute',
+                top: 6,
+                right: 6,
+                backgroundColor: 'success.main',
+                borderRadius: '50%',
+                padding: 0.3,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: 2
+              }}
+            >
+              <CheckCircleIcon 
+                sx={{ 
+                  color: 'white', 
+                  fontSize: '1rem' 
+                }} 
+              />
+            </Box>
+          )}
+        </Box>
+        <CardContent sx={{ flexGrow: 1, p: 1.5, '&:last-child': { pb: 1.5 } }}>
+          <Typography 
+            variant="subtitle2" 
+            component="div" 
+            sx={{ 
+              fontWeight: 'bold',
+              fontSize: '0.875rem',
+              lineHeight: 1.2,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              mb: 0.5
+            }}
+          >
+            {book.title}
+          </Typography>
+          <Typography 
+            variant="caption" 
+            color="text.secondary"
+            sx={{
+              fontSize: '0.75rem',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              display: '-webkit-box',
+              WebkitLineClamp: 1,
+              WebkitBoxOrient: 'vertical'
+            }}
+          >
+            by {book.author}
+          </Typography>
+        </CardContent>
+      </Card>
+    );
+  };
+  
+  // Render a book card with appropriate indicators for main library (2 columns)
+  const renderLibraryCard = (book) => {
+    const bookRead = isBookRead(book);
+    const bookCurrentlyReading = isBookCurrentlyReading(book);
+    
+    return (
+      <Grid item xs={6} key={book.id}>
         <Card 
           sx={{ 
             height: '100%', 
@@ -194,11 +316,36 @@ const MyLibrary = () => {
               </Box>
             )}
           </Box>
-          <CardContent sx={{ flexGrow: 1 }}>
-            <Typography variant="h6" component="div" gutterBottom>
+          <CardContent sx={{ flexGrow: 1, p: 2 }}>
+            <Typography 
+              variant="h6" 
+              component="div" 
+              sx={{
+                fontSize: '1rem',
+                fontWeight: 'bold',
+                lineHeight: 1.3,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                mb: 0.5
+              }}
+            >
               {book.title}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography 
+              variant="body2" 
+              color="text.secondary"
+              sx={{
+                fontSize: '0.875rem',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                display: '-webkit-box',
+                WebkitLineClamp: 1,
+                WebkitBoxOrient: 'vertical'
+              }}
+            >
               by {book.author}
             </Typography>
           </CardContent>
@@ -318,28 +465,46 @@ const MyLibrary = () => {
         </Paper>
       ) : (
         <>
-          {/* Continue Reading Section */}
+          {/* Continue Reading Section - Horizontal Scroll */}
           {currentlyReadingBooks.length > 0 && (
             <Box sx={{ mb: 4 }}>
               <Typography variant="h5" component="h2" gutterBottom sx={{ mb: 2, fontWeight: 'bold' }}>
                 Continue Reading
               </Typography>
-              <Paper sx={{ p: 2, backgroundColor: theme => theme.palette.mode === 'dark' ? 'rgba(255,152,0,0.1)' : 'rgba(255,152,0,0.05)' }}>
-                <Grid container spacing={3}>
-                  {currentlyReadingBooks.map(book => renderBookCard(book))}
-                </Grid>
-              </Paper>
+              <Box 
+                sx={{ 
+                  display: 'flex',
+                  overflowX: 'auto',
+                  pb: 2,
+                  '&::-webkit-scrollbar': {
+                    height: 6,
+                  },
+                  '&::-webkit-scrollbar-track': {
+                    backgroundColor: 'rgba(0,0,0,0.1)',
+                    borderRadius: 3
+                  },
+                  '&::-webkit-scrollbar-thumb': {
+                    backgroundColor: 'rgba(0,0,0,0.3)',
+                    borderRadius: 3,
+                    '&:hover': {
+                      backgroundColor: 'rgba(0,0,0,0.5)'
+                    }
+                  }
+                }}
+              >
+                {currentlyReadingBooks.map(book => renderCurrentlyReadingCard(book))}
+              </Box>
             </Box>
           )}
           
-          {/* Main Library Section */}
+          {/* Main Library Section - 2 Column Grid */}
           {otherBooks.length > 0 && (
             <Box>
               <Typography variant="h5" component="h2" gutterBottom sx={{ mb: 2, fontWeight: 'bold' }}>
                 Your Library
               </Typography>
-              <Grid container spacing={3}>
-                {otherBooks.map(book => renderBookCard(book))}
+              <Grid container spacing={2}>
+                {otherBooks.map(book => renderLibraryCard(book))}
               </Grid>
             </Box>
           )}
