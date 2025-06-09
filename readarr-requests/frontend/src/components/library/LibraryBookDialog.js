@@ -1,5 +1,5 @@
 // src/components/library/LibraryBookDialog.js
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Dialog,
@@ -9,15 +9,26 @@ import {
   Typography,
   Button,
   Chip,
-  Divider
+  Divider,
+  Snackbar,
+  Alert
 } from '@mui/material';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import DownloadIcon from '@mui/icons-material/Download';
 import EmailIcon from '@mui/icons-material/Email';
+import DeleteIcon from '@mui/icons-material/Delete';
+import LibraryContext from '../../context/LibraryContext';
+import DeleteBookDialog from './DeleteBookDialog';
 import noImage from '../../assets/no-image.png';
 
 const LibraryBookDialog = ({ open, onClose, book, onEmailClick }) => {
   const navigate = useNavigate();
+  const { deleteBookFromLibrary } = useContext(LibraryContext);
+  
+  // State for delete functionality
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
   // Check if book has the necessary data
   if (!book) return null;
@@ -48,6 +59,53 @@ const LibraryBookDialog = ({ open, onClose, book, onEmailClick }) => {
     if (onEmailClick) {
       onEmailClick(book);
     }
+  };
+  
+  // Handle Delete button click
+  const handleDeleteClick = () => {
+    setDeleteDialogOpen(true);
+  };
+  
+  // Handle delete confirmation
+  const handleDeleteConfirm = async () => {
+    setDeleteLoading(true);
+    
+    try {
+      const result = await deleteBookFromLibrary(book.id);
+      
+      if (result.success) {
+        setSnackbar({
+          open: true,
+          message: result.message,
+          severity: 'success'
+        });
+        
+        // Close both dialogs after successful deletion
+        setTimeout(() => {
+          setDeleteDialogOpen(false);
+          onClose();
+        }, 1000);
+      } else {
+        setSnackbar({
+          open: true,
+          message: result.message,
+          severity: 'error'
+        });
+      }
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: 'An error occurred while removing the book',
+        severity: 'error'
+      });
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+  
+  // Handle snackbar close
+  const handleSnackbarClose = () => {
+    setSnackbar({ ...snackbar, open: false });
   };
 
   return (
@@ -172,7 +230,7 @@ const LibraryBookDialog = ({ open, onClose, book, onEmailClick }) => {
           )}
         </Box>
 
-        {/* Bottom actions - Download and Email */}
+        {/* Bottom actions - Download, Email, and Delete */}
         <Box 
           sx={{ 
             display: 'flex', 
@@ -215,6 +273,25 @@ const LibraryBookDialog = ({ open, onClose, book, onEmailClick }) => {
           >
             Email
           </Button>
+          
+          <Divider orientation="vertical" flexItem />
+          
+          <Button
+            color="inherit"
+            onClick={handleDeleteClick}
+            sx={{ 
+              flex: 1, 
+              py: 2,
+              borderRadius: 0,
+              '&:hover': {
+                backgroundColor: 'rgba(255,0,0,0.05)',
+                color: 'error.main'
+              }
+            }}
+            startIcon={<DeleteIcon />}
+          >
+            Remove
+          </Button>
         </Box>
 
         {/* Cancel button (as a faux bottom navigation) */}
@@ -236,6 +313,31 @@ const LibraryBookDialog = ({ open, onClose, book, onEmailClick }) => {
           </Button>
         </Box>
       </DialogContent>
+      
+      {/* Delete Confirmation Dialog */}
+      <DeleteBookDialog
+        open={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+        onConfirm={handleDeleteConfirm}
+        book={book}
+        loading={deleteLoading}
+      />
+      
+      {/* Success/Error Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={handleSnackbarClose}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={handleSnackbarClose}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Dialog>
   );
 };

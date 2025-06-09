@@ -108,6 +108,31 @@ export const LibraryProvider = ({ children }) => {
     }
   }, [isAuthenticated]);
   
+  // Delete book from library
+  const deleteBookFromLibrary = useCallback(async (bookId) => {
+    if (!bookId || !isAuthenticated) {
+      return { success: false, message: 'Missing required parameters' };
+    }
+    
+    try {
+      const response = await api.delete(`/library/book/${bookId}`);
+      
+      // Remove the book from local state
+      setMyBooks(prevBooks => prevBooks.filter(book => book.id !== bookId));
+      
+      return { 
+        success: true, 
+        message: response.data.message || 'Book removed from library successfully' 
+      };
+    } catch (err) {
+      console.error('Error deleting book from library:', err);
+      return { 
+        success: false, 
+        message: err.response?.data?.message || 'Failed to remove book from library' 
+      };
+    }
+  }, [isAuthenticated]);
+  
   // Refresh library
   const refreshLibrary = useCallback(() => {
     setRefreshTrigger(prev => prev + 1);
@@ -133,6 +158,7 @@ export const LibraryProvider = ({ children }) => {
     getBookDetails,
     downloadBook,
     sendToDevice,
+    deleteBookFromLibrary,
     refreshLibrary
   };
   

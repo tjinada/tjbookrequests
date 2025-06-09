@@ -51,4 +51,9 @@ router.get('/thumbnail/:id', libraryController.getBookThumbnail);
 // @access  Private
 router.get('/asset/:type/:id', auth, libraryController.getCalibreAsset);
 
+// @route   DELETE api/library/book/:id
+// @desc    Remove book from user's library (remove user tag)
+// @access  Private
+router.delete('/book/:id', auth, libraryController.deleteBookFromLibrary);
+
 module.exports = router;

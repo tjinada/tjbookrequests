@@ -803,3 +803,62 @@ exports.getBookForReading = async (req, res) => {
     res.status(500).json({ message: 'Error getting book for reading', error: error.message });
   }
 };
+
+/**
+ * Remove book from user's library by removing their username from tags
+ */
+exports.deleteBookFromLibrary = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    
+    log(`Delete request for book ID: ${id} by user: ${userId}`);
+    
+    // Get user details
+    const userDoc = await User.findById(userId);
+    
+    if (!userDoc) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    const username = userDoc.username;
+    
+    // Get book details from Calibre
+    const book = await calibreAPI.getBookDetails(id);
+    
+    if (!book) {
+      return res.status(404).json({ message: 'Book not found' });
+    }
+    
+    // Check if user has access to this book (username is in tags)
+    const hasAccess = userDoc.role === 'admin' || 
+                     (book.tags && book.tags.some(tag => 
+                       tag.toLowerCase() === username.toLowerCase()));
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: 'You do not have access to this book' });
+    }
+    
+    // Remove user's tag from book
+    const currentTags = book.tags || [];
+    const filteredTags = currentTags.filter(tag => 
+      tag.toLowerCase() !== username.toLowerCase()
+    );
+    
+    // Update book tags in Calibre
+    await calibreAPI.updateBookTags(id, filteredTags);
+    
+    log(`Successfully removed user ${username} from book ${id} tags`);
+    
+    res.json({ 
+      success: true, 
+      message: `Book "${book.title}" removed from your library` 
+    });
+  } catch (error) {
+    log(`Error removing book from library: ${error.message}`);
+    res.status(500).json({ 
+      message: 'Error removing book from library', 
+      error: error.message 
+    });
+  }
+};
