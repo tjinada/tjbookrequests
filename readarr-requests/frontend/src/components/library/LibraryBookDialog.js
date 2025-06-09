@@ -25,7 +25,13 @@ import noImage from '../../assets/no-image.png';
 
 const LibraryBookDialog = ({ open, onClose, book, onEmailClick }) => {
   const navigate = useNavigate();
-  const { deleteBookFromLibrary, toggleBookReadStatus, isBookRead } = useContext(LibraryContext);
+  const { 
+    deleteBookFromLibrary, 
+    toggleBookReadStatus, 
+    isBookRead, 
+    isBookCurrentlyReading,
+    markAsCurrentlyReading 
+  } = useContext(LibraryContext);
   
   // State for delete functionality
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -41,9 +47,14 @@ const LibraryBookDialog = ({ open, onClose, book, onEmailClick }) => {
   
   // Get current read status
   const bookIsRead = isBookRead(book);
+  const bookIsCurrentlyReading = isBookCurrentlyReading(book);
 
   // Handle Read button click
-  const handleReadClick = () => {
+  const handleReadClick = async () => {
+    // Mark as currently reading first
+    await markAsCurrentlyReading(book.id);
+    
+    // Then navigate to reader
     onClose();
     navigate(`/read/${book.id}/EPUB`);
   };
@@ -190,7 +201,7 @@ const LibraryBookDialog = ({ open, onClose, book, onEmailClick }) => {
             size="large"
             sx={{ py: 1.5, borderRadius: 2 }}
           >
-            Read Book
+            {bookIsCurrentlyReading ? 'Continue Reading' : 'Read Book'}
           </Button>
         </Box>
         

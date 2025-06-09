@@ -883,6 +883,7 @@ exports.toggleBookReadStatus = async (req, res) => {
     
     const username = userDoc.username;
     const readTag = `${username}_read`; // Tag format: username_read
+    const readingTag = `${username}_reading`; // Tag format: username_reading
     
     // Get book details from Calibre
     const book = await calibreAPI.getBookDetails(id);
@@ -909,10 +910,23 @@ exports.toggleBookReadStatus = async (req, res) => {
       tag.toLowerCase() === readTag.toLowerCase()
     );
     
+    // Check if reading tag exists
+    const hasReadingTag = currentTags.some(tag => 
+      tag.toLowerCase() === readingTag.toLowerCase()
+    );
+    
     if (isRead && !hasReadTag) {
       // Add read tag
       updatedTags.push(readTag);
       log(`Adding read tag: ${readTag}`);
+      
+      // Remove reading tag if present (finished reading)
+      if (hasReadingTag) {
+        updatedTags = updatedTags.filter(tag => 
+          tag.toLowerCase() !== readingTag.toLowerCase()
+        );
+        log(`Removing reading tag: ${readingTag}`);
+      }
     } else if (!isRead && hasReadTag) {
       // Remove read tag
       updatedTags = updatedTags.filter(tag => 
@@ -922,7 +936,8 @@ exports.toggleBookReadStatus = async (req, res) => {
     }
     
     // Update book tags in Calibre if changes were made
-    if (hasReadTag !== isRead) {
+    const tagsChanged = (hasReadTag !== isRead) || (isRead && hasReadingTag);
+    if (tagsChanged) {
       await calibreAPI.updateBookTags(id, updatedTags);
       log(`Successfully updated read status for book ${id}`);
     }
@@ -938,6 +953,74 @@ exports.toggleBookReadStatus = async (req, res) => {
     log(`Error toggling book read status: ${error.message}`);
     res.status(500).json({ 
       message: 'Error updating book read status', 
+      error: error.message 
+    });
+  }
+};
+
+/**
+ * Mark book as currently reading for user
+ */
+exports.markAsCurrentlyReading = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    
+    log(`Mark as currently reading for book ID: ${id} by user: ${userId}`);
+    
+    // Get user details
+    const userDoc = await User.findById(userId);
+    
+    if (!userDoc) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    const username = userDoc.username;
+    const readingTag = `${username}_reading`; // Tag format: username_reading
+    
+    // Get book details from Calibre
+    const book = await calibreAPI.getBookDetails(id);
+    
+    if (!book) {
+      return res.status(404).json({ message: 'Book not found' });
+    }
+    
+    // Check if user has access to this book (username is in tags)
+    const hasAccess = userDoc.role === 'admin' || 
+                     (book.tags && book.tags.some(tag => 
+                       tag.toLowerCase() === username.toLowerCase()));
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: 'You do not have access to this book' });
+    }
+    
+    // Get current tags
+    const currentTags = book.tags || [];
+    let updatedTags = [...currentTags];
+    
+    // Check if reading tag already exists
+    const hasReadingTag = currentTags.some(tag => 
+      tag.toLowerCase() === readingTag.toLowerCase()
+    );
+    
+    if (!hasReadingTag) {
+      // Add reading tag
+      updatedTags.push(readingTag);
+      log(`Adding reading tag: ${readingTag}`);
+      
+      // Update book tags in Calibre
+      await calibreAPI.updateBookTags(id, updatedTags);
+      log(`Successfully marked book ${id} as currently reading`);
+    }
+    
+    res.json({ 
+      success: true, 
+      message: `"${book.title}" marked as currently reading`
+    });
+  } catch (error) {
+    log(`Error marking book as currently reading: ${error.message}`);
+    res.status(500).json({ 
+      message: 'Error marking book as currently reading', 
       error: error.message 
     });
   }

@@ -21,17 +21,20 @@ import {
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import BookmarkIcon from '@mui/icons-material/Bookmark';
 import LibraryContext from '../context/LibraryContext';
 import noImage from '../assets/no-image.png';
 import LibraryBookDialog from '../components/library/LibraryBookDialog';
 import EmailBookDialog from '../components/library/EmailBookDialog';
 
 const MyLibrary = () => {
-  const { myBooks, loading, error, fetchMyLibrary, isBookRead } = useContext(LibraryContext);
+  const { myBooks, loading, error, fetchMyLibrary, isBookRead, isBookCurrentlyReading } = useContext(LibraryContext);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('added');
   const [sortOrder, setSortOrder] = useState('desc');
   const [filteredBooks, setFilteredBooks] = useState([]);
+  const [currentlyReadingBooks, setCurrentlyReadingBooks] = useState([]);
+  const [otherBooks, setOtherBooks] = useState([]);
   const [selectedBook, setSelectedBook] = useState(null);
   const [bookDialogOpen, setBookDialogOpen] = useState(false);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
@@ -56,8 +59,20 @@ const MyLibrary = () => {
       );
     }
     
-    // Then sort the filtered books
-    filtered.sort((a, b) => {
+    // Separate currently reading books from others
+    const currentlyReading = [];
+    const others = [];
+    
+    filtered.forEach(book => {
+      if (isBookCurrentlyReading(book)) {
+        currentlyReading.push(book);
+      } else {
+        others.push(book);
+      }
+    });
+    
+    // Sort both arrays
+    const sortFunction = (a, b) => {
       if (sortBy === 'title') {
         const titleA = a.title?.toLowerCase() || '';
         const titleB = b.title?.toLowerCase() || '';
@@ -71,10 +86,17 @@ const MyLibrary = () => {
         const dateB = new Date(b.added || 0);
         return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
       }
-    });
+    };
     
-    setFilteredBooks(filtered);
-  }, [myBooks, searchQuery, sortBy, sortOrder]);
+    currentlyReading.sort(sortFunction);
+    others.sort(sortFunction);
+    
+    setCurrentlyReadingBooks(currentlyReading);
+    setOtherBooks(others);
+    
+    // For backward compatibility, also set the combined filtered books
+    setFilteredBooks([...currentlyReading, ...others]);
+  }, [myBooks, searchQuery, sortBy, sortOrder, isBookCurrentlyReading]);
   
   const handleClearSearch = () => {
     setSearchQuery('');
@@ -89,6 +111,100 @@ const MyLibrary = () => {
   // Handle email button click from book dialog
   const handleEmailClick = (book) => {
     setEmailDialogOpen(true);
+  };
+  
+  // Render a book card with appropriate indicators
+  const renderBookCard = (book) => {
+    const bookRead = isBookRead(book);
+    const bookCurrentlyReading = isBookCurrentlyReading(book);
+    
+    return (
+      <Grid item xs={12} sm={6} md={4} lg={3} key={book.id}>
+        <Card 
+          sx={{ 
+            height: '100%', 
+            display: 'flex', 
+            flexDirection: 'column',
+            transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
+            '&:hover': {
+              transform: 'translateY(-4px)',
+              boxShadow: 6
+            },
+            cursor: 'pointer',
+            position: 'relative'
+          }}
+          onClick={() => handleBookClick(book)}
+        >
+          <Box sx={{ position: 'relative' }}>
+            <CardMedia
+              component="img"
+              image={book.cover || noImage}
+              alt={book.title}
+              sx={{ 
+                height: 200, 
+                objectFit: 'cover',
+                objectPosition: 'center top'
+              }}
+            />
+            {/* Status indicators */}
+            {bookCurrentlyReading && (
+              <Box
+                sx={{
+                  position: 'absolute',
+                  top: 8,
+                  left: 8,
+                  backgroundColor: 'warning.main',
+                  borderRadius: '50%',
+                  padding: 0.5,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: 2
+                }}
+              >
+                <BookmarkIcon 
+                  sx={{ 
+                    color: 'white', 
+                    fontSize: '1.5rem' 
+                  }} 
+                />
+              </Box>
+            )}
+            {bookRead && (
+              <Box
+                sx={{
+                  position: 'absolute',
+                  top: 8,
+                  right: 8,
+                  backgroundColor: 'success.main',
+                  borderRadius: '50%',
+                  padding: 0.5,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: 2
+                }}
+              >
+                <CheckCircleIcon 
+                  sx={{ 
+                    color: 'white', 
+                    fontSize: '1.5rem' 
+                  }} 
+                />
+              </Box>
+            )}
+          </Box>
+          <CardContent sx={{ flexGrow: 1 }}>
+            <Typography variant="h6" component="div" gutterBottom>
+              {book.title}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              by {book.author}
+            </Typography>
+          </CardContent>
+        </Card>
+      </Grid>
+    );
   };
   
   if (loading) {
@@ -201,76 +317,33 @@ const MyLibrary = () => {
           )}
         </Paper>
       ) : (
-        <Grid container spacing={3} sx={{ mt: 1 }}>
-          {filteredBooks.map(book => {
-            const bookRead = isBookRead(book);
-            
-            return (
-              <Grid item xs={12} sm={6} md={4} lg={3} key={book.id}>
-                <Card 
-                  sx={{ 
-                    height: '100%', 
-                    display: 'flex', 
-                    flexDirection: 'column',
-                    transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
-                    '&:hover': {
-                      transform: 'translateY(-4px)',
-                      boxShadow: 6
-                    },
-                    cursor: 'pointer',
-                    position: 'relative'
-                  }}
-                  onClick={() => handleBookClick(book)}
-                >
-                  <Box sx={{ position: 'relative' }}>
-                    <CardMedia
-                      component="img"
-                      image={book.cover || noImage}
-                      alt={book.title}
-                      sx={{ 
-                        height: 200, 
-                        objectFit: 'cover',
-                        objectPosition: 'center top'
-                      }}
-                    />
-                    {/* Read status indicator */}
-                    {bookRead && (
-                      <Box
-                        sx={{
-                          position: 'absolute',
-                          top: 8,
-                          right: 8,
-                          backgroundColor: 'success.main',
-                          borderRadius: '50%',
-                          padding: 0.5,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          boxShadow: 2
-                        }}
-                      >
-                        <CheckCircleIcon 
-                          sx={{ 
-                            color: 'white', 
-                            fontSize: '1.5rem' 
-                          }} 
-                        />
-                      </Box>
-                    )}
-                  </Box>
-                  <CardContent sx={{ flexGrow: 1 }}>
-                    <Typography variant="h6" component="div" gutterBottom>
-                      {book.title}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      by {book.author}
-                    </Typography>
-                  </CardContent>
-                </Card>
+        <>
+          {/* Continue Reading Section */}
+          {currentlyReadingBooks.length > 0 && (
+            <Box sx={{ mb: 4 }}>
+              <Typography variant="h5" component="h2" gutterBottom sx={{ mb: 2, fontWeight: 'bold' }}>
+                Continue Reading
+              </Typography>
+              <Paper sx={{ p: 2, backgroundColor: theme => theme.palette.mode === 'dark' ? 'rgba(255,152,0,0.1)' : 'rgba(255,152,0,0.05)' }}>
+                <Grid container spacing={3}>
+                  {currentlyReadingBooks.map(book => renderBookCard(book))}
+                </Grid>
+              </Paper>
+            </Box>
+          )}
+          
+          {/* Main Library Section */}
+          {otherBooks.length > 0 && (
+            <Box>
+              <Typography variant="h5" component="h2" gutterBottom sx={{ mb: 2, fontWeight: 'bold' }}>
+                Your Library
+              </Typography>
+              <Grid container spacing={3}>
+                {otherBooks.map(book => renderBookCard(book))}
               </Grid>
-            );
-          })}
-        </Grid>
+            </Box>
+          )}
+        </>
       )}
       
       {/* Book Details Dialog */}

@@ -61,4 +61,9 @@ router.delete('/book/:id', auth, libraryController.deleteBookFromLibrary);
 // @access  Private
 router.post('/book/:id/read', auth, libraryController.toggleBookReadStatus);
 
+// @route   POST api/library/book/:id/reading
+// @desc    Mark book as currently reading for user
+// @access  Private
+router.post('/book/:id/reading', auth, libraryController.markAsCurrentlyReading);
+
 module.exports = router;

@@ -196,6 +196,59 @@ export const LibraryProvider = ({ children }) => {
     return book.tags.some(tag => tag.toLowerCase() === readTag.toLowerCase());
   }, [user]);
   
+  // Check if a book is currently being read by current user
+  const isBookCurrentlyReading = useCallback((book) => {
+    if (!book || !book.tags || !user) return false;
+    
+    const readingTag = `${user.username}_reading`;
+    return book.tags.some(tag => tag.toLowerCase() === readingTag.toLowerCase());
+  }, [user]);
+  
+  // Mark book as currently reading
+  const markAsCurrentlyReading = useCallback(async (bookId) => {
+    if (!bookId || !isAuthenticated) {
+      return { success: false, message: 'Missing required parameters' };
+    }
+    
+    try {
+      const response = await api.post(`/library/book/${bookId}/reading`);
+      
+      // Update the book in local state
+      setMyBooks(prevBooks => 
+        prevBooks.map(book => {
+          if (book.id === bookId) {
+            const userDoc = user; // Get current user
+            const readingTag = `${userDoc.username}_reading`;
+            
+            let updatedTags = [...(book.tags || [])];
+            
+            // Add reading tag if not present
+            if (!updatedTags.some(tag => tag.toLowerCase() === readingTag.toLowerCase())) {
+              updatedTags.push(readingTag);
+            }
+            
+            return {
+              ...book,
+              tags: updatedTags
+            };
+          }
+          return book;
+        })
+      );
+      
+      return { 
+        success: true, 
+        message: response.data.message || 'Book marked as currently reading' 
+      };
+    } catch (err) {
+      console.error('Error marking book as currently reading:', err);
+      return { 
+        success: false, 
+        message: err.response?.data?.message || 'Failed to mark book as currently reading' 
+      };
+    }
+  }, [isAuthenticated, user]);
+  
   // Refresh library
   const refreshLibrary = useCallback(() => {
     setRefreshTrigger(prev => prev + 1);
@@ -224,6 +277,8 @@ export const LibraryProvider = ({ children }) => {
     deleteBookFromLibrary,
     toggleBookReadStatus,
     isBookRead,
+    isBookCurrentlyReading,
+    markAsCurrentlyReading,
     refreshLibrary
   };
   
