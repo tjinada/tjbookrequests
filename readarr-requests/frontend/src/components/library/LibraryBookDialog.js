@@ -17,21 +17,30 @@ import MenuBookIcon from '@mui/icons-material/MenuBook';
 import DownloadIcon from '@mui/icons-material/Download';
 import EmailIcon from '@mui/icons-material/Email';
 import DeleteIcon from '@mui/icons-material/Delete';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 import LibraryContext from '../../context/LibraryContext';
 import DeleteBookDialog from './DeleteBookDialog';
 import noImage from '../../assets/no-image.png';
 
 const LibraryBookDialog = ({ open, onClose, book, onEmailClick }) => {
   const navigate = useNavigate();
-  const { deleteBookFromLibrary } = useContext(LibraryContext);
+  const { deleteBookFromLibrary, toggleBookReadStatus, isBookRead } = useContext(LibraryContext);
   
   // State for delete functionality
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  
+  // State for read status functionality
+  const [readLoading, setReadLoading] = useState(false);
+  
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
   // Check if book has the necessary data
   if (!book) return null;
+  
+  // Get current read status
+  const bookIsRead = isBookRead(book);
 
   // Handle Read button click
   const handleReadClick = () => {
@@ -107,6 +116,37 @@ const LibraryBookDialog = ({ open, onClose, book, onEmailClick }) => {
   const handleSnackbarClose = () => {
     setSnackbar({ ...snackbar, open: false });
   };
+  
+  // Handle Mark as Read toggle
+  const handleToggleReadStatus = async () => {
+    setReadLoading(true);
+    
+    try {
+      const result = await toggleBookReadStatus(book.id, !bookIsRead);
+      
+      if (result.success) {
+        setSnackbar({
+          open: true,
+          message: result.message,
+          severity: 'success'
+        });
+      } else {
+        setSnackbar({
+          open: true,
+          message: result.message,
+          severity: 'error'
+        });
+      }
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: 'An error occurred while updating read status',
+        severity: 'error'
+      });
+    } finally {
+      setReadLoading(false);
+    }
+  };
 
   return (
     <Dialog
@@ -144,6 +184,29 @@ const LibraryBookDialog = ({ open, onClose, book, onEmailClick }) => {
             sx={{ py: 1.5, borderRadius: 2 }}
           >
             Read Book
+          </Button>
+        </Box>
+        
+        {/* Mark as Read button */}
+        <Box sx={{ px: 2, pb: 2, display: 'flex', justifyContent: 'center' }}>
+          <Button
+            variant={bookIsRead ? "contained" : "outlined"}
+            color={bookIsRead ? "success" : "inherit"}
+            fullWidth
+            startIcon={bookIsRead ? <CheckCircleIcon /> : <RadioButtonUncheckedIcon />}
+            onClick={handleToggleReadStatus}
+            disabled={readLoading}
+            size="large"
+            sx={{ 
+              py: 1.5, 
+              borderRadius: 2,
+              backgroundColor: bookIsRead ? 'success.main' : 'transparent',
+              '&:hover': {
+                backgroundColor: bookIsRead ? 'success.dark' : 'rgba(0,0,0,0.04)'
+              }
+            }}
+          >
+            {readLoading ? 'Updating...' : (bookIsRead ? 'Mark as Unread' : 'Mark as Read')}
           </Button>
         </Box>
 

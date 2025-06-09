@@ -862,3 +862,83 @@ exports.deleteBookFromLibrary = async (req, res) => {
     });
   }
 };
+
+/**
+ * Toggle book read status for user by adding/removing read tag
+ */
+exports.toggleBookReadStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { isRead } = req.body; // true to mark as read, false to unmark
+    const userId = req.user.id;
+    
+    log(`Toggle read status for book ID: ${id} by user: ${userId} to ${isRead}`);
+    
+    // Get user details
+    const userDoc = await User.findById(userId);
+    
+    if (!userDoc) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    const username = userDoc.username;
+    const readTag = `${username}_read`; // Tag format: username_read
+    
+    // Get book details from Calibre
+    const book = await calibreAPI.getBookDetails(id);
+    
+    if (!book) {
+      return res.status(404).json({ message: 'Book not found' });
+    }
+    
+    // Check if user has access to this book (username is in tags)
+    const hasAccess = userDoc.role === 'admin' || 
+                     (book.tags && book.tags.some(tag => 
+                       tag.toLowerCase() === username.toLowerCase()));
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: 'You do not have access to this book' });
+    }
+    
+    // Get current tags
+    const currentTags = book.tags || [];
+    let updatedTags = [...currentTags];
+    
+    // Check if read tag already exists
+    const hasReadTag = currentTags.some(tag => 
+      tag.toLowerCase() === readTag.toLowerCase()
+    );
+    
+    if (isRead && !hasReadTag) {
+      // Add read tag
+      updatedTags.push(readTag);
+      log(`Adding read tag: ${readTag}`);
+    } else if (!isRead && hasReadTag) {
+      // Remove read tag
+      updatedTags = updatedTags.filter(tag => 
+        tag.toLowerCase() !== readTag.toLowerCase()
+      );
+      log(`Removing read tag: ${readTag}`);
+    }
+    
+    // Update book tags in Calibre if changes were made
+    if (hasReadTag !== isRead) {
+      await calibreAPI.updateBookTags(id, updatedTags);
+      log(`Successfully updated read status for book ${id}`);
+    }
+    
+    res.json({ 
+      success: true, 
+      isRead: isRead,
+      message: isRead 
+        ? `"${book.title}" marked as read` 
+        : `"${book.title}" marked as unread`
+    });
+  } catch (error) {
+    log(`Error toggling book read status: ${error.message}`);
+    res.status(500).json({ 
+      message: 'Error updating book read status', 
+      error: error.message 
+    });
+  }
+};

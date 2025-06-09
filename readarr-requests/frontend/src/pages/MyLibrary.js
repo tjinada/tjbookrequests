@@ -20,13 +20,14 @@ import {
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import LibraryContext from '../context/LibraryContext';
 import noImage from '../assets/no-image.png';
 import LibraryBookDialog from '../components/library/LibraryBookDialog';
 import EmailBookDialog from '../components/library/EmailBookDialog';
 
 const MyLibrary = () => {
-  const { myBooks, loading, error, fetchMyLibrary } = useContext(LibraryContext);
+  const { myBooks, loading, error, fetchMyLibrary, isBookRead } = useContext(LibraryContext);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('added');
   const [sortOrder, setSortOrder] = useState('desc');
@@ -201,43 +202,74 @@ const MyLibrary = () => {
         </Paper>
       ) : (
         <Grid container spacing={3} sx={{ mt: 1 }}>
-          {filteredBooks.map(book => (
-            <Grid item xs={12} sm={6} md={4} lg={3} key={book.id}>
-              <Card 
-                sx={{ 
-                  height: '100%', 
-                  display: 'flex', 
-                  flexDirection: 'column',
-                  transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
-                  '&:hover': {
-                    transform: 'translateY(-4px)',
-                    boxShadow: 6
-                  },
-                  cursor: 'pointer'
-                }}
-                onClick={() => handleBookClick(book)}
-              >
-                <CardMedia
-                  component="img"
-                  image={book.cover || noImage}
-                  alt={book.title}
+          {filteredBooks.map(book => {
+            const bookRead = isBookRead(book);
+            
+            return (
+              <Grid item xs={12} sm={6} md={4} lg={3} key={book.id}>
+                <Card 
                   sx={{ 
-                    height: 200, 
-                    objectFit: 'cover',
-                    objectPosition: 'center top'
+                    height: '100%', 
+                    display: 'flex', 
+                    flexDirection: 'column',
+                    transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
+                    '&:hover': {
+                      transform: 'translateY(-4px)',
+                      boxShadow: 6
+                    },
+                    cursor: 'pointer',
+                    position: 'relative'
                   }}
-                />
-                <CardContent sx={{ flexGrow: 1 }}>
-                  <Typography variant="h6" component="div" gutterBottom>
-                    {book.title}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    by {book.author}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
+                  onClick={() => handleBookClick(book)}
+                >
+                  <Box sx={{ position: 'relative' }}>
+                    <CardMedia
+                      component="img"
+                      image={book.cover || noImage}
+                      alt={book.title}
+                      sx={{ 
+                        height: 200, 
+                        objectFit: 'cover',
+                        objectPosition: 'center top'
+                      }}
+                    />
+                    {/* Read status indicator */}
+                    {bookRead && (
+                      <Box
+                        sx={{
+                          position: 'absolute',
+                          top: 8,
+                          right: 8,
+                          backgroundColor: 'success.main',
+                          borderRadius: '50%',
+                          padding: 0.5,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          boxShadow: 2
+                        }}
+                      >
+                        <CheckCircleIcon 
+                          sx={{ 
+                            color: 'white', 
+                            fontSize: '1.5rem' 
+                          }} 
+                        />
+                      </Box>
+                    )}
+                  </Box>
+                  <CardContent sx={{ flexGrow: 1 }}>
+                    <Typography variant="h6" component="div" gutterBottom>
+                      {book.title}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      by {book.author}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+            );
+          })}
         </Grid>
       )}
       

@@ -56,4 +56,9 @@ router.get('/asset/:type/:id', auth, libraryController.getCalibreAsset);
 // @access  Private
 router.delete('/book/:id', auth, libraryController.deleteBookFromLibrary);
 
+// @route   POST api/library/book/:id/read
+// @desc    Mark book as read/unread for user
+// @access  Private
+router.post('/book/:id/read', auth, libraryController.toggleBookReadStatus);
+
 module.exports = router;

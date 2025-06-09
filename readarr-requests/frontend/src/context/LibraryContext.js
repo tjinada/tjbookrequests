@@ -133,6 +133,69 @@ export const LibraryProvider = ({ children }) => {
     }
   }, [isAuthenticated]);
   
+  // Mark book as read/unread
+  const toggleBookReadStatus = useCallback(async (bookId, isRead) => {
+    if (!bookId || !isAuthenticated) {
+      return { success: false, message: 'Missing required parameters' };
+    }
+    
+    try {
+      const response = await api.post(`/library/book/${bookId}/read`, {
+        isRead
+      });
+      
+      // Update the book in local state
+      setMyBooks(prevBooks => 
+        prevBooks.map(book => {
+          if (book.id === bookId) {
+            const userDoc = user; // Get current user
+            const readTag = `${userDoc.username}_read`;
+            
+            let updatedTags = [...(book.tags || [])];
+            
+            if (isRead) {
+              // Add read tag if not present
+              if (!updatedTags.some(tag => tag.toLowerCase() === readTag.toLowerCase())) {
+                updatedTags.push(readTag);
+              }
+            } else {
+              // Remove read tag
+              updatedTags = updatedTags.filter(tag => 
+                tag.toLowerCase() !== readTag.toLowerCase()
+              );
+            }
+            
+            return {
+              ...book,
+              tags: updatedTags
+            };
+          }
+          return book;
+        })
+      );
+      
+      return { 
+        success: true, 
+        isRead: response.data.isRead,
+        message: response.data.message || 'Book status updated successfully' 
+      };
+    } catch (err) {
+      console.error('Error updating book read status:', err);
+      return { 
+        success: false, 
+        message: err.response?.data?.message || 'Failed to update book status' 
+      };
+    }
+  }, [isAuthenticated, user]);
+  
+  // Check if a book is marked as read by current user
+  const isBookRead = useCallback((book) => {
+    if (!book || !book.tags || !user) return false;
+    
+    const readTag = `${user.username}_read`;
+    return book.tags.some(tag => tag.toLowerCase() === readTag.toLowerCase());
+  }, [user]);
+  
   // Refresh library
   const refreshLibrary = useCallback(() => {
     setRefreshTrigger(prev => prev + 1);
@@ -159,6 +222,8 @@ export const LibraryProvider = ({ children }) => {
     downloadBook,
     sendToDevice,
     deleteBookFromLibrary,
+    toggleBookReadStatus,
+    isBookRead,
     refreshLibrary
   };
   
