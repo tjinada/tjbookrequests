@@ -130,6 +130,13 @@ const LibraryBookDialog = ({ open, onClose, book, onEmailClick }) => {
           message: result.message,
           severity: 'success'
         });
+        
+        // If marking as read, close dialog and return to library
+        if (result.isRead) {
+          setTimeout(() => {
+            onClose();
+          }, 1000); // Give user time to see the success message
+        }
       } else {
         setSnackbar({
           open: true,
