@@ -22,6 +22,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import BookmarkIcon from '@mui/icons-material/Bookmark';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import LibraryContext from '../context/LibraryContext';
 import noImage from '../assets/no-image.png';
 import LibraryBookDialog from '../components/library/LibraryBookDialog';
@@ -471,28 +472,76 @@ const MyLibrary = () => {
               <Typography variant="h5" component="h2" gutterBottom sx={{ mb: 2, fontWeight: 'bold' }}>
                 Continue Reading
               </Typography>
-              <Box 
-                sx={{ 
-                  display: 'flex',
-                  overflowX: 'auto',
-                  pb: 2,
-                  '&::-webkit-scrollbar': {
-                    height: 6,
-                  },
-                  '&::-webkit-scrollbar-track': {
-                    backgroundColor: 'rgba(0,0,0,0.1)',
-                    borderRadius: 3
-                  },
-                  '&::-webkit-scrollbar-thumb': {
-                    backgroundColor: 'rgba(0,0,0,0.3)',
-                    borderRadius: 3,
-                    '&:hover': {
-                      backgroundColor: 'rgba(0,0,0,0.5)'
-                    }
-                  }
-                }}
-              >
-                {currentlyReadingBooks.map(book => renderCurrentlyReadingCard(book))}
+              <Box sx={{ position: 'relative' }}>
+                <Box 
+                  sx={{ 
+                    display: 'flex',
+                    overflowX: 'auto',
+                    pb: 2,
+                    scrollBehavior: 'smooth',
+                    // Hide scrollbar but keep functionality
+                    scrollbarWidth: 'none', // Firefox
+                    '&::-webkit-scrollbar': {
+                      display: 'none' // Chrome, Safari, Edge
+                    },
+                    // Add padding to show partial book at the end
+                    pr: currentlyReadingBooks.length > 2 ? '40px' : 0,
+                    // Add mask for fade effect at the right
+                    maskImage: currentlyReadingBooks.length > 2 
+                      ? 'linear-gradient(to right, black 0%, black 85%, transparent 100%)'
+                      : 'none',
+                    WebkitMaskImage: currentlyReadingBooks.length > 2 
+                      ? 'linear-gradient(to right, black 0%, black 85%, transparent 100%)'
+                      : 'none'
+                  }}
+                >
+                  {currentlyReadingBooks.map(book => renderCurrentlyReadingCard(book))}
+                </Box>
+                
+                {/* Show more indicator when there are more than 2 books */}
+                {currentlyReadingBooks.length > 2 && (
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      right: 8,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      backgroundColor: 'rgba(0,0,0,0.6)',
+                      borderRadius: '50%',
+                      width: 32,
+                      height: 32,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      pointerEvents: 'none',
+                      zIndex: 1
+                    }}
+                  >
+                    <ChevronRightIcon 
+                      sx={{ 
+                        color: 'white', 
+                        fontSize: '1.2rem' 
+                      }} 
+                    />
+                  </Box>
+                )}
+                
+                {/* Optional: Add swipe hint text for first-time users */}
+                {currentlyReadingBooks.length > 2 && (
+                  <Typography 
+                    variant="caption" 
+                    color="text.secondary"
+                    sx={{ 
+                      fontSize: '0.7rem',
+                      fontStyle: 'italic',
+                      opacity: 0.7,
+                      mt: 0.5,
+                      display: 'block'
+                    }}
+                  >
+                    Swipe to see more →
+                  </Typography>
+                )}
               </Box>
             </Box>
           )}
