@@ -2,9 +2,11 @@
 const openLibraryAPI = require('../config/openLibrary');
 const googleBooksAPI = require('../config/googleBooks');
 const coverService = require('./coverService');
-const Request = require('../models/Request');
 const fs = require('fs');
 const path = require('path');
+
+// Import Request model for contextual recommendations
+const Request = require('../models/Request');
 
 // Set up logging
 const logDir = path.join(__dirname, '../logs');
@@ -500,7 +502,7 @@ class RecommendationService {
       log(`Generating contextual recommendations for user ${userId}`);
       
       // Get user's requests to understand their activity
-      const userRequests = await Request.find({ user: userId }).sort({ createdAt: -1 });
+      const userRequests = await Request.find({ user: userId }).sort({ createdAt: -1 }).limit(50); // Limit to last 50 requests for performance
       
       if (userRequests.length === 0) {
         // New user - return fallback sections
@@ -540,10 +542,12 @@ class RecommendationService {
         }
       });
       
-      // Generate series sections (for series with 2+ books requested)
+      // Generate series sections (for series with 1+ books requested, limit to top 3 series)
       const seriesSections = [];
-      for (const [seriesName, data] of seriesMap) {
-        if (data.count >= 1) { // Show series even with 1 book to find more
+      const sortedSeries = Array.from(seriesMap.entries()).sort((a, b) => b[1].count - a[1].count);
+      
+      for (const [seriesName, data] of sortedSeries.slice(0, 3)) { // Limit to top 3 series
+        if (data.count >= 1 && seriesName && seriesName.length > 2) {
           try {
             const seriesBooks = await this.getBooksBySeries(seriesName, limit);
             if (seriesBooks.length > 0) {
@@ -559,10 +563,12 @@ class RecommendationService {
         }
       }
       
-      // Generate author sections (for authors with 2+ books requested)
+      // Generate author sections (for authors with 1+ books requested, limit to top 3 authors)
       const authorSections = [];
-      for (const [authorName, data] of authorMap) {
-        if (data.count >= 1) { // Show authors even with 1 book to find more
+      const sortedAuthors = Array.from(authorMap.entries()).sort((a, b) => b[1].count - a[1].count);
+      
+      for (const [authorName, data] of sortedAuthors.slice(0, 3)) { // Limit to top 3 authors
+        if (data.count >= 1 && authorName && authorName.length > 2) {
           try {
             const authorBooks = await this.getBooksByAuthor(authorName, limit);
             if (authorBooks.length > 0) {

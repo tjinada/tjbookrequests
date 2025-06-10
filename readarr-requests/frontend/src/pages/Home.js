@@ -47,15 +47,11 @@ const Home = () => {
     const loadData = async () => {
       setLoading(true);
       await fetchHomeData();
-      if (isAuthenticated) {
-        await fetchPersonalizedRecommendations();
-      }
-      await fetchContextualRecommendations();
       setLoading(false);
     };
 
     loadData();
-  }, [fetchHomeData, fetchPersonalizedRecommendations, fetchContextualRecommendations, isAuthenticated]);
+  }, []); // Only run once on mount
 
   // Helper function to sort books by rating
   const sortByRating = (books) => {
@@ -150,22 +146,18 @@ const Home = () => {
             {/* Popular Now */}
             <BookCarousel
               title="Popular Now"
-              books={contextualRecommendations.fallbackSections.popular.length > 0 ? 
-                contextualRecommendations.fallbackSections.popular : 
-                sortByRating(popularBooks).slice(0, 20)}
+              books={sortByRating(popularBooks).slice(0, 20)}
               onRequestBook={handleRequestBook}
-              loading={contextLoading.contextual || contextLoading.home}
+              loading={contextLoading.home}
               emptyMessage="No popular books available."
             />
             
             {/* Bestsellers */}
             <BookCarousel
               title="Bestsellers"
-              books={contextualRecommendations.fallbackSections.bestsellers.length > 0 ? 
-                contextualRecommendations.fallbackSections.bestsellers : 
-                nytBooks}
+              books={nytBooks}
               onRequestBook={handleRequestBook}
-              loading={contextLoading.contextual || contextLoading.home}
+              loading={contextLoading.home}
               emptyMessage="No bestsellers available."
             />
             
