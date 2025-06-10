@@ -16,6 +16,15 @@ export const AppProvider = ({ children }) => {
   const [recentBooks, setRecentBooks] = useState([]);
   const [personalizedBooks, setPersonalizedBooks] = useState([]);
   const [genreBooks, setGenreBooks] = useState({});
+  
+  // Contextual recommendations
+  const [contextualRecommendations, setContextualRecommendations] = useState({
+    hasActivity: false,
+    recommendedForYou: [],
+    seriesSections: [],
+    authorSections: [],
+    fallbackSections: { popular: [], bestsellers: [] }
+  });
 
   // Additional state
   const [genres, setGenres] = useState([]);
@@ -24,12 +33,14 @@ export const AppProvider = ({ children }) => {
     home: false,
     genres: false,
     personalized: false,
+    contextual: false,
     genre: {}
   });
   const [error, setError] = useState({
     home: null,
     genres: null,
     personalized: null,
+    contextual: null,
     genre: {}
   });
 
@@ -83,6 +94,44 @@ export const AppProvider = ({ children }) => {
       setLoading(prev => ({ ...prev, personalized: false }));
     }
   }, [isAuthenticated]);
+
+  // Function to fetch contextual recommendations
+  const fetchContextualRecommendations = useCallback(async () => {
+    // Only fetch if user is authenticated
+    if (!isAuthenticated) {
+      // For non-authenticated users, set fallback sections
+      setContextualRecommendations({
+        hasActivity: false,
+        recommendedForYou: [],
+        seriesSections: [],
+        authorSections: [],
+        fallbackSections: { popular: popularBooks, bestsellers: nytBooks }
+      });
+      return;
+    }
+    
+    setLoading(prev => ({ ...prev, contextual: true }));
+    setError(prev => ({ ...prev, contextual: null }));
+
+    try {
+      const response = await api.get('/books/contextual');
+      setContextualRecommendations(response.data);
+    } catch (err) {
+      console.error('Error fetching contextual recommendations:', err);
+      setError(prev => ({ ...prev, contextual: 'Failed to load contextual recommendations' }));
+      
+      // Fallback to basic structure
+      setContextualRecommendations({
+        hasActivity: false,
+        recommendedForYou: personalizedBooks,
+        seriesSections: [],
+        authorSections: [],
+        fallbackSections: { popular: popularBooks, bestsellers: nytBooks }
+      });
+    } finally {
+      setLoading(prev => ({ ...prev, contextual: false }));
+    }
+  }, [isAuthenticated, popularBooks, nytBooks, personalizedBooks]);
 
   // Function to fetch available genres
   const fetchGenres = useCallback(async () => {
@@ -181,12 +230,14 @@ export const AppProvider = ({ children }) => {
     fetchGenres();
   }, [fetchHomeData, fetchGenres]);
 
-  // Load personalized recommendations when authenticated
+  // Load personalized and contextual recommendations when authenticated
   useEffect(() => {
     if (isAuthenticated) {
       fetchPersonalizedRecommendations();
     }
-  }, [isAuthenticated, fetchPersonalizedRecommendations]);
+    // Always fetch contextual (handles non-authenticated users too)
+    fetchContextualRecommendations();
+  }, [isAuthenticated, fetchPersonalizedRecommendations, fetchContextualRecommendations]);
 
   // Provide the context value
   return (
@@ -199,6 +250,7 @@ export const AppProvider = ({ children }) => {
         awardBooks,
         recentBooks,
         personalizedBooks,
+        contextualRecommendations,
         genres,
         genreBooks,
         currentGenre,
@@ -217,6 +269,7 @@ export const AppProvider = ({ children }) => {
         // Actions
         fetchHomeData,
         fetchPersonalizedRecommendations,
+        fetchContextualRecommendations,
         fetchGenres,
         fetchGenreBooks,
         selectGenre

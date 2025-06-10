@@ -28,8 +28,10 @@ const Home = () => {
     nytBooks,
     awardBooks,
     personalizedBooks,
+    contextualRecommendations,
     fetchHomeData,
     fetchPersonalizedRecommendations,
+    fetchContextualRecommendations,
     loading: contextLoading,
     error: contextError,
   } = useContext(AppContext);
@@ -48,11 +50,12 @@ const Home = () => {
       if (isAuthenticated) {
         await fetchPersonalizedRecommendations();
       }
+      await fetchContextualRecommendations();
       setLoading(false);
     };
 
     loadData();
-  }, [fetchHomeData, fetchPersonalizedRecommendations, isAuthenticated]);
+  }, [fetchHomeData, fetchPersonalizedRecommendations, fetchContextualRecommendations, isAuthenticated]);
 
   // Helper function to sort books by rating
   const sortByRating = (books) => {
@@ -69,8 +72,9 @@ const Home = () => {
     );
   }
 
-  // Check if we have personalized recommendations
-  const hasPersonalizedBooks = isAuthenticated && personalizedBooks && personalizedBooks.length > 0;
+  // Check if we have contextual recommendations
+  const hasContextualActivity = contextualRecommendations.hasActivity;
+  const hasPersonalizedBooks = isAuthenticated && contextualRecommendations.recommendedForYou && contextualRecommendations.recommendedForYou.length > 0;
 
   return (
     <Box sx={{ px: { xs: 2, sm: 2, md: 3 }, pb: 4 }}>
@@ -99,41 +103,83 @@ const Home = () => {
 
       {/* Main content area - vertically scrolling carousels */}
       <Box>
-        {/* Personalized recommendations */}
-        {hasPersonalizedBooks && (
-          <BookCarousel
-            title="Recommended For You"
-            books={personalizedBooks}
-            onRequestBook={handleRequestBook}
-            loading={contextLoading.personalized}
-            error={contextError.personalized}
-            emptyMessage="No personalized recommendations available."
-          />
+        {/* Contextual Recommendations for Users with Activity */}
+        {hasContextualActivity ? (
+          <>
+            {/* Personalized recommendations */}
+            {hasPersonalizedBooks && (
+              <BookCarousel
+                title="Recommended For You"
+                books={contextualRecommendations.recommendedForYou}
+                onRequestBook={handleRequestBook}
+                loading={contextLoading.contextual}
+                error={contextError.contextual}
+                emptyMessage="No personalized recommendations available."
+              />
+            )}
+            
+            {/* Series Sections - Dynamic based on user requests */}
+            {contextualRecommendations.seriesSections.map((section, index) => (
+              <BookCarousel
+                key={`series-${section.seriesName}-${index}`}
+                title={`Books from ${section.seriesName} series`}
+                books={section.books}
+                onRequestBook={handleRequestBook}
+                loading={contextLoading.contextual}
+                error={contextError.contextual}
+                emptyMessage={`No more books found from ${section.seriesName} series.`}
+              />
+            ))}
+            
+            {/* Author Sections - Dynamic based on user requests */}
+            {contextualRecommendations.authorSections.map((section, index) => (
+              <BookCarousel
+                key={`author-${section.authorName}-${index}`}
+                title={`Other books by ${section.authorName}`}
+                books={section.books}
+                onRequestBook={handleRequestBook}
+                loading={contextLoading.contextual}
+                error={contextError.contextual}
+                emptyMessage={`No more books found by ${section.authorName}.`}
+              />
+            ))}
+          </>
+        ) : (
+          /* Fallback sections for new users or users without activity */
+          <>
+            {/* Popular Now */}
+            <BookCarousel
+              title="Popular Now"
+              books={contextualRecommendations.fallbackSections.popular.length > 0 ? 
+                contextualRecommendations.fallbackSections.popular : 
+                sortByRating(popularBooks).slice(0, 20)}
+              onRequestBook={handleRequestBook}
+              loading={contextLoading.contextual || contextLoading.home}
+              emptyMessage="No popular books available."
+            />
+            
+            {/* Bestsellers */}
+            <BookCarousel
+              title="Bestsellers"
+              books={contextualRecommendations.fallbackSections.bestsellers.length > 0 ? 
+                contextualRecommendations.fallbackSections.bestsellers : 
+                nytBooks}
+              onRequestBook={handleRequestBook}
+              loading={contextLoading.contextual || contextLoading.home}
+              emptyMessage="No bestsellers available."
+            />
+            
+            {/* Award Winners for non-authenticated users */}
+            {!isAuthenticated && (
+              <BookCarousel
+                title="Award Winners"
+                books={awardBooks}
+                onRequestBook={handleRequestBook}
+                emptyMessage="No award-winning books available."
+              />
+            )}
+          </>
         )}
-        
-        {/* Popular Now */}
-        <BookCarousel
-          title="Popular Now"
-          books={sortByRating(popularBooks).slice(0, 20)}
-          onRequestBook={handleRequestBook}
-          emptyMessage="No popular books available."
-        />
-        
-        {/* NYT Bestsellers */}
-        <BookCarousel
-          title="Bestsellers"
-          books={nytBooks}
-          onRequestBook={handleRequestBook}
-          emptyMessage="No bestsellers available."
-        />
-        
-        {/* Award Winners */}
-        <BookCarousel
-          title="Award Winners"
-          books={awardBooks}
-          onRequestBook={handleRequestBook}
-          emptyMessage="No award-winning books available."
-        />
       </Box>
       
       {/* Admin-only refresh section */}

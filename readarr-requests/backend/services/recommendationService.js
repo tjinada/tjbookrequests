@@ -490,6 +490,182 @@ class RecommendationService {
   }
 
   /**
+   * Get contextual recommendations based on user's request history
+   * @param {string} userId - User ID
+   * @param {number} limit - Number of books per section
+   * @returns {Object} - Object with different recommendation sections
+   */
+  async getContextualRecommendations(userId, limit = 20) {
+    try {
+      log(`Generating contextual recommendations for user ${userId}`);
+      
+      // Get user's requests to understand their activity
+      const userRequests = await Request.find({ user: userId }).sort({ createdAt: -1 });
+      
+      if (userRequests.length === 0) {
+        // New user - return fallback sections
+        return {
+          hasActivity: false,
+          recommendedForYou: [],
+          seriesSections: [],
+          authorSections: [],
+          fallbackSections: {
+            popular: await this.getPopularBooks(limit),
+            bestsellers: await this.getNYTBestsellers(limit)
+          }
+        };
+      }
+      
+      // Analyze user's request patterns
+      const seriesMap = new Map();
+      const authorMap = new Map();
+      
+      userRequests.forEach(request => {
+        // Track series
+        if (request.series) {
+          if (!seriesMap.has(request.series)) {
+            seriesMap.set(request.series, { count: 0, requests: [] });
+          }
+          seriesMap.get(request.series).count++;
+          seriesMap.get(request.series).requests.push(request);
+        }
+        
+        // Track authors
+        if (request.author) {
+          if (!authorMap.has(request.author)) {
+            authorMap.set(request.author, { count: 0, requests: [] });
+          }
+          authorMap.get(request.author).count++;
+          authorMap.get(request.author).requests.push(request);
+        }
+      });
+      
+      // Generate series sections (for series with 2+ books requested)
+      const seriesSections = [];
+      for (const [seriesName, data] of seriesMap) {
+        if (data.count >= 1) { // Show series even with 1 book to find more
+          try {
+            const seriesBooks = await this.getBooksBySeries(seriesName, limit);
+            if (seriesBooks.length > 0) {
+              seriesSections.push({
+                seriesName,
+                books: seriesBooks,
+                userRequestCount: data.count
+              });
+            }
+          } catch (error) {
+            log(`Error fetching series books for ${seriesName}: ${error.message}`);
+          }
+        }
+      }
+      
+      // Generate author sections (for authors with 2+ books requested)
+      const authorSections = [];
+      for (const [authorName, data] of authorMap) {
+        if (data.count >= 1) { // Show authors even with 1 book to find more
+          try {
+            const authorBooks = await this.getBooksByAuthor(authorName, limit);
+            if (authorBooks.length > 0) {
+              authorSections.push({
+                authorName,
+                books: authorBooks,
+                userRequestCount: data.count
+              });
+            }
+          } catch (error) {
+            log(`Error fetching author books for ${authorName}: ${error.message}`);
+          }
+        }
+      }
+      
+      // Get personalized recommendations (existing functionality)
+      const personalizedBooks = await this.getPersonalizedRecommendations(userId, limit);
+      
+      return {
+        hasActivity: true,
+        recommendedForYou: personalizedBooks,
+        seriesSections,
+        authorSections,
+        fallbackSections: {
+          popular: [],
+          bestsellers: []
+        }
+      };
+    } catch (error) {
+      log(`Error getting contextual recommendations: ${error.message}`);
+      
+      // Fallback to basic recommendations
+      return {
+        hasActivity: false,
+        recommendedForYou: [],
+        seriesSections: [],
+        authorSections: [],
+        fallbackSections: {
+          popular: await this.getPopularBooks(limit),
+          bestsellers: await this.getNYTBestsellers(limit)
+        }
+      };
+    }
+  }
+
+  /**
+   * Get books from a specific series
+   * @param {string} seriesName - Name of the series
+   * @param {number} limit - Number of books to return
+   * @returns {Array} - Array of books in the series
+   */
+  async getBooksBySeries(seriesName, limit = 20) {
+    try {
+      log(`Fetching books for series: ${seriesName}`);
+      
+      // Search Google Books for series
+      const query = `"${seriesName}" series`;
+      const seriesBooks = await googleBooksAPI.searchBooks(query, limit * 2); // Get more to filter
+      
+      // Filter and enhance results
+      const filteredBooks = seriesBooks.filter(book => {
+        const title = book.title.toLowerCase();
+        const description = (book.overview || '').toLowerCase();
+        const seriesLower = seriesName.toLowerCase();
+        
+        // Check if book likely belongs to the series
+        return title.includes(seriesLower) || description.includes(seriesLower);
+      });
+      
+      // Apply post-processing
+      const processedBooks = await this.postProcessResults(filteredBooks, limit);
+      
+      return processedBooks;
+    } catch (error) {
+      log(`Error fetching series books: ${error.message}`);
+      return [];
+    }
+  }
+
+  /**
+   * Get books by a specific author
+   * @param {string} authorName - Name of the author
+   * @param {number} limit - Number of books to return
+   * @returns {Array} - Array of books by the author
+   */
+  async getBooksByAuthor(authorName, limit = 20) {
+    try {
+      log(`Fetching books by author: ${authorName}`);
+      
+      // Use Google Books API to search by author
+      const authorBooks = await googleBooksAPI.searchBooksByAuthor(authorName, limit);
+      
+      // Apply post-processing
+      const processedBooks = await this.postProcessResults(authorBooks, limit);
+      
+      return processedBooks;
+    } catch (error) {
+      log(`Error fetching author books: ${error.message}`);
+      return [];
+    }
+  }
+
+  /**
    * Get books by genre with improved relevance and quality
    * @param {string} genreId - Genre ID
    * @param {number} limit - Number of books to return

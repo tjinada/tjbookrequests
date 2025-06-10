@@ -101,6 +101,59 @@ exports.getPersonalizedRecommendations = async (req, res) => {
   }
 };
 
+// Get contextual recommendations based on user activity
+exports.getContextualRecommendations = async (req, res) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
+    
+    const userId = req.user.id;
+    const { limit = 20 } = req.query;
+    const contextualRecommendations = await recommendationService.getContextualRecommendations(userId, parseInt(limit));
+    res.json(contextualRecommendations);
+  } catch (err) {
+    console.error('Error getting contextual recommendations:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Get books from a specific series
+exports.getBooksBySeries = async (req, res) => {
+  try {
+    const { seriesName } = req.params;
+    const { limit = 20 } = req.query;
+    
+    if (!seriesName) {
+      return res.status(400).json({ message: 'Series name is required' });
+    }
+    
+    const seriesBooks = await recommendationService.getBooksBySeries(decodeURIComponent(seriesName), parseInt(limit));
+    res.json(seriesBooks);
+  } catch (err) {
+    console.error('Error getting books by series:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Get books by a specific author
+exports.getBooksByAuthor = async (req, res) => {
+  try {
+    const { authorName } = req.params;
+    const { limit = 20 } = req.query;
+    
+    if (!authorName) {
+      return res.status(400).json({ message: 'Author name is required' });
+    }
+    
+    const authorBooks = await recommendationService.getBooksByAuthor(decodeURIComponent(authorName), parseInt(limit));
+    res.json(authorBooks);
+  } catch (err) {
+    console.error('Error getting books by author:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 // Get book details
 exports.getBookDetails = async (req, res) => {
     try {

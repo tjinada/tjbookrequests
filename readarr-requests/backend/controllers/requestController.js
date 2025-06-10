@@ -49,6 +49,47 @@ exports.createRequest = async (req, res) => {
       return res.status(400).json({ message: 'Book already requested' });
     }
     
+    // Enrich book data with series and genre information
+    let enrichedData = {
+      series: null,
+      seriesVolume: null,
+      genres: []
+    };
+    
+    if (source && bookId) {
+      try {
+        log(`Enriching book data for: ${title} (${source}: ${bookId})`);
+        
+        let bookDetails = null;
+        
+        if (source === 'google') {
+          // Remove 'gb-' prefix if present
+          const googleId = bookId.startsWith('gb-') ? bookId.substring(3) : bookId;
+          bookDetails = await googleBooksAPI.getBookDetails(googleId);
+        } else if (source === 'openLibrary') {
+          // Remove 'ol-' prefix if present  
+          const olId = bookId.startsWith('ol-') ? bookId.substring(3) : bookId;
+          bookDetails = await openLibraryAPI.getBookDetails(olId);
+        }
+        
+        if (bookDetails) {
+          // Extract series information
+          enrichedData.series = extractSeriesFromBookData(bookDetails);
+          enrichedData.seriesVolume = extractSeriesVolumeFromBookData(bookDetails);
+          
+          // Extract genres
+          if (bookDetails.genres && Array.isArray(bookDetails.genres)) {
+            enrichedData.genres = bookDetails.genres.slice(0, 5); // Limit to 5 genres
+          }
+          
+          log(`Enriched data extracted - Series: ${enrichedData.series}, Volume: ${enrichedData.seriesVolume}, Genres: ${enrichedData.genres.join(', ')}`);
+        }
+      } catch (enrichError) {
+        log(`Error enriching book data: ${enrichError.message}`);
+        // Continue with request creation even if enrichment fails
+      }
+    }
+    
     // Check if book already exists in Calibre and user already has access
     const existingBook = await checkBookInCalibre(title, author);
     
@@ -65,7 +106,7 @@ exports.createRequest = async (req, res) => {
       log(`User ${user.username} requesting existing book in Calibre`);
     }
 
-    // Create new request
+    // Create new request with enriched data
     const newRequest = new Request({
       user: req.user.id,
       bookId,
@@ -73,7 +114,11 @@ exports.createRequest = async (req, res) => {
       author,
       cover,
       isbn,
-      source
+      source,
+      // Add enriched metadata
+      series: enrichedData.series,
+      seriesVolume: enrichedData.seriesVolume,
+      genres: enrichedData.genres
     });
 
     // If admin auto-approval is enabled and book exists in Calibre, 
@@ -824,4 +869,104 @@ async function checkBookInCalibre(bookTitle, bookAuthor, isbn) {
     log(`Error checking book in Calibre: ${error.message}`);
     return null;
   }
+}
+
+/**
+ * Extract series name from book data
+ * @param {Object} bookDetails - Book details from API
+ * @returns {string|null} - Series name or null
+ */
+function extractSeriesFromBookData(bookDetails) {
+  if (!bookDetails) return null;
+  
+  // Check if series is explicitly provided
+  if (bookDetails.series) {
+    return bookDetails.series;
+  }
+  
+  // Look for series information in title
+  const title = bookDetails.title || '';
+  
+  // Common series patterns
+  const seriesPatterns = [
+    // "Title (Series Name #1)"
+    /\(([^#]+)\s*#\d+\)/i,
+    // "Title: Series Name Book 1"
+    /:?\s*([^:]+?)\s+(?:book|vol|volume)\s*\d+/i,
+    // "Series Name: Title"
+    /^([^:]+):/i
+  ];
+  
+  for (const pattern of seriesPatterns) {
+    const match = title.match(pattern);
+    if (match && match[1]) {
+      const seriesName = match[1].trim();
+      // Filter out common non-series words
+      if (!seriesName.toLowerCase().includes('novel') && 
+          !seriesName.toLowerCase().includes('story') &&
+          seriesName.length > 2) {
+        return seriesName;
+      }
+    }
+  }
+  
+  // Look in description for series mentions
+  const description = bookDetails.overview || bookDetails.description || '';
+  const descriptionPatterns = [
+    /part of the ([^.]+) series/i,
+    /from the ([^.]+) series/i,
+    /in the ([^.]+) series/i
+  ];
+  
+  for (const pattern of descriptionPatterns) {
+    const match = description.match(pattern);
+    if (match && match[1]) {
+      const seriesName = match[1].trim();
+      if (seriesName.length > 2) {
+        return seriesName;
+      }
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Extract series volume number from book data
+ * @param {Object} bookDetails - Book details from API
+ * @returns {number|null} - Volume number or null
+ */
+function extractSeriesVolumeFromBookData(bookDetails) {
+  if (!bookDetails) return null;
+  
+  // Check if volume is explicitly provided
+  if (bookDetails.seriesVolume || bookDetails.volume) {
+    return parseInt(bookDetails.seriesVolume || bookDetails.volume);
+  }
+  
+  const title = bookDetails.title || '';
+  
+  // Common volume patterns
+  const volumePatterns = [
+    // "Title #1", "Title #01"
+    /#(\d+)/,
+    // "Title Book 1", "Title Vol 1", "Title Volume 1"
+    /(?:book|vol|volume)\s*(\d+)/i,
+    // "Title (1)", "Title: 1"
+    /[:(]\s*(\d+)\s*[):]/,
+    // "Title Part 1"
+    /part\s*(\d+)/i
+  ];
+  
+  for (const pattern of volumePatterns) {
+    const match = title.match(pattern);
+    if (match && match[1]) {
+      const volume = parseInt(match[1]);
+      if (volume > 0 && volume <= 100) { // Reasonable volume range
+        return volume;
+      }
+    }
+  }
+  
+  return null;
 }

@@ -49,7 +49,17 @@ const RequestSchema = new mongoose.Schema({
   },
   readarrMessage: {
     type: String
-  }
+  },
+  // New fields for enhanced recommendations
+  series: {
+    type: String
+  },
+  seriesVolume: {
+    type: Number
+  },
+  genres: [{
+    type: String
+  }]
 });
 
 module.exports = mongoose.model('Request', RequestSchema);

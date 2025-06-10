@@ -29,6 +29,15 @@ router.get('/recent', auth, bookController.getRecentBooks);
 // Get personalized recommendations
 router.get('/personalized', auth, bookController.getPersonalizedRecommendations);
 
+// Get contextual recommendations based on user activity
+router.get('/contextual', auth, bookController.getContextualRecommendations);
+
+// Get books from a specific series
+router.get('/series/:seriesName', auth, bookController.getBooksBySeries);
+
+// Get books by a specific author
+router.get('/author/:authorName', auth, bookController.getBooksByAuthor);
+
 // Search books
 router.get('/search', auth, bookController.searchBooks);
 
