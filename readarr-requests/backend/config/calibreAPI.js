@@ -5,6 +5,7 @@ const { exec } = require('child_process');
 const util = require('util');
 const execAsync = util.promisify(exec);
 const fs = require('fs');
+const cache = require('../utils/calibreCache');
 
 // Calibre configuration
 const calibreServerUrl = process.env.CALIBRE_SERVER_URL || 'http://localhost:8080';
@@ -411,32 +412,88 @@ module.exports = {
   },
 
   /**
-   * Search books in Calibre
+   * Search books in Calibre with pagination support
    * @param {string} query - Search query
-   * @returns {array} - List of books
+   * @param {object} options - Pagination and sorting options
+   * @returns {object} - Object containing books array and total count
    */
-  searchBooks: async (query) => {
+  searchBooks: async (query, options = {}) => {
     try {
-      log(`Searching Calibre for: ${query}`);
+      const { 
+        offset = 0, 
+        limit = 100, 
+        sort = 'timestamp',
+        sortOrder = 'desc',
+        useCache = true
+      } = options;
+      
+      // Check cache first
+      if (useCache) {
+        const cacheKey = cache.getCacheKey(query, options);
+        const cachedData = cache.getCache(cacheKey);
+        
+        if (cachedData) {
+          log(`Returning cached results for query: ${query}`);
+          return cachedData;
+        }
+      }
+      
+      log(`Searching Calibre for: ${query}, offset: ${offset}, limit: ${limit}`);
+      
+      let result;
       
       if (useCliOnly) {
         // Use Calibre CLI
         // Handle special case for "all books" query
-        const searchQuery = query === '*' ? '' : `"${query}"`; 
-        const { stdout } = await execAsync(`calibredb list --for-machine --with-library="${calibreLibraryPath}" ${searchQuery}`);
+        const searchQuery = query === '*' ? '' : `"${query}"`;
+        
+        // Get total count first
+        const { stdout: countOutput } = await execAsync(
+          `calibredb list --for-machine --with-library="${calibreLibraryPath}" ${searchQuery} | jq '. | length'`
+        );
+        const totalCount = parseInt(countOutput.trim()) || 0;
+        
+        // Get paginated results
+        const { stdout } = await execAsync(
+          `calibredb list --for-machine --with-library="${calibreLibraryPath}" ${searchQuery}`
+        );
         
         // Parse the JSON response
-        const books = JSON.parse(stdout);
+        const allBooks = JSON.parse(stdout);
+        
+        // Sort books based on options
+        if (sort === 'title') {
+          allBooks.sort((a, b) => {
+            const titleA = (a.title || '').toLowerCase();
+            const titleB = (b.title || '').toLowerCase();
+            return sortOrder === 'asc' ? titleA.localeCompare(titleB) : titleB.localeCompare(titleA);
+          });
+        } else if (sort === 'author') {
+          allBooks.sort((a, b) => {
+            const authorA = (a.author_sort || a.authors?.[0] || '').toLowerCase();
+            const authorB = (b.author_sort || b.authors?.[0] || '').toLowerCase();
+            return sortOrder === 'asc' ? authorA.localeCompare(authorB) : authorB.localeCompare(authorA);
+          });
+        } else if (sort === 'timestamp' || sort === 'added') {
+          allBooks.sort((a, b) => {
+            const dateA = new Date(a.timestamp || 0);
+            const dateB = new Date(b.timestamp || 0);
+            return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+          });
+        }
+        
+        // Apply pagination
+        const paginatedBooks = allBooks.slice(offset, offset + limit);
         
         // Enhance the books with additional properties
-        const enhancedBooks = books.map(book => {
+        const enhancedBooks = paginatedBooks.map(book => {
           // Process formats to ensure they're in a consistent format
           const formats = Array.isArray(book.formats) ? book.formats : [];
           
           return {
             ...book,
             formats: formats,
-            // If there's no cover in CLI output, we might need to construct a URL
+            author: book.author_sort || book.authors?.join(', ') || 'Unknown Author',
             cover: book.cover || null,
             path: book.path || null,
             downloadable: formats.length > 0,
@@ -444,19 +501,33 @@ module.exports = {
           };
         });
         
-        return enhancedBooks;
+        result = {
+          books: enhancedBooks,
+          total: totalCount
+        };
       } else {
         // Use Calibre Content Server API
+        // The Calibre web API has a default limit, we need to handle pagination
+        const sortParam = sort === 'added' ? 'timestamp' : sort;
+        const sortString = sortOrder === 'desc' ? `-${sortParam}` : sortParam;
+        
         const response = await calibreAPI.get('/ajax/search', {
           params: {
             query: query === '*' ? '' : query,
-            sort: 'timestamp',
-            library_id: 'calibre'
+            sort: sortString,
+            library_id: 'calibre',
+            num: limit,
+            offset: offset
           }
         });
         
+        const totalItems = response.data.total_num || 0;
+        
         if (!response.data.book_ids || response.data.book_ids.length === 0) {
-          return [];
+          return {
+            books: [],
+            total: 0
+          };
         }
         
         // Get details for each book
@@ -495,12 +566,32 @@ module.exports = {
           }
         }
         
-        return books;
+        result = {
+          books: books,
+          total: totalItems
+        };
       }
+      
+      // Save to cache if enabled
+      if (useCache) {
+        const cacheKey = cache.getCacheKey(query, options);
+        cache.setCache(cacheKey, result);
+      }
+      
+      return result;
     } catch (error) {
       log(`Error searching Calibre: ${error.message}`);
       throw error;
     }
+  },
+  
+  /**
+   * Legacy search function for backward compatibility
+   * @deprecated Use searchBooks with pagination options instead
+   */
+  searchBooksLegacy: async (query) => {
+    const result = await module.exports.searchBooks(query, { limit: 100 });
+    return result.books;
   },
   
   /**

@@ -26,4 +26,9 @@ router.put('/books/:id/tags', auth, calibreManagerController.updateBookTags);
 // @access  Private/Admin
 router.post('/books/bulk-update-tags', auth, calibreManagerController.bulkUpdateTags);
 
+// @route   POST api/calibre-manager/cache/clear
+// @desc    Clear the Calibre cache
+// @access  Private/Admin
+router.post('/cache/clear', auth, calibreManagerController.clearCache);
+
 module.exports = router;

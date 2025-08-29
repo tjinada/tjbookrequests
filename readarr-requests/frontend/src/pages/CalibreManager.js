@@ -33,6 +33,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import ClearIcon from '@mui/icons-material/Clear';
 import SaveIcon from '@mui/icons-material/Save';
 import LibraryBooksIcon from '@mui/icons-material/LibraryBooks';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import AuthContext from '../context/AuthContext';
 import api from '../utils/api';
 
@@ -56,6 +57,7 @@ const CalibreManager = () => {
   const [saveError, setSaveError] = useState(null);
   const [sortBy, setSortBy] = useState('added');
   const [sortOrder, setSortOrder] = useState('desc');
+  const [refreshing, setRefreshing] = useState(false);
 
   // Check if user is admin
   const isAdmin = user && user.role === 'admin';
@@ -196,6 +198,21 @@ const CalibreManager = () => {
     }
   };
 
+  // Handle refresh (clear cache and reload)
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      // Clear cache
+      await api.post('/calibre-manager/cache/clear');
+      // Reload books
+      await fetchBooks();
+    } catch (err) {
+      console.error('Error refreshing:', err);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   // If not admin, show access denied
   if (!isAdmin) {
     return (
@@ -213,13 +230,29 @@ const CalibreManager = () => {
   return (
     <Box sx={{ p: { xs: 1, sm: 3 } }}>
       <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          <LibraryBooksIcon sx={{ mr: 1, verticalAlign: 'bottom' }} />
-          Calibre Library Manager
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+          <Typography variant="h4" component="h1">
+            <LibraryBooksIcon sx={{ mr: 1, verticalAlign: 'bottom' }} />
+            Calibre Library Manager
+          </Typography>
+          <Button
+            variant="outlined"
+            startIcon={refreshing ? <CircularProgress size={20} /> : <RefreshIcon />}
+            onClick={handleRefresh}
+            disabled={loading || refreshing}
+          >
+            Refresh
+          </Button>
+        </Box>
         <Typography variant="body1" color="text.secondary" gutterBottom>
           Manage your Calibre library books and tags
         </Typography>
+        {pagination.total > 0 && (
+          <Typography variant="body2" color="text.secondary">
+            Total books in library: <strong>{pagination.total}</strong>
+            {pagination.total > 100 && ' • Showing page ' + pagination.page + ' of ' + pagination.pages}
+          </Typography>
+        )}
       </Box>
 
       {/* Search and Filter Controls */}
@@ -249,7 +282,7 @@ const CalibreManager = () => {
                 }}
               />
             </Grid>
-            <Grid item xs={6} sm={2}>
+            <Grid item xs={6} sm={2} md={1.5}>
               <FormControl fullWidth size="small">
                 <InputLabel>Sort By</InputLabel>
                 <Select
@@ -263,7 +296,7 @@ const CalibreManager = () => {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={6} sm={2}>
+            <Grid item xs={6} sm={2} md={1.5}>
               <FormControl fullWidth size="small">
                 <InputLabel>Order</InputLabel>
                 <Select
@@ -273,6 +306,27 @@ const CalibreManager = () => {
                 >
                   <MenuItem value="asc">Ascending</MenuItem>
                   <MenuItem value="desc">Descending</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={6} sm={2} md={1}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Per Page</InputLabel>
+                <Select
+                  value={pagination.limit}
+                  onChange={(e) => {
+                    setPagination({
+                      ...pagination,
+                      limit: parseInt(e.target.value),
+                      page: 1
+                    });
+                  }}
+                  label="Per Page"
+                >
+                  <MenuItem value={10}>10</MenuItem>
+                  <MenuItem value={20}>20</MenuItem>
+                  <MenuItem value={50}>50</MenuItem>
+                  <MenuItem value={100}>100</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
@@ -391,15 +445,22 @@ const CalibreManager = () => {
 
         {/* Pagination */}
         {!loading && books.length > 0 && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
-            <Pagination
-              count={pagination.pages}
-              page={pagination.page}
-              onChange={handlePageChange}
-              color="primary"
-              showFirstButton
-              showLastButton
-            />
+          <Box sx={{ p: 2 }}>
+            {pagination.total > pagination.limit && (
+              <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', mb: 1 }}>
+                Showing {pagination.showing?.from || ((pagination.page - 1) * pagination.limit + 1)} - {pagination.showing?.to || Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} books
+              </Typography>
+            )}
+            <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+              <Pagination
+                count={pagination.pages}
+                page={pagination.page}
+                onChange={handlePageChange}
+                color="primary"
+                showFirstButton
+                showLastButton
+              />
+            </Box>
           </Box>
         )}
       </Paper>

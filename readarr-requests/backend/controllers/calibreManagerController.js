@@ -1,5 +1,6 @@
 // controllers/calibreManagerController.js
 const calibreAPI = require('../config/calibreAPI');
+const cache = require('../utils/calibreCache');
 const fs = require('fs');
 const path = require('path');
 
@@ -19,7 +20,7 @@ const log = (message) => {
 };
 
 /**
- * Get all books from Calibre library
+ * Get all books from Calibre library with proper pagination
  */
 exports.getAllBooks = async (req, res) => {
   try {
@@ -32,18 +33,26 @@ exports.getAllBooks = async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
     const query = req.query.query || '';
-    const sortBy = req.query.sortBy || 'title';
-    const sortOrder = req.query.sortOrder || 'asc';
+    const sortBy = req.query.sortBy || 'added';
+    const sortOrder = req.query.sortOrder || 'desc';
 
-    log(`Fetching all books from Calibre. Page: ${page}, Limit: ${limit}, Query: ${query}`);
+    // Calculate offset for pagination
+    const offset = (page - 1) * limit;
 
-    // Get books from Calibre
-    const rawBooks = await calibreAPI.searchBooks(query ? query : '*');
+    log(`Fetching books from Calibre. Page: ${page}, Limit: ${limit}, Offset: ${offset}, Query: ${query}, Sort: ${sortBy} ${sortOrder}`);
+
+    // Get books from Calibre with pagination
+    const searchResult = await calibreAPI.searchBooks(query ? query : '*', {
+      offset: offset,
+      limit: limit,
+      sort: sortBy,
+      sortOrder: sortOrder
+    });
     
-    log(`Found ${rawBooks.length} books in Calibre`);
+    log(`Found ${searchResult.total} total books, returning ${searchResult.books.length} for current page`);
 
     // Process books to standardize format
-    const books = rawBooks.map(book => {
+    const books = searchResult.books.map(book => {
       return {
         id: book.id,
         title: book.title || 'Unknown Title',
@@ -58,41 +67,21 @@ exports.getAllBooks = async (req, res) => {
       };
     });
 
-    // Sort books
-    books.sort((a, b) => {
-      let valA = a[sortBy] || '';
-      let valB = b[sortBy] || '';
-      
-      // Handle string comparison
-      if (typeof valA === 'string') {
-        valA = valA.toLowerCase();
-        valB = valB.toLowerCase();
-      }
-      
-      // Sort based on order
-      if (sortOrder === 'asc') {
-        return valA > valB ? 1 : -1;
-      } else {
-        return valA < valB ? 1 : -1;
-      }
-    });
-
-    // Paginate
-    const startIndex = (page - 1) * limit;
-    const endIndex = page * limit;
-    const paginatedBooks = books.slice(startIndex, endIndex);
-
     // Build pagination info
     const pagination = {
-      total: books.length,
+      total: searchResult.total,
       page,
       limit,
-      pages: Math.ceil(books.length / limit),
-      hasMore: endIndex < books.length
+      pages: Math.ceil(searchResult.total / limit),
+      hasMore: offset + limit < searchResult.total,
+      showing: {
+        from: offset + 1,
+        to: Math.min(offset + limit, searchResult.total)
+      }
     };
 
     res.json({
-      books: paginatedBooks,
+      books: books,
       pagination
     });
   } catch (error) {
@@ -218,5 +207,36 @@ exports.bulkUpdateTags = async (req, res) => {
   } catch (error) {
     log(`Error in bulk update: ${error.message}`);
     res.status(500).json({ message: 'Error performing bulk tag update', error: error.message });
+  }
+};
+
+/**
+ * Clear the Calibre cache
+ */
+exports.clearCache = async (req, res) => {
+  try {
+    // Only admin can access this
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    log('Clearing Calibre cache');
+    
+    const cleared = cache.clearCache();
+    
+    if (cleared) {
+      res.json({ 
+        message: 'Cache cleared successfully',
+        success: true
+      });
+    } else {
+      res.status(500).json({ 
+        message: 'Failed to clear cache',
+        success: false
+      });
+    }
+  } catch (error) {
+    log(`Error clearing cache: ${error.message}`);
+    res.status(500).json({ message: 'Error clearing cache', error: error.message });
   }
 };

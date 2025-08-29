@@ -10,6 +10,7 @@ const notificationRoutes = require('./routes/notifications');
 const libraryRoutes = require('./routes/library');
 const userActivityController = require('./controllers/userActivityController');
 const path = require('path');
+const { initializeScheduledJobs } = require('./utils/scheduler');
 
 // Load environment variables
 dotenv.config();
@@ -67,4 +68,8 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  // Initialize scheduled jobs
+  initializeScheduledJobs();
+});
