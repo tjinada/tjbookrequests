@@ -447,28 +447,66 @@ module.exports = {
         return enhancedBooks;
       } else {
         // Use Calibre Content Server API
-        const response = await calibreAPI.get('/ajax/search', {
-          params: {
-            query: query === '*' ? '' : query,
-            sort: 'timestamp',
-            library_id: 'calibre'
-          }
-        });
+        // The Calibre API has a limit on how many book IDs it returns (typically 100)
+        // We need to paginate through all results
         
-        if (!response.data.book_ids || response.data.book_ids.length === 0) {
+        let allBookIds = [];
+        let offset = 0;
+        const limit = 100; // Calibre's internal limit
+        let hasMore = true;
+        
+        // Keep fetching until we have all book IDs
+        while (hasMore) {
+          const response = await calibreAPI.get('/ajax/search', {
+            params: {
+              query: query === '*' ? '' : query,
+              sort: 'timestamp',
+              sort_order: 'desc',
+              library_id: 'calibre',
+              offset: offset,
+              num: limit
+            }
+          });
+          
+          if (response.data.book_ids && response.data.book_ids.length > 0) {
+            allBookIds = allBookIds.concat(response.data.book_ids);
+            log(`Fetched ${response.data.book_ids.length} book IDs (offset: ${offset}, total so far: ${allBookIds.length})`);
+            
+            // Check if we got less than the limit, meaning we've reached the end
+            if (response.data.book_ids.length < limit) {
+              hasMore = false;
+            } else {
+              offset += limit;
+            }
+            
+            // Also check if total_num is provided
+            if (response.data.total_num && allBookIds.length >= response.data.total_num) {
+              hasMore = false;
+            }
+          } else {
+            hasMore = false;
+          }
+          
+          // Safety check to prevent infinite loops
+          if (offset > 10000) {
+            log('Safety limit reached, stopping pagination');
+            hasMore = false;
+          }
+        }
+        
+        if (allBookIds.length === 0) {
           return [];
         }
         
-        log(`Found ${response.data.book_ids.length} books, fetching details...`);
+        log(`Found total of ${allBookIds.length} books, fetching details...`);
         
         // Process books in parallel batches to improve performance
         const BATCH_SIZE = 10; // Process 10 books at a time
-        const bookIds = response.data.book_ids;
         const books = [];
         
         // Process in batches
-        for (let i = 0; i < bookIds.length; i += BATCH_SIZE) {
-          const batch = bookIds.slice(i, i + BATCH_SIZE);
+        for (let i = 0; i < allBookIds.length; i += BATCH_SIZE) {
+          const batch = allBookIds.slice(i, i + BATCH_SIZE);
           
           // Fetch all books in this batch in parallel
           const batchPromises = batch.map(async (id) => {
@@ -513,8 +551,8 @@ module.exports = {
           books.push(...batchResults.filter(book => book !== null));
           
           // Log progress for large libraries
-          if (bookIds.length > 50) {
-            log(`Processed ${Math.min(i + BATCH_SIZE, bookIds.length)} of ${bookIds.length} books`);
+          if (allBookIds.length > 50) {
+            log(`Processed ${Math.min(i + BATCH_SIZE, allBookIds.length)} of ${allBookIds.length} books`);
           }
         }
         
