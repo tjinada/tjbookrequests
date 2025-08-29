@@ -38,7 +38,7 @@ exports.getAllBooks = async (req, res) => {
 
     log(`Fetching books from Calibre. Page: ${page}, Limit: ${limit}, Query: ${query}, FetchAll: ${fetchAll}`);
 
-    // Get books from Calibre - now optimized with parallel fetching
+    // Get ALL books from Calibre - now optimized with parallel fetching
     const rawBooks = await calibreAPI.searchBooks(query ? query : '*');
     
     log(`Found ${rawBooks.length} books in Calibre`);
@@ -78,8 +78,9 @@ exports.getAllBooks = async (req, res) => {
       }
     });
 
-    // If fetchAll is true, return all books without pagination
-    if (fetchAll) {
+    // If fetchAll is true OR limit is very high, return all books
+    if (fetchAll || limit >= 9999) {
+      log(`Returning all ${books.length} books`);
       return res.json({
         books: books,
         pagination: {
@@ -92,7 +93,23 @@ exports.getAllBooks = async (req, res) => {
       });
     }
 
-    // Paginate
+    // For regular pagination - but still return ALL books if they fit in the limit
+    // This is the key change - if total books <= limit, just return them all
+    if (books.length <= limit) {
+      log(`Total books (${books.length}) <= limit (${limit}), returning all`);
+      return res.json({
+        books: books,
+        pagination: {
+          total: books.length,
+          page: 1,
+          limit: limit,
+          pages: 1,
+          hasMore: false
+        }
+      });
+    }
+
+    // Only paginate if we have more books than the limit
     const startIndex = (page - 1) * limit;
     const endIndex = page * limit;
     const paginatedBooks = books.slice(startIndex, endIndex);
@@ -105,6 +122,8 @@ exports.getAllBooks = async (req, res) => {
       pages: Math.ceil(books.length / limit),
       hasMore: endIndex < books.length
     };
+
+    log(`Returning page ${page} with ${paginatedBooks.length} books (${startIndex}-${endIndex} of ${books.length})`);
 
     res.json({
       books: paginatedBooks,

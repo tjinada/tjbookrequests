@@ -43,7 +43,7 @@ const CalibreManager = () => {
   const [books, setBooks] = useState([]);
   const [pagination, setPagination] = useState({
     page: 1,
-    limit: 100, // Increased default to 100
+    limit: 500, // Default to fetch all (assuming < 500 books)
     total: 0,
     pages: 0
   });
@@ -56,8 +56,7 @@ const CalibreManager = () => {
   const [saveError, setSaveError] = useState(null);
   const [sortBy, setSortBy] = useState('added');
   const [sortOrder, setSortOrder] = useState('desc');
-  const [pageSize, setPageSize] = useState(100); // Control for page size
-  const [fetchAllBooks, setFetchAllBooks] = useState(false); // Option to fetch all
+  const [pageSize, setPageSize] = useState(500); // Default to show all books
 
   // Check if user is admin
   const isAdmin = user && user.role === 'admin';
@@ -67,7 +66,7 @@ const CalibreManager = () => {
     if (isAuthenticated && isAdmin) {
       fetchBooks();
     }
-  }, [isAuthenticated, isAdmin, pagination.page, sortBy, sortOrder, pageSize, fetchAllBooks]);
+  }, [isAuthenticated, isAdmin, pagination.page, sortBy, sortOrder, pageSize]);
 
   // Function to fetch books
   const fetchBooks = async () => {
@@ -77,12 +76,12 @@ const CalibreManager = () => {
     try {
       const response = await api.get('/calibre-manager/books', {
         params: {
-          page: fetchAllBooks ? 1 : pagination.page,
-          limit: fetchAllBooks ? 999999 : pageSize,
+          page: pagination.page,
+          limit: pageSize,
           query: searchQuery,
           sortBy,
           sortOrder,
-          fetchAll: fetchAllBooks
+          fetchAll: pageSize >= 500 // If page size is 500+, fetch all
         }
       });
       
@@ -283,19 +282,15 @@ const CalibreManager = () => {
               <FormControl fullWidth size="small">
                 <InputLabel>Page Size</InputLabel>
                 <Select
-                  value={fetchAllBooks ? 'all' : pageSize}
+                  value={pageSize}
                   onChange={(e) => {
-                    if (e.target.value === 'all') {
-                      setFetchAllBooks(true);
-                    } else {
-                      setFetchAllBooks(false);
-                      setPageSize(e.target.value);
-                      setPagination({
-                        ...pagination,
-                        limit: e.target.value,
-                        page: 1
-                      });
-                    }
+                    const newSize = parseInt(e.target.value);
+                    setPageSize(newSize);
+                    setPagination({
+                      ...pagination,
+                      limit: newSize,
+                      page: 1
+                    });
                   }}
                   label="Page Size"
                 >
@@ -303,7 +298,7 @@ const CalibreManager = () => {
                   <MenuItem value={50}>50</MenuItem>
                   <MenuItem value={100}>100</MenuItem>
                   <MenuItem value={200}>200</MenuItem>
-                  <MenuItem value="all">All Books</MenuItem>
+                  <MenuItem value={500}>All Books</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
@@ -425,8 +420,8 @@ const CalibreManager = () => {
           </Table>
         </TableContainer>
 
-        {/* Pagination - only show when not fetching all books */}
-        {!loading && books.length > 0 && !fetchAllBooks && pagination.pages > 1 && (
+        {/* Pagination - only show when we have multiple pages */}
+        {!loading && books.length > 0 && pagination.pages > 1 && (
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
             <Pagination
               count={pagination.pages}
