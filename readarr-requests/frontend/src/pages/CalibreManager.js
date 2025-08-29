@@ -43,7 +43,7 @@ const CalibreManager = () => {
   const [books, setBooks] = useState([]);
   const [pagination, setPagination] = useState({
     page: 1,
-    limit: 20,
+    limit: 100, // Increased default to 100
     total: 0,
     pages: 0
   });
@@ -56,6 +56,8 @@ const CalibreManager = () => {
   const [saveError, setSaveError] = useState(null);
   const [sortBy, setSortBy] = useState('added');
   const [sortOrder, setSortOrder] = useState('desc');
+  const [pageSize, setPageSize] = useState(100); // Control for page size
+  const [fetchAllBooks, setFetchAllBooks] = useState(false); // Option to fetch all
 
   // Check if user is admin
   const isAdmin = user && user.role === 'admin';
@@ -65,7 +67,7 @@ const CalibreManager = () => {
     if (isAuthenticated && isAdmin) {
       fetchBooks();
     }
-  }, [isAuthenticated, isAdmin, pagination.page, sortBy, sortOrder]);
+  }, [isAuthenticated, isAdmin, pagination.page, sortBy, sortOrder, pageSize, fetchAllBooks]);
 
   // Function to fetch books
   const fetchBooks = async () => {
@@ -75,11 +77,12 @@ const CalibreManager = () => {
     try {
       const response = await api.get('/calibre-manager/books', {
         params: {
-          page: pagination.page,
-          limit: pagination.limit,
+          page: fetchAllBooks ? 1 : pagination.page,
+          limit: fetchAllBooks ? 999999 : pageSize,
           query: searchQuery,
           sortBy,
-          sortOrder
+          sortOrder,
+          fetchAll: fetchAllBooks
         }
       });
       
@@ -226,7 +229,7 @@ const CalibreManager = () => {
       <Paper sx={{ p: 2, mb: 3 }}>
         <form onSubmit={handleSearch}>
           <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} sm={6}>
+            <Grid item xs={12} sm={4}>
               <TextField
                 fullWidth
                 label="Search Books"
@@ -263,7 +266,7 @@ const CalibreManager = () => {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={6} sm={2}>
+            <Grid item xs={6} sm={1}>
               <FormControl fullWidth size="small">
                 <InputLabel>Order</InputLabel>
                 <Select
@@ -271,12 +274,40 @@ const CalibreManager = () => {
                   onChange={(e) => setSortOrder(e.target.value)}
                   label="Order"
                 >
-                  <MenuItem value="asc">Ascending</MenuItem>
-                  <MenuItem value="desc">Descending</MenuItem>
+                  <MenuItem value="asc">Asc</MenuItem>
+                  <MenuItem value="desc">Desc</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} sm={2}>
+            <Grid item xs={6} sm={2}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Page Size</InputLabel>
+                <Select
+                  value={fetchAllBooks ? 'all' : pageSize}
+                  onChange={(e) => {
+                    if (e.target.value === 'all') {
+                      setFetchAllBooks(true);
+                    } else {
+                      setFetchAllBooks(false);
+                      setPageSize(e.target.value);
+                      setPagination({
+                        ...pagination,
+                        limit: e.target.value,
+                        page: 1
+                      });
+                    }
+                  }}
+                  label="Page Size"
+                >
+                  <MenuItem value={20}>20</MenuItem>
+                  <MenuItem value={50}>50</MenuItem>
+                  <MenuItem value={100}>100</MenuItem>
+                  <MenuItem value={200}>200</MenuItem>
+                  <MenuItem value="all">All Books</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={6} sm={2}>
               <Button
                 fullWidth
                 variant="contained"
@@ -286,6 +317,11 @@ const CalibreManager = () => {
               >
                 Search
               </Button>
+            </Grid>
+            <Grid item xs={12} sm={1}>
+              <Typography variant="caption" color="text.secondary">
+                Total: {pagination.total}
+              </Typography>
             </Grid>
           </Grid>
         </form>
@@ -389,8 +425,8 @@ const CalibreManager = () => {
           </Table>
         </TableContainer>
 
-        {/* Pagination */}
-        {!loading && books.length > 0 && (
+        {/* Pagination - only show when not fetching all books */}
+        {!loading && books.length > 0 && !fetchAllBooks && pagination.pages > 1 && (
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
             <Pagination
               count={pagination.pages}

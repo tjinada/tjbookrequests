@@ -459,42 +459,66 @@ module.exports = {
           return [];
         }
         
-        // Get details for each book
+        log(`Found ${response.data.book_ids.length} books, fetching details...`);
+        
+        // Process books in parallel batches to improve performance
+        const BATCH_SIZE = 10; // Process 10 books at a time
+        const bookIds = response.data.book_ids;
         const books = [];
-        for (const id of response.data.book_ids) {
-          try {
-            const bookResponse = await calibreAPI.get(`/ajax/book/${id}/calibre`);
-            const bookData = bookResponse.data;
-            
-            // Extract available formats
-            let formats = [];
-            if (bookData.format_metadata) {
-              formats = Object.keys(bookData.format_metadata);
+        
+        // Process in batches
+        for (let i = 0; i < bookIds.length; i += BATCH_SIZE) {
+          const batch = bookIds.slice(i, i + BATCH_SIZE);
+          
+          // Fetch all books in this batch in parallel
+          const batchPromises = batch.map(async (id) => {
+            try {
+              const bookResponse = await calibreAPI.get(`/ajax/book/${id}/calibre`);
+              const bookData = bookResponse.data;
+              
+              // Extract available formats
+              let formats = [];
+              if (bookData.format_metadata) {
+                formats = Object.keys(bookData.format_metadata);
+              }
+              
+              // Construct book object with enhanced properties
+              return {
+                id: id.toString(),
+                title: bookData.title || 'Unknown Title',
+                author: bookData.authors?.join(', ') || 'Unknown Author',
+                tags: bookData.tags || [],
+                formats: formats,
+                added: bookData.timestamp || '',
+                cover: bookData.cover ? `/api/library/cover/${id}` : null,
+                thumbnail: bookData.thumbnail ? `/api/library/thumbnail/${id}` : null,
+                uuid: bookData.uuid || '',
+                publisher: bookData.publisher || '',
+                rating: bookData.rating || 0,
+                comments: bookData.comments || '',
+                path: bookData.format_metadata ? Object.values(bookData.format_metadata)[0]?.path || '' : '',
+                downloadable: formats.length > 0,
+                formatMetadata: bookData.format_metadata || {}
+              };
+            } catch (err) {
+              log(`Error fetching details for book ${id}: ${err.message}`);
+              return null; // Return null for failed fetches
             }
-            
-            // Construct book object with enhanced properties
-            books.push({
-              id: id.toString(),
-              title: bookData.title || 'Unknown Title',
-              author: bookData.authors?.join(', ') || 'Unknown Author',
-              tags: bookData.tags || [],
-              formats: formats,
-              added: bookData.timestamp || '',
-              cover: bookData.cover ? `/api/library/cover/${id}` : null,
-              thumbnail: bookData.thumbnail ? `/api/library/thumbnail/${id}` : null,
-              uuid: bookData.uuid || '',
-              publisher: bookData.publisher || '',
-              rating: bookData.rating || 0,
-              comments: bookData.comments || '',
-              path: bookData.format_metadata ? Object.values(bookData.format_metadata)[0]?.path || '' : '',
-              downloadable: formats.length > 0,
-              formatMetadata: bookData.format_metadata || {}
-            });
-          } catch (err) {
-            log(`Error fetching details for book ${id}: ${err.message}`);
+          });
+          
+          // Wait for all books in this batch to complete
+          const batchResults = await Promise.all(batchPromises);
+          
+          // Add successful fetches to the books array
+          books.push(...batchResults.filter(book => book !== null));
+          
+          // Log progress for large libraries
+          if (bookIds.length > 50) {
+            log(`Processed ${Math.min(i + BATCH_SIZE, bookIds.length)} of ${bookIds.length} books`);
           }
         }
         
+        log(`Successfully fetched details for ${books.length} books`);
         return books;
       }
     } catch (error) {

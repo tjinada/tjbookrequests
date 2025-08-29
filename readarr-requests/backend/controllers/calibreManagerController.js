@@ -30,14 +30,15 @@ exports.getAllBooks = async (req, res) => {
 
     // Get query parameters for pagination and filtering
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
+    const limit = parseInt(req.query.limit) || 100; // Increased default limit
     const query = req.query.query || '';
     const sortBy = req.query.sortBy || 'title';
     const sortOrder = req.query.sortOrder || 'asc';
+    const fetchAll = req.query.fetchAll === 'true'; // Option to fetch all at once
 
-    log(`Fetching all books from Calibre. Page: ${page}, Limit: ${limit}, Query: ${query}`);
+    log(`Fetching books from Calibre. Page: ${page}, Limit: ${limit}, Query: ${query}, FetchAll: ${fetchAll}`);
 
-    // Get books from Calibre
+    // Get books from Calibre - now optimized with parallel fetching
     const rawBooks = await calibreAPI.searchBooks(query ? query : '*');
     
     log(`Found ${rawBooks.length} books in Calibre`);
@@ -76,6 +77,20 @@ exports.getAllBooks = async (req, res) => {
         return valA < valB ? 1 : -1;
       }
     });
+
+    // If fetchAll is true, return all books without pagination
+    if (fetchAll) {
+      return res.json({
+        books: books,
+        pagination: {
+          total: books.length,
+          page: 1,
+          limit: books.length,
+          pages: 1,
+          hasMore: false
+        }
+      });
+    }
 
     // Paginate
     const startIndex = (page - 1) * limit;
