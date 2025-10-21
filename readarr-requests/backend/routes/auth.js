@@ -21,4 +21,9 @@ router.post('/register-admin', authController.register_admin)
 // @access  Private
 router.get('/me', auth, authController.getMe);
 
+// @route   PUT api/auth/profile
+// @desc    Update user profile
+// @access  Private
+router.put('/profile', auth, authController.updateProfile);
+
 module.exports = router;

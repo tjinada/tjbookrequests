@@ -169,3 +169,61 @@ exports.getMe = async (req, res) => {
     res.status(500).send('Server error');
   }
 };
+
+exports.updateProfile = async (req, res) => {
+  try {
+    const { username, email, currentPassword, newPassword } = req.body;
+    
+    // Find the user
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    // If trying to change password, verify current password
+    if (newPassword) {
+      if (!currentPassword) {
+        return res.status(400).json({ message: 'Current password is required to set a new password' });
+      }
+      
+      const isMatch = await user.comparePassword(currentPassword);
+      if (!isMatch) {
+        return res.status(400).json({ message: 'Current password is incorrect' });
+      }
+      
+      // Set new password (will be hashed by pre-save hook)
+      user.password = newPassword;
+    }
+    
+    // Update username and email if provided
+    if (username && username !== user.username) {
+      // Check if username is already taken
+      const existingUser = await User.findOne({ username });
+      if (existingUser && existingUser._id.toString() !== user._id.toString()) {
+        return res.status(400).json({ message: 'Username is already taken' });
+      }
+      user.username = username;
+    }
+    
+    if (email && email !== user.email) {
+      // Check if email is already taken
+      const existingUser = await User.findOne({ email });
+      if (existingUser && existingUser._id.toString() !== user._id.toString()) {
+        return res.status(400).json({ message: 'Email is already in use' });
+      }
+      user.email = email;
+    }
+    
+    await user.save();
+    
+    // Return updated user without password
+    const updatedUser = await User.findById(user._id).select('-password');
+    res.json({
+      message: 'Profile updated successfully',
+      user: updatedUser
+    });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+};

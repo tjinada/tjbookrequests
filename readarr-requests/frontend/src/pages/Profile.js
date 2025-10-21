@@ -54,21 +54,26 @@ const Profile = () => {
     }
 
     try {
-      // Note: For simplicity, we're just showing a success message
-      // In a real app, you'd implement a user profile update API endpoint
+      // Call the actual API endpoint to update profile
+      const response = await api.put('/auth/profile', {
+        username: formData.username,
+        email: formData.email,
+        currentPassword: formData.currentPassword || undefined,
+        newPassword: formData.newPassword || undefined
+      });
 
-      // Simulating an API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // For a real implementation, you'd do:
-      // const response = await api.put('/api/users/profile', {
-      //   username: formData.username,
-      //   email: formData.email,
-      //   currentPassword: formData.currentPassword,
-      //   newPassword: formData.newPassword || undefined
-      // });
-
-      setSuccessMessage('Profile updated successfully!');
+      setSuccessMessage(response.data.message || 'Profile updated successfully!');
+      
+      // Update the user context with new info if username or email changed
+      if (response.data.user) {
+        setUser(prevUser => ({
+          ...prevUser,
+          username: response.data.user.username,
+          email: response.data.user.email
+        }));
+      }
+      
+      // Clear password fields
       setFormData({
         ...formData,
         currentPassword: '',
