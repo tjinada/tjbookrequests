@@ -10,6 +10,11 @@ const auth = require('../middleware/auth');
 // @access  Private (Admin)
 router.get('/users', auth, adminUserController.getAllUsers);
 
+// @route   PUT api/admin/users/:id/reset-password
+// @desc    Reset a user's password
+// @access  Private (Admin)
+router.put('/users/:id/reset-password', auth, adminUserController.resetUserPassword);
+
 // @route   DELETE api/admin/users/:id
 // @desc    Delete a user
 // @access  Private (Admin)

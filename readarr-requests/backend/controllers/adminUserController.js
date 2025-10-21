@@ -3,6 +3,7 @@ const User = require('../models/User');
 const Request = require('../models/Request');
 const UserActivity = require('../models/UserActivity');
 const mongoose = require('mongoose');
+const crypto = require('crypto');
 
 // Get all users with last seen information
 exports.getAllUsers = async (req, res) => {
@@ -20,6 +21,46 @@ exports.getAllUsers = async (req, res) => {
     res.json(users);
   } catch (err) {
     console.error('Error fetching users:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Reset user password
+exports.resetUserPassword = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Check admin privileges
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Access denied. Admin privileges required.' });
+    }
+    
+    // Find the user
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    // Don't reset admin passwords for safety
+    if (user.role === 'admin') {
+      return res.status(400).json({ message: 'Cannot reset password for admin users' });
+    }
+    
+    // Generate a simple but secure temporary password
+    const tempPassword = crypto.randomBytes(6).toString('hex'); // 12 character hex string
+    
+    // Update user password (will be hashed by User model pre-save hook)
+    user.password = tempPassword;
+    await user.save();
+    
+    res.json({ 
+      message: 'Password reset successful',
+      temporaryPassword: tempPassword,
+      username: user.username,
+      email: user.email
+    });
+  } catch (err) {
+    console.error('Error resetting user password:', err);
     res.status(500).json({ message: 'Server error' });
   }
 };

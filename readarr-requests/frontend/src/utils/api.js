@@ -52,6 +52,16 @@ export const getUserActivityMetrics = async () => {
   }
 };
 
+// Reset user password
+export const resetUserPassword = async (userId) => {
+  try {
+    const response = await api.put(`/admin/users/${userId}/reset-password`);
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
 // Track reading activity
 export const trackReadingActivity = async (bookId, page) => {
   try {

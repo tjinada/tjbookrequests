@@ -46,7 +46,9 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import LocalLibraryIcon from '@mui/icons-material/LocalLibrary';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
-import api from '../utils/api';
+import LockResetIcon from '@mui/icons-material/LockReset';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import api, { resetUserPassword } from '../utils/api';
 import { formatDistance } from 'date-fns';
 
 // Helper function to format dates relative to now
@@ -201,6 +203,8 @@ const UserManagement = () => {
   const [error, setError] = useState(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [userActivityDialogOpen, setUserActivityDialogOpen] = useState(false);
+  const [passwordResetDialogOpen, setPasswordResetDialogOpen] = useState(false);
+  const [temporaryPassword, setTemporaryPassword] = useState('');
   const [selectedUser, setSelectedUser] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [stats, setStats] = useState({
@@ -329,6 +333,46 @@ const UserManagement = () => {
   // Close user activity dialog
   const closeUserActivityDialog = () => {
     setUserActivityDialogOpen(false);
+  };
+
+  // Handle password reset
+  const handlePasswordReset = async (user) => {
+    try {
+      const response = await resetUserPassword(user._id);
+      setTemporaryPassword(response.temporaryPassword);
+      setSelectedUser(user);
+      setPasswordResetDialogOpen(true);
+      
+      setSnackbar({
+        open: true,
+        message: `Password reset successful for ${user.username}`,
+        severity: 'success'
+      });
+    } catch (err) {
+      console.error('Error resetting password:', err);
+      setSnackbar({
+        open: true,
+        message: err.response?.data?.message || 'Failed to reset password',
+        severity: 'error'
+      });
+    }
+  };
+
+  // Copy password to clipboard
+  const handleCopyPassword = () => {
+    navigator.clipboard.writeText(temporaryPassword);
+    setSnackbar({
+      open: true,
+      message: 'Password copied to clipboard',
+      severity: 'success'
+    });
+  };
+
+  // Close password reset dialog
+  const closePasswordResetDialog = () => {
+    setPasswordResetDialogOpen(false);
+    setTemporaryPassword('');
+    setSelectedUser(null);
   };
 
   // Handle search term change
@@ -669,16 +713,27 @@ const UserManagement = () => {
                       <IconButton 
                         color="primary" 
                         onClick={() => openUserActivityDialog(user)}
-                        sx={{ mr: 1 }}
+                        size="small"
                       >
                         <ViewListIcon />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Reset Password">
+                      <IconButton 
+                        color="warning" 
+                        onClick={() => handlePasswordReset(user)}
+                        disabled={user.role === 'admin'}
+                        size="small"
+                      >
+                        <LockResetIcon />
                       </IconButton>
                     </Tooltip>
                     <Tooltip title="Delete User">
                       <IconButton 
                         color="error" 
                         onClick={() => openDeleteDialog(user)}
-                        disabled={user.role === 'admin'} // Prevent deleting admins
+                        disabled={user.role === 'admin'}
+                        size="small"
                       >
                         <DeleteIcon />
                       </IconButton>
@@ -734,6 +789,61 @@ const UserManagement = () => {
         userId={selectedUser?._id}
         username={selectedUser?.username}
       />
+
+      {/* Password Reset Success Dialog */}
+      <Dialog
+        open={passwordResetDialogOpen}
+        onClose={closePasswordResetDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <LockResetIcon sx={{ mr: 1 }} />
+            Password Reset Successful
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            Please share this temporary password securely with the user. They should change it after logging in.
+          </Alert>
+          
+          <Typography variant="body1" gutterBottom>
+            <strong>User:</strong> {selectedUser?.username}
+          </Typography>
+          <Typography variant="body1" gutterBottom>
+            <strong>Email:</strong> {selectedUser?.email}
+          </Typography>
+          
+          <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+            <Typography variant="body2" color="text.secondary" gutterBottom>
+              Temporary Password:
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <TextField
+                value={temporaryPassword}
+                fullWidth
+                InputProps={{
+                  readOnly: true,
+                  sx: { fontFamily: 'monospace', fontSize: '1.1rem' }
+                }}
+              />
+              <IconButton 
+                onClick={handleCopyPassword}
+                color="primary"
+                title="Copy to clipboard"
+              >
+                <ContentCopyIcon />
+              </IconButton>
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closePasswordResetDialog} variant="contained">
+            Done
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Snackbar for feedback */}
       <Snackbar
