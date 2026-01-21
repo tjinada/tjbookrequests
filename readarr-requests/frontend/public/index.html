@@ -1,5 +1,46 @@
 <!DOCTYPE html>
 <html lang="en">
+  <!-- V3 Upgrade Detection Script -->
+  <!-- If V3 is being served (no __V2_APP__ marker), clean up V2 caches -->
+  <script>
+    (function() {
+      // Wait for app to initialize, then check for V2 marker
+      setTimeout(function() {
+        if (!window.__V2_APP__) {
+          console.log('[V3 Upgrade] V3 detected, cleaning up V2 caches...');
+          
+          // Unregister all service workers
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+              registrations.forEach(function(registration) {
+                console.log('[V3 Upgrade] Unregistering SW:', registration.scope);
+                registration.unregister();
+              });
+            });
+          }
+          
+          // Clear all caches
+          if ('caches' in window) {
+            caches.keys().then(function(cacheNames) {
+              cacheNames.forEach(function(cacheName) {
+                console.log('[V3 Upgrade] Deleting cache:', cacheName);
+                caches.delete(cacheName);
+              });
+            });
+          }
+          
+          // Mark upgrade as done and reload
+          localStorage.setItem('v3_upgrade_done', Date.now().toString());
+          
+          // Reload after a short delay to let cleanup complete
+          setTimeout(function() {
+            console.log('[V3 Upgrade] Reloading...');
+            window.location.reload();
+          }, 500);
+        }
+      }, 2000); // Wait 2 seconds for V2 app to set the marker
+    })();
+  </script>
   <!-- White screen recovery script -->
   <script>
     // WhiteScreenRecovery: This runs before the app loads to detect and recover from white screens
