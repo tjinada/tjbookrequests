@@ -1,5 +1,42 @@
 // public/service-worker.js
 
+// V3 UPGRADE DETECTION - Check immediately if V3 is deployed
+// This runs on every service worker activation and fetch
+const V3_MARKER_URL = '/v3-marker.json';
+
+async function checkForV3Upgrade() {
+  try {
+    const response = await fetch(V3_MARKER_URL, { cache: 'no-store' });
+    if (response.ok) {
+      const data = await response.json();
+      if (data.version === 'v3') {
+        console.log('[Service Worker] V3 detected! Self-destructing...');
+        
+        // Clear all caches
+        const cacheNames = await caches.keys();
+        await Promise.all(cacheNames.map(name => {
+          console.log('[Service Worker] Deleting cache:', name);
+          return caches.delete(name);
+        }));
+        
+        // Unregister this service worker
+        await self.registration.unregister();
+        
+        // Notify all clients to reload
+        const clients = await self.clients.matchAll();
+        clients.forEach(client => {
+          client.postMessage({ type: 'V3_UPGRADE', action: 'reload' });
+        });
+        
+        return true; // V3 is active
+      }
+    }
+  } catch (e) {
+    // V3 marker not found or error - continue as V2
+  }
+  return false;
+}
+
 // Cache version - change manually when needed
 const CACHE_VERSION = 'v1';
 // Add a build timestamp that will change with each build - this is replaced by the Dockerfile
@@ -29,17 +66,25 @@ self.addEventListener('install', (event) => {
   console.log('[Service Worker] Cache bust:', CACHE_BUST);
   
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
+    (async () => {
+      // Check for V3 first
+      const isV3 = await checkForV3Upgrade();
+      if (isV3) {
+        console.log('[Service Worker] V3 detected during install, aborting V2 installation');
+        return;
+      }
+      
+      const cache = await caches.open(CACHE_NAME);
       console.log('[Service Worker] Caching App Shell');
-      return cache.addAll(appShellFiles).catch(err => {
+      try {
+        await cache.addAll(appShellFiles);
+      } catch (err) {
         console.error('[Service Worker] Cache addAll error:', err);
-        // Continue with installation even if caching fails
-        return Promise.resolve();
-      });
-    })
+      }
+    })()
   );
   
-    // Skip waiting on initial installation or when explicitly asked
+  // Skip waiting on initial installation or when explicitly asked
   const skipWaitingParam = new URL(self.location).searchParams.get('skipWaiting');
   if (!self.registration.active || skipWaitingParam === 'true') {
     console.log('[Service Worker] skipWaiting - immediate activation');
@@ -51,8 +96,16 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   console.log('[Service Worker] Activating Service Worker...', event);
   event.waitUntil(
-    caches.keys().then((keyList) => {
-      return Promise.all(
+    (async () => {
+      // Check for V3 first
+      const isV3 = await checkForV3Upgrade();
+      if (isV3) {
+        console.log('[Service Worker] V3 detected during activate, self-destructing');
+        return;
+      }
+      
+      const keyList = await caches.keys();
+      await Promise.all(
         keyList.map((key) => {
           if (key !== CACHE_NAME && key.startsWith('readarr-requests-')) {
             console.log('[Service Worker] Removing old cache:', key);
@@ -60,7 +113,7 @@ self.addEventListener('activate', (event) => {
           }
         })
       );
-    })
+    })()
   );
   // Take control of all clients immediately
   return self.clients.claim();
@@ -68,11 +121,31 @@ self.addEventListener('activate', (event) => {
 
 // Fetch event - serve from cache, fallback to network
 self.addEventListener('fetch', (event) => {
+  // Check for V3 marker on navigation requests
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      (async () => {
+        // Check for V3 upgrade
+        const isV3 = await checkForV3Upgrade();
+        if (isV3) {
+          // Let the browser handle it normally - V3 is now active
+          return fetch(event.request);
+        }
+        
+        // Continue with normal V2 handling
+        return handleFetch(event.request);
+      })()
+    );
+    return;
+  }
+  
   // Skip caching for specific files that should never be cached
   const neverCache = [
     '/service-worker.js',
     '/manifest.json',
-    'index.html'
+    'index.html',
+    '/v3-marker.json',
+    '/sw.js'
   ];
   
   // Also skip for API calls and other non-GET requests
@@ -83,40 +156,37 @@ self.addEventListener('fetch', (event) => {
     return;
   }
   
-  event.respondWith(
-    caches.match(event.request).then((response) => {
-      // Cache hit - return response
-      if (response) {
-        return response;
-      }
-      
-      // Clone the request because it's a stream and can only be consumed once
-      const fetchRequest = event.request.clone();
-      
-      return fetch(fetchRequest).then((fetchResponse) => {
-        // Don't cache responses if they're not successful
-        if (!fetchResponse || fetchResponse.status !== 200 || fetchResponse.type !== 'basic') {
-          return fetchResponse;
-        }
-        
-        // Clone the response - one to return, one to cache
-        const responseToCache = fetchResponse.clone();
-        
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache);
-        }).catch(err => {
-          console.error('[Service Worker] Cache put error:', err);
-        });
-        
-        return fetchResponse;
-      }).catch(err => {
-        console.error('[Service Worker] Fetch error:', err);
-        // Return a fallback response or let the error propagate
-        return new Response('Network error', { status: 503, statusText: 'Service Unavailable' });
-      });
-    })
-  );
+  event.respondWith(handleFetch(event.request));
 });
+
+async function handleFetch(request) {
+  const cachedResponse = await caches.match(request);
+  if (cachedResponse) {
+    return cachedResponse;
+  }
+  
+  try {
+    const fetchResponse = await fetch(request.clone());
+    
+    // Don't cache responses if they're not successful
+    if (!fetchResponse || fetchResponse.status !== 200 || fetchResponse.type !== 'basic') {
+      return fetchResponse;
+    }
+    
+    // Clone the response - one to return, one to cache
+    const responseToCache = fetchResponse.clone();
+    
+    const cache = await caches.open(CACHE_NAME);
+    cache.put(request, responseToCache).catch(err => {
+      console.error('[Service Worker] Cache put error:', err);
+    });
+    
+    return fetchResponse;
+  } catch (err) {
+    console.error('[Service Worker] Fetch error:', err);
+    return new Response('Network error', { status: 503, statusText: 'Service Unavailable' });
+  }
+}
 
 // Push notification event
 self.addEventListener('push', (event) => {
